@@ -81,6 +81,23 @@ body {
   color: #888;
 }
 
+.sprites {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-end;
+  margin: 0 0 1.5rem;
+}
+
+.sprite {
+  image-rendering: pixelated;
+}
+
+.sprite-back {
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+}
+
 .evolutions {
   list-style: none;
   margin: 0 0 1.5rem;

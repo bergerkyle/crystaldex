@@ -55,6 +55,15 @@ export const STAT_DISPLAY: {
 // Highest possible base stat, used to scale the bar widths.
 export const MAX_STAT = 255
 
+// Sprites live in gfx/pokemon/<name>/{front,back}.png (folder name matches the
+// Pokémon's file name, including mega/alt suffixes like charizardx or agolem).
+const GFX_BASE =
+  'https://raw.githubusercontent.com/aaronjeter/CrystalShireEngine/LevelScaling/gfx/pokemon'
+
+export function spriteUrl(name: string, kind: 'front' | 'back'): string {
+  return `${GFX_BASE}/${name}/${kind}.png`
+}
+
 // Alternate-form regional variants (in the `alt` folder) are stored as the
 // base species name prefixed with a single letter.
 const REGIONAL_FORMS: Record<string, string> = {

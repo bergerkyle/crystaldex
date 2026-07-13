@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PokemonSprite } from './PokemonSprite'
 import {
   MAX_STAT,
   STAT_DISPLAY,
@@ -103,6 +104,7 @@ export default function App() {
             {detail.region && (
               <p className="region">{formatName(detail.region)}</p>
             )}
+            <PokemonSprite name={detail.name} />
             {detail.evolutions.length > 0 && (
               <ul className="evolutions">
                 {detail.evolutions.map((evo, i) => (
