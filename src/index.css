@@ -59,14 +59,13 @@ a:hover {
   color: inherit;
   line-height: 1;
   cursor: pointer;
-  font-size: 24px;
+  font-size: 32px;
 }
 
 .brand-crystal {
   width: 29px;
   height: 52px;
   object-fit: contain;
-  image-rendering: pixelated;
 }
 
 .topnav {
@@ -971,7 +970,7 @@ a:hover {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 768px) {
   .topbar {
     gap: 0.5rem;
     padding: 0.65rem 0.75rem;
@@ -979,6 +978,7 @@ a:hover {
 
   .brand {
     margin-right: auto;
+    font-size: 32px;
   }
 
   .topnav {
@@ -987,7 +987,7 @@ a:hover {
 
   .topnav button {
     padding: 0.3rem 0.55rem;
-    font-size: 0.86rem;
+    font-size: 16px;
   }
 
   .mobile-nav-launcher {
@@ -997,6 +997,7 @@ a:hover {
   .moves-layout {
     grid-template-columns: 1fr;
   }
+
 
   .moves-mobile-search {
     display: block;
@@ -1122,5 +1123,29 @@ a:hover {
 
   .detail {
     padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand {
+    font-size: 20px;
+    gap: 0.25rem;
+  }
+
+  .brand-crystal {
+    width: 15px;
+    height: 27px;
+  }
+
+  .topnav {
+    gap: 0.2rem;
+  }
+
+  .topnav button {
+    padding: 0.2rem 0.25rem;
+    font-size: 16px;
+  }
+  .mobile-nav-launcher {
+    margin-right: 0;
   }
 }

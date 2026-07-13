@@ -38,7 +38,7 @@ export function AppHeader({
       )}
       <button className="brand" onClick={onNavigateHome} aria-label="Go to Pokédex home">
         <img className="brand-crystal" src="/crystal.png" alt="" aria-hidden="true" />
-        CRYSTAL DEX
+        DEX
       </button>
       <nav className="topnav">
         <button
