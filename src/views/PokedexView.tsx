@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { formatName, type PokemonDetail, type PokemonListItem } from '../pokemon'
 import { AnimatedFrontSprite } from '../PokemonSprite'
 import { PokemonDetailView } from './PokemonDetailView'
@@ -38,10 +39,31 @@ export function PokedexView({
   mobileSidebarOpen,
   onCloseSidebar,
 }: PokedexViewProps) {
+  const [typeFilter, setTypeFilter] = useState('')
+  const [regionFilter, setRegionFilter] = useState('')
+
+  const allTypes = useMemo(() => {
+    const set = new Set<string>()
+    for (const p of list) for (const t of p.types) set.add(t.toLowerCase())
+    return [...set].sort()
+  }, [list])
+
+  const allRegions = useMemo(() => {
+    const set = new Set<string>()
+    for (const p of list) set.add(p.region.toLowerCase())
+    return [...set].sort()
+  }, [list])
+
   const query = filter.trim().toLowerCase()
-  const filtered = query
-    ? list.filter((p) => p.name.toLowerCase().includes(query))
-    : list
+  const filtered = useMemo(() =>
+    list.filter((p) => {
+      if (query && !p.name.toLowerCase().includes(query)) return false
+      if (typeFilter && !p.types.map((t) => t.toLowerCase()).includes(typeFilter)) return false
+      if (regionFilter && p.region.toLowerCase() !== regionFilter) return false
+      return true
+    }),
+    [list, query, typeFilter, regionFilter],
+  )
   const sorted = [...filtered].sort((a, b) =>
     formatName(a.name, a.region, allNames).localeCompare(
       formatName(b.name, b.region, allNames),
@@ -53,7 +75,7 @@ export function PokedexView({
       <button
         className={`sidebar-backdrop ${mobileSidebarOpen ? 'open' : ''}`}
         onClick={onCloseSidebar}
-        aria-label="Close pokedex list"
+        aria-label="Close Pokédex list"
       />
 
       <aside className={`sidebar ${mobileSidebarOpen ? 'open' : ''}`}>
@@ -65,12 +87,12 @@ export function PokedexView({
               onCloseSidebar()
             }}
           >
-            Pokedex
+            Pokédex
           </button>
           <button
             className="sidebar-close"
             onClick={onCloseSidebar}
-            aria-label="Close pokedex list"
+            aria-label="Close Pokédex list"
           >
             <span className="sidebar-close-icon" aria-hidden="true">
               <span className="sidebar-close-line" />
@@ -85,6 +107,30 @@ export function PokedexView({
           value={filter}
           onChange={(e) => onFilterChange(e.target.value)}
         />
+        <div className="pokedex-filter-row">
+          <select
+            className="pokedex-filter-select"
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            aria-label="Filter by type"
+          >
+            <option value="">All types</option>
+            {allTypes.map((t) => (
+              <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+            ))}
+          </select>
+          <select
+            className="pokedex-filter-select"
+            value={regionFilter}
+            onChange={(e) => setRegionFilter(e.target.value)}
+            aria-label="Filter by region"
+          >
+            <option value="">All regions</option>
+            {allRegions.map((r) => (
+              <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+            ))}
+          </select>
+        </div>
         {loadingList && <p className="muted">Loading...</p>}
         {listError && <p className="error">{listError}</p>}
         <ul className="list">
@@ -108,6 +154,7 @@ export function PokedexView({
       </aside>
 
       <div className="pokedex-main">
+        <h1 className="pokedex-page-title">Pokédex</h1>
         <div className="mobile-pokedex-controls">
           <input
             className="search"
@@ -116,6 +163,30 @@ export function PokedexView({
             value={filter}
             onChange={(e) => onFilterChange(e.target.value)}
           />
+          <div className="pokedex-filter-row">
+            <select
+              className="pokedex-filter-select"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              aria-label="Filter by type"
+            >
+              <option value="">All types</option>
+              {allTypes.map((t) => (
+                <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+              ))}
+            </select>
+            <select
+              className="pokedex-filter-select"
+              value={regionFilter}
+              onChange={(e) => setRegionFilter(e.target.value)}
+              aria-label="Filter by region"
+            >
+              <option value="">All regions</option>
+              {allRegions.map((r) => (
+                <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {!selected ? (

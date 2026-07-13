@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AppHeader } from './components/AppHeader'
+import { AboutView } from './views/AboutView'
 import { MoveDetailView } from './views/MoveDetailView'
 import { MovesView } from './views/MovesView'
 import { PokedexView } from './views/PokedexView'
@@ -9,6 +10,7 @@ type Route =
   | { view: 'pokedex'; pokemon?: string }
   | { view: 'moves' }
   | { view: 'move'; key: string }
+  | { view: 'about' }
 
 function parseRoute(pathname: string, search: string): Route {
   const params = new URLSearchParams(search)
@@ -39,6 +41,7 @@ function parseRoute(pathname: string, search: string): Route {
 }
 
 function routePath(route: Route): string {
+  if (route.view === 'about') return '/about'
   if (route.view === 'moves') return '/moves'
   if (route.view === 'move') return `/moves/${encodeURIComponent(route.key.toUpperCase())}`
   if (route.pokemon) return `/pokedex/${encodeURIComponent(route.pokemon.toUpperCase())}`
@@ -70,6 +73,9 @@ export default function App() {
   const [moveDetailError, setMoveDetailError] = useState<string | null>(null)
   const [loadingMoveDetail, setLoadingMoveDetail] = useState(false)
 
+  const [lastSynced, setLastSynced] = useState<string | null>(null)
+  const [loadingAbout, setLoadingAbout] = useState(false)
+
   useEffect(() => {
     const onPopState = () =>
       setRoute(parseRoute(window.location.pathname, window.location.search))
@@ -82,6 +88,7 @@ export default function App() {
     if (window.location.pathname !== path) {
       window.history.pushState({}, '', path)
     }
+    window.scrollTo({ top: 0, behavior: 'instant' })
     setRoute(nextRoute)
   }
 
@@ -120,7 +127,7 @@ export default function App() {
   }, [route.view])
 
   useEffect(() => {
-    if (route.view !== 'moves') {
+    if (route.view !== 'moves' && route.view !== 'move') {
       setMobileMovesSidebarOpen(false)
     }
   }, [route.view])
@@ -160,6 +167,19 @@ export default function App() {
       .finally(() => setLoadingMoveDetail(false))
   }, [route])
 
+  useEffect(() => {
+    if (route.view !== 'about') return
+    setLoadingAbout(true)
+    fetch('/api/about')
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load about (${res.status})`)
+        return res.json() as Promise<{ version: string; lastSynced: string | null }>
+      })
+      .then((data) => setLastSynced(data.lastSynced))
+      .catch(() => setLastSynced(null))
+      .finally(() => setLoadingAbout(false))
+  }, [route.view])
+
   const allNames = useMemo(
     () => new Set(list.map((p) => p.name.toLowerCase())),
     [list],
@@ -168,24 +188,21 @@ export default function App() {
   return (
     <div className="app-shell">
       <AppHeader
-        active={route.view === 'pokedex' ? 'pokedex' : 'moves'}
+        active={route.view === 'pokedex' ? 'pokedex' : route.view === 'about' ? 'about' : 'moves'}
         onNavigateHome={() => navigate({ view: 'pokedex' })}
         onNavigatePokedex={() => navigate({ view: 'pokedex' })}
         onNavigateMoves={() => navigate({ view: 'moves' })}
+        onNavigateAbout={() => navigate({ view: 'about' })}
         mobileSidebarOpen={
           route.view === 'pokedex' ? mobilePokedexSidebarOpen : mobileMovesSidebarOpen
         }
-        onToggleSidebar={
-          route.view === 'move'
-            ? undefined
-            : () => {
-                if (route.view === 'pokedex') {
-                  setMobilePokedexSidebarOpen((isOpen) => !isOpen)
-                } else {
-                  setMobileMovesSidebarOpen((isOpen) => !isOpen)
-                }
-              }
-        }
+        onToggleSidebar={route.view === 'about' ? undefined : () => {
+          if (route.view === 'pokedex') {
+            setMobilePokedexSidebarOpen((isOpen) => !isOpen)
+          } else {
+            setMobileMovesSidebarOpen((isOpen) => !isOpen)
+          }
+        }}
       />
 
       {route.view === 'pokedex' && (
@@ -215,6 +232,7 @@ export default function App() {
           loadingMoveList={loadingMoveList}
           moveFilter={moveFilter}
           onMoveFilterChange={setMoveFilter}
+          onNavigateMovesHome={() => navigate({ view: 'moves' })}
           onOpenMove={(key) => navigate({ view: 'move', key })}
           mobileSidebarOpen={mobileMovesSidebarOpen}
           onCloseSidebar={() => setMobileMovesSidebarOpen(false)}
@@ -222,12 +240,26 @@ export default function App() {
       )}
 
       {route.view === 'move' && (
-        <MoveDetailView
-          moveDetail={moveDetail}
-          moveDetailError={moveDetailError}
-          loadingMoveDetail={loadingMoveDetail}
-          onBack={() => navigate({ view: 'moves' })}
-        />
+        <MovesView
+          moveList={moveList}
+          moveListError={moveListError}
+          loadingMoveList={loadingMoveList}
+          moveFilter={moveFilter}
+          onMoveFilterChange={setMoveFilter}
+          onNavigateMovesHome={() => navigate({ view: 'moves' })}
+          onOpenMove={(key) => navigate({ view: 'move', key })}
+          mobileSidebarOpen={mobileMovesSidebarOpen}
+          onCloseSidebar={() => setMobileMovesSidebarOpen(false)}
+        >
+          <MoveDetailView
+            moveDetail={moveDetail}
+            moveDetailError={moveDetailError}
+            loadingMoveDetail={loadingMoveDetail}
+          />
+        </MovesView>
+      )}
+      {route.view === 'about' && (
+        <AboutView lastSynced={lastSynced} loadingAbout={loadingAbout} />
       )}
     </div>
   )

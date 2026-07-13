@@ -347,6 +347,16 @@ function parseMoveDescriptions(source: string): string[] {
   let currentLabel: string | null = null
   let currentText = ''
 
+  const appendDescriptionFragment = (base: string, fragment: string): string => {
+    const clean = fragment.replace(/@/g, '').trim()
+    if (!clean) return base
+    if (!base) return clean
+    if (/^[,.;:!?)]/.test(clean) || /[(/-]$/.test(base)) {
+      return `${base}${clean}`
+    }
+    return `${base} ${clean}`
+  }
+
   for (const line of source.split('\n')) {
     const label = line.match(/^([A-Za-z0-9_]+Description):/)
     if (label) {
@@ -360,7 +370,7 @@ function parseMoveDescriptions(source: string): string[] {
     if (!/^\s*(db|next)\b/.test(line)) continue
 
     for (const quoted of line.matchAll(/"([^"]*)"/g)) {
-      currentText += quoted[1].replace(/@/g, '')
+      currentText = appendDescriptionFragment(currentText, quoted[1])
     }
   }
   if (currentLabel) textByLabel.set(currentLabel, currentText)
@@ -968,6 +978,28 @@ app.get('/api/sync', async (req, res) => {
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : 'Sync failed',
+    })
+  }
+})
+
+// About: version + last sync time
+app.get('/api/about', async (_req, res) => {
+  try {
+    const supabase = getSupabase()
+    const { data, error } = await supabase
+      .from('pokemon')
+      .select('updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw new Error(error.message)
+    res.json({
+      version: '0.7.13',
+      lastSynced: data?.updated_at ?? null,
+    })
+  } catch (err) {
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load about info',
     })
   }
 })

@@ -5,25 +5,20 @@ interface MoveDetailViewProps {
   moveDetail: MoveCatalogItem | null
   moveDetailError: string | null
   loadingMoveDetail: boolean
-  onBack: () => void
 }
 
 export function MoveDetailView({
   moveDetail,
   moveDetailError,
   loadingMoveDetail,
-  onBack,
 }: MoveDetailViewProps) {
   return (
     <main className="move-detail-page">
-      <button className="back-link" onClick={onBack}>
-        Back to Moves
-      </button>
       {loadingMoveDetail && <p className="muted">Loading...</p>}
       {moveDetailError && <p className="error">{moveDetailError}</p>}
       {moveDetail && (
-        <article className="move-card">
-          <h2>{moveDetail.name}</h2>
+        <article className="move-detail-content">
+          <h2 className="move-detail-title">{moveDetail.name}</h2>
           <p className="move-key">{moveDetail.key}</p>
           <p className="move-description">
             {moveDetail.description || 'No description available.'}

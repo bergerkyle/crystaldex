@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
 import { formatConstant, type MoveCatalogItem } from '../pokemon'
 import {
   CategoryMetaChip,
@@ -19,8 +19,10 @@ interface MovesViewProps {
   moveFilter: string
   onMoveFilterChange: (value: string) => void
   onOpenMove: (key: string) => void
+  onNavigateMovesHome: () => void
   mobileSidebarOpen: boolean
   onCloseSidebar: () => void
+  children?: ReactNode
 }
 
 export function MovesView({
@@ -30,8 +32,10 @@ export function MovesView({
   moveFilter,
   onMoveFilterChange,
   onOpenMove,
+  onNavigateMovesHome,
   mobileSidebarOpen,
   onCloseSidebar,
+  children,
 }: MovesViewProps) {
   const [moveSortByType, setMoveSortByType] = useState<Record<string, MoveSortState>>({})
   const [openTypeSections, setOpenTypeSections] = useState<Record<string, boolean>>({})
@@ -66,7 +70,13 @@ export function MovesView({
     }
 
     return [...grouped.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => {
+        const ai = TYPE_ORDER.indexOf(a as (typeof TYPE_ORDER)[number])
+        const bi = TYPE_ORDER.indexOf(b as (typeof TYPE_ORDER)[number])
+        const ar = ai === -1 ? Number.MAX_SAFE_INTEGER : ai
+        const br = bi === -1 ? Number.MAX_SAFE_INTEGER : bi
+        return ar !== br ? ar - br : a.localeCompare(b)
+      })
       .map(([type, moves]) => {
         const sort = moveSortByType[type] ?? { key: 'name', dir: 'asc' }
         return { type, moves: [...moves].sort(compareBySort(sort)) }
@@ -118,6 +128,137 @@ export function MovesView({
     setOpenTypeSections((prev) => ({ ...prev, [type]: !prev[type] }))
   }
 
+  const renderMainContent = () => {
+    if (children)
+      return (
+        <>
+          <div className="moves-mobile-search">
+            <input
+              className="search"
+              type="search"
+              placeholder="Search moves..."
+              value={moveFilter}
+              onChange={(e) => onMoveFilterChange(e.target.value)}
+            />
+          </div>
+          {children}
+        </>
+      )
+
+    return (
+      <>
+        <h1 className="moves-page-title">Moves</h1>
+        <input
+          className="search moves-main-search"
+          type="search"
+          placeholder="Search moves..."
+          value={moveFilter}
+          onChange={(e) => onMoveFilterChange(e.target.value)}
+        />
+        <div className="moves-toolbar">
+          <nav className="type-jump-nav" aria-label="Jump to move type">
+            {TYPE_ORDER.map((type) => (
+              <a
+                key={type}
+                href={`#type-heading-${type}`}
+                className="type-jump-link"
+                style={{ backgroundColor: TYPE_HEADER_COLORS[type], color: '#fff' }}
+              >
+                {TYPE_ICONS[type] && (
+                  <img
+                    className="type-jump-icon"
+                    src={TYPE_ICONS[type]}
+                    alt=""
+                    width={16}
+                    height={16}
+                    aria-hidden="true"
+                  />
+                )}
+                {formatConstant(type)}
+              </a>
+            ))}
+          </nav>
+        </div>
+        {loadingMoveList && <p className="muted">Loading...</p>}
+        {moveListError && <p className="error">{moveListError}</p>}
+        {!loadingMoveList && !moveListError && sortedGroupedMoves.length === 0 && (
+          <p className="muted">No moves found.</p>
+        )}
+        {sortedGroupedMoves.map((group) => (
+          <section className="move-type-section" key={group.type}>
+            <h3
+              className="move-type-heading"
+              id={`type-heading-${group.type}`}
+              style={{
+                backgroundColor: TYPE_HEADER_COLORS[group.type] ?? '#666',
+                color: headerTextColor(TYPE_HEADER_COLORS[group.type] ?? '#666'),
+              }}
+            >
+              <span className="move-type-heading-inner">
+                {TYPE_ICONS[group.type] && (
+                  <img
+                    className="move-type-icon"
+                    src={TYPE_ICONS[group.type]}
+                    alt={`${formatConstant(group.type)} icon`}
+                    width={20}
+                    height={20}
+                  />
+                )}
+                {formatConstant(group.type).toUpperCase()}
+              </span>
+            </h3>
+            <div className="move-table-wrap">
+              <table className="move-table">
+                <thead>
+                  <tr>
+                    <th>
+                      <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'name')}>
+                        Name{sortIndicator(group.type, 'name')}
+                      </button>
+                    </th>
+                    <th>
+                      <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'category')}>
+                        Category{sortIndicator(group.type, 'category')}
+                      </button>
+                    </th>
+                    <th>
+                      <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'power')}>
+                        Power{sortIndicator(group.type, 'power')}
+                      </button>
+                    </th>
+                    <th>
+                      <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'accuracy')}>
+                        Accuracy{sortIndicator(group.type, 'accuracy')}
+                      </button>
+                    </th>
+                    <th>
+                      <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'pp')}>
+                        PP{sortIndicator(group.type, 'pp')}
+                      </button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.moves.map((m) => (
+                    <tr key={m.key} className="move-table-row" onClick={() => onOpenMove(m.key)}>
+                      <td className="move-table-name-cell">{m.name}</td>
+                      <td>
+                        <CategoryMetaChip category={m.category} />
+                      </td>
+                      <td>{m.power > 0 ? m.power : '-'}</td>
+                      <td>{m.accuracy > 0 ? `${m.accuracy}%` : '-'}</td>
+                      <td>{m.pp}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ))}
+      </>
+    )
+  }
+
   return (
     <div className="moves-layout">
       <button
@@ -128,7 +269,15 @@ export function MovesView({
 
       <aside className={`moves-sidebar ${mobileSidebarOpen ? 'open' : ''}`} aria-label="Moves by type">
         <div className="moves-sidebar-head">
-        <h2 className="moves-sidebar-title">Moves</h2>
+          <button
+            className="moves-sidebar-title moves-sidebar-title-btn"
+            onClick={() => {
+              onNavigateMovesHome()
+              onCloseSidebar()
+            }}
+          >
+            Moves
+          </button>
           <button
             className="moves-sidebar-close"
             onClick={onCloseSidebar}
@@ -140,6 +289,13 @@ export function MovesView({
             </span>
           </button>
         </div>
+        <input
+          className="search"
+          type="search"
+          placeholder="Search moves..."
+          value={moveFilter}
+          onChange={(e) => onMoveFilterChange(e.target.value)}
+        />
         {loadingMoveList && <p className="muted">Loading...</p>}
         {moveListError && <p className="error">{moveListError}</p>}
         {!loadingMoveList && !moveListError && sidebarGroupedMoves.length === 0 && (
@@ -197,118 +353,7 @@ export function MovesView({
       </aside>
 
       <main className="moves-page">
-        <h2>Moves</h2>
-        <div className="moves-toolbar">
-        <input
-          className="search"
-          type="search"
-          placeholder="Search moves..."
-          value={moveFilter}
-          onChange={(e) => onMoveFilterChange(e.target.value)}
-        />
-        <nav className="type-jump-nav" aria-label="Jump to move type">
-          {TYPE_ORDER.map((type) => (
-            <a
-              key={type}
-              href={`#type-heading-${type}`}
-              className="type-jump-link"
-              style={{ backgroundColor: TYPE_HEADER_COLORS[type], color: '#fff' }}
-            >
-              {TYPE_ICONS[type] && (
-                <img
-                  className="type-jump-icon"
-                  src={TYPE_ICONS[type]}
-                  alt=""
-                  width={16}
-                  height={16}
-                  aria-hidden="true"
-                />
-              )}
-              {formatConstant(type)}
-            </a>
-          ))}
-        </nav>
-        </div>
-        {loadingMoveList && <p className="muted">Loading...</p>}
-        {moveListError && <p className="error">{moveListError}</p>}
-        {!loadingMoveList && !moveListError && sortedGroupedMoves.length === 0 && (
-          <p className="muted">No moves found.</p>
-        )}
-        {sortedGroupedMoves.map((group) => (
-          <section className="move-type-section" key={group.type}>
-          <h3
-            className="move-type-heading"
-            id={`type-heading-${group.type}`}
-            style={{
-              backgroundColor: TYPE_HEADER_COLORS[group.type] ?? '#666',
-              color: headerTextColor(TYPE_HEADER_COLORS[group.type] ?? '#666'),
-            }}
-          >
-            <span className="move-type-heading-inner">
-              {TYPE_ICONS[group.type] && (
-                <img
-                  className="move-type-icon"
-                  src={TYPE_ICONS[group.type]}
-                  alt={`${formatConstant(group.type)} icon`}
-                  width={20}
-                  height={20}
-                />
-              )}
-              {formatConstant(group.type).toUpperCase()}
-            </span>
-          </h3>
-          <div className="move-table-wrap">
-            <table className="move-table">
-              <thead>
-                <tr>
-                  <th>
-                    <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'name')}>
-                      Name{sortIndicator(group.type, 'name')}
-                    </button>
-                  </th>
-                  <th>
-                    <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'category')}>
-                      Category{sortIndicator(group.type, 'category')}
-                    </button>
-                  </th>
-                  <th>
-                    <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'power')}>
-                      Power{sortIndicator(group.type, 'power')}
-                    </button>
-                  </th>
-                  <th>
-                    <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'accuracy')}>
-                      Accuracy{sortIndicator(group.type, 'accuracy')}
-                    </button>
-                  </th>
-                  <th>
-                    <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'pp')}>
-                      PP{sortIndicator(group.type, 'pp')}
-                    </button>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {group.moves.map((m) => (
-                  <tr key={m.key}>
-                    <td>
-                      <button className="move-table-link" onClick={() => onOpenMove(m.key)}>
-                        {m.name}
-                      </button>
-                    </td>
-                    <td>
-                      <CategoryMetaChip category={m.category} />
-                    </td>
-                    <td>{m.power > 0 ? m.power : '-'}</td>
-                    <td>{m.accuracy > 0 ? `${m.accuracy}%` : '-'}</td>
-                    <td>{m.pp}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          </section>
-        ))}
+        {renderMainContent()}
       </main>
     </div>
   )
