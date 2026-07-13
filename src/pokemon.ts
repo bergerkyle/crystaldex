@@ -10,6 +10,8 @@ export interface PokemonStats {
 export interface PokemonListItem {
   name: string
   region: string
+  frontSprite: string
+  types: string[]
 }
 
 export interface EvolutionTarget {
@@ -27,15 +29,53 @@ export interface Evolution {
 
 export interface Move {
   level: number
-  move: string
+  key: string
+  name: string
+  description: string
+  power: number
+  type: string
+  category: string
+  accuracy: number
+  pp: number
+}
+
+export interface TmMove {
+  label: string
+  key: string
+  name: string
+  description: string
+  power: number
+  type: string
+  category: string
+  accuracy: number
+  pp: number
+}
+
+export interface MoveCatalogItem {
+  key: string
+  name: string
+  description: string
+  power: number
+  type: string
+  category: string
+  accuracy: number
+  pp: number
+}
+
+export interface Sprites {
+  front: string
+  back: string
 }
 
 export interface PokemonDetail {
   name: string
   region: string
+  types: string[]
   stats: PokemonStats
   evolutions: Evolution[]
   moves: Move[]
+  tmMoves: TmMove[]
+  sprites: Sprites
 }
 
 // Display order and colors requested for the stat bars.
@@ -54,15 +94,6 @@ export const STAT_DISPLAY: {
 
 // Highest possible base stat, used to scale the bar widths.
 export const MAX_STAT = 255
-
-// Sprites live in gfx/pokemon/<name>/{front,back}.png (folder name matches the
-// Pokémon's file name, including mega/alt suffixes like charizardx or agolem).
-const GFX_BASE =
-  'https://raw.githubusercontent.com/aaronjeter/CrystalShireEngine/LevelScaling/gfx/pokemon'
-
-export function spriteUrl(name: string, kind: 'front' | 'back'): string {
-  return `${GFX_BASE}/${name}/${kind}.png`
-}
 
 // Alternate-form regional variants (in the `alt` folder) are stored as the
 // base species name prefixed with a single letter.

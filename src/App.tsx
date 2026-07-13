@@ -1,25 +1,88 @@
 import { useEffect, useMemo, useState } from 'react'
-import { PokemonSprite } from './PokemonSprite'
-import {
-  MAX_STAT,
-  STAT_DISPLAY,
-  evolutionMethodText,
-  formatConstant,
-  formatName,
-  type PokemonDetail,
-  type PokemonListItem,
-} from './pokemon'
+import { AppHeader } from './components/AppHeader'
+import { MoveDetailView } from './views/MoveDetailView'
+import { MovesView } from './views/MovesView'
+import { PokedexView } from './views/PokedexView'
+import { type MoveCatalogItem, type PokemonDetail, type PokemonListItem } from './pokemon'
+
+type Route =
+  | { view: 'pokedex'; pokemon?: string }
+  | { view: 'moves' }
+  | { view: 'move'; key: string }
+
+function parseRoute(pathname: string, search: string): Route {
+  const params = new URLSearchParams(search)
+  const pokemonFromQuery = params.get('pokemon')?.trim()
+  const moveFromQuery = params.get('move')?.trim()
+
+  if (pathname.startsWith('/moves/')) {
+    const key = decodeURIComponent(pathname.slice('/moves/'.length)).trim().toUpperCase()
+    if (key) return { view: 'move', key }
+  }
+  if (pathname === '/moves') {
+    if (moveFromQuery) return { view: 'move', key: moveFromQuery.toUpperCase() }
+    return { view: 'moves' }
+  }
+
+  if (pathname.startsWith('/pokedex/')) {
+    const pokemon = decodeURIComponent(pathname.slice('/pokedex/'.length)).trim().toLowerCase()
+    if (pokemon) return { view: 'pokedex', pokemon }
+  }
+  if (pathname === '/pokedex' && pokemonFromQuery) {
+    return { view: 'pokedex', pokemon: pokemonFromQuery.toLowerCase() }
+  }
+
+  if (moveFromQuery) return { view: 'move', key: moveFromQuery.toUpperCase() }
+  if (pokemonFromQuery) return { view: 'pokedex', pokemon: pokemonFromQuery.toLowerCase() }
+
+  return { view: 'pokedex' }
+}
+
+function routePath(route: Route): string {
+  if (route.view === 'moves') return '/moves'
+  if (route.view === 'move') return `/moves/${encodeURIComponent(route.key.toUpperCase())}`
+  if (route.pokemon) return `/pokedex/${encodeURIComponent(route.pokemon.toUpperCase())}`
+  return '/pokedex'
+}
 
 export default function App() {
+  const [route, setRoute] = useState<Route>(() =>
+    parseRoute(window.location.pathname, window.location.search),
+  )
+
   const [list, setList] = useState<PokemonListItem[]>([])
   const [listError, setListError] = useState<string | null>(null)
   const [loadingList, setLoadingList] = useState(true)
   const [filter, setFilter] = useState('')
+  const [mobilePokedexSidebarOpen, setMobilePokedexSidebarOpen] = useState(false)
 
-  const [selected, setSelected] = useState<string | null>(null)
   const [detail, setDetail] = useState<PokemonDetail | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
+
+  const [moveList, setMoveList] = useState<MoveCatalogItem[]>([])
+  const [moveListError, setMoveListError] = useState<string | null>(null)
+  const [loadingMoveList, setLoadingMoveList] = useState(true)
+  const [moveFilter, setMoveFilter] = useState('')
+
+  const [moveDetail, setMoveDetail] = useState<MoveCatalogItem | null>(null)
+  const [moveDetailError, setMoveDetailError] = useState<string | null>(null)
+  const [loadingMoveDetail, setLoadingMoveDetail] = useState(false)
+
+  useEffect(() => {
+    const onPopState = () =>
+      setRoute(parseRoute(window.location.pathname, window.location.search))
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  const navigate = (nextRoute: Route) => {
+    const path = routePath(nextRoute)
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path)
+    }
+    setRoute(nextRoute)
+  }
 
   useEffect(() => {
     fetch('/api/pokemon')
@@ -35,7 +98,28 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!selected) return
+    fetch('/api/moves')
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load moves (${res.status})`)
+        return res.json() as Promise<MoveCatalogItem[]>
+      })
+      .then(setMoveList)
+      .catch((err: unknown) =>
+        setMoveListError(err instanceof Error ? err.message : 'Unknown error'),
+      )
+      .finally(() => setLoadingMoveList(false))
+  }, [])
+
+  const selected = route.view === 'pokedex' ? route.pokemon ?? null : null
+
+  useEffect(() => {
+    if (route.view !== 'pokedex') {
+      setMobilePokedexSidebarOpen(false)
+    }
+  }, [route.view])
+
+  useEffect(() => {
+    if (route.view !== 'pokedex' || !selected) return
     setLoadingDetail(true)
     setDetailError(null)
     setDetail(null)
@@ -49,114 +133,82 @@ export default function App() {
         setDetailError(err instanceof Error ? err.message : 'Unknown error'),
       )
       .finally(() => setLoadingDetail(false))
-  }, [selected])
+  }, [selected, route.view])
+
+  useEffect(() => {
+    if (route.view !== 'move') return
+    setLoadingMoveDetail(true)
+    setMoveDetailError(null)
+    setMoveDetail(null)
+
+    fetch(`/api/moves/${encodeURIComponent(route.key)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load move (${res.status})`)
+        return res.json() as Promise<MoveCatalogItem>
+      })
+      .then(setMoveDetail)
+      .catch((err: unknown) =>
+        setMoveDetailError(err instanceof Error ? err.message : 'Unknown error'),
+      )
+      .finally(() => setLoadingMoveDetail(false))
+  }, [route])
 
   const allNames = useMemo(
     () => new Set(list.map((p) => p.name.toLowerCase())),
     [list],
   )
 
-  const filtered = useMemo(() => {
-    const query = filter.trim().toLowerCase()
-    if (!query) return list
-    return list.filter((p) => p.name.toLowerCase().includes(query))
-  }, [list, filter])
-
   return (
-    <div className="pokedex">
-      <aside className="sidebar">
-        <h1 className="title">Pokédex</h1>
-        <input
-          className="search"
-          type="search"
-          placeholder="Search Pokémon…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-        {loadingList && <p className="muted">Loading…</p>}
-        {listError && <p className="error">{listError}</p>}
-        <ul className="list">
-          {filtered.map((p) => (
-            <li key={`${p.region}/${p.name}`}>
-              <button
-                className={p.name === selected ? 'active' : ''}
-                onClick={() => setSelected(p.name)}
-              >
-                {formatName(p.name, p.region, allNames)}
-              </button>
-            </li>
-          ))}
-        </ul>
-        {!loadingList && !listError && filtered.length === 0 && (
-          <p className="muted">No matches.</p>
-        )}
-      </aside>
+    <div className="app-shell">
+      <AppHeader
+        active={route.view === 'pokedex' ? 'pokedex' : 'moves'}
+        onNavigateHome={() => navigate({ view: 'pokedex' })}
+        onNavigatePokedex={() => navigate({ view: 'pokedex' })}
+        onNavigateMoves={() => navigate({ view: 'moves' })}
+        mobilePokedexSidebarOpen={mobilePokedexSidebarOpen}
+        onTogglePokedexSidebar={() =>
+          setMobilePokedexSidebarOpen((isOpen) => !isOpen)
+        }
+      />
 
-      <main className="detail">
-        {!selected && <p className="muted">Select a Pokémon to view its stats.</p>}
-        {loadingDetail && <p className="muted">Loading…</p>}
-        {detailError && <p className="error">{detailError}</p>}
-        {detail && (
-          <>
-            <h2 className="pokemon-name">
-              {formatName(detail.name, detail.region, allNames)}
-            </h2>
-            {detail.region && (
-              <p className="region">{formatName(detail.region)}</p>
-            )}
-            <PokemonSprite name={detail.name} />
-            {detail.evolutions.length > 0 && (
-              <ul className="evolutions">
-                {detail.evolutions.map((evo, i) => (
-                  <li key={`${evo.to.name}-${i}`}>
-                    Evolves into{' '}
-                    <button
-                      className="evo-link"
-                      onClick={() => setSelected(evo.to.name)}
-                    >
-                      {formatName(evo.to.name, evo.to.region, allNames)}
-                    </button>{' '}
-                    {evolutionMethodText(evo)}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="stats">
-              {STAT_DISPLAY.map(({ key, label, color }) => {
-                const value = detail.stats[key]
-                return (
-                  <div className="stat-row" key={key}>
-                    <span className="stat-label">{label}</span>
-                    <span className="stat-value">{value}</span>
-                    <div className="stat-track">
-                      <div
-                        className="stat-bar"
-                        style={{
-                          width: `${(value / MAX_STAT) * 100}%`,
-                          backgroundColor: color,
-                        }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            {detail.moves.length > 0 && (
-              <div className="moves">
-                <h3>Moves</h3>
-                <ul className="move-list">
-                  {detail.moves.map((m, i) => (
-                    <li key={`${m.level}-${m.move}-${i}`}>
-                      <span className="move-level">Lv. {m.level}</span>
-                      <span className="move-name">{formatConstant(m.move)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
-        )}
-      </main>
+      {route.view === 'pokedex' && (
+        <PokedexView
+          list={list}
+          listError={listError}
+          loadingList={loadingList}
+          filter={filter}
+          selected={selected}
+          detail={detail}
+          detailError={detailError}
+          loadingDetail={loadingDetail}
+          allNames={allNames}
+          onFilterChange={setFilter}
+          onSelectPokemon={(name) => navigate({ view: 'pokedex', pokemon: name })}
+          onOpenMove={(key) => navigate({ view: 'move', key })}
+          mobileSidebarOpen={mobilePokedexSidebarOpen}
+          onCloseSidebar={() => setMobilePokedexSidebarOpen(false)}
+        />
+      )}
+
+      {route.view === 'moves' && (
+        <MovesView
+          moveList={moveList}
+          moveListError={moveListError}
+          loadingMoveList={loadingMoveList}
+          moveFilter={moveFilter}
+          onMoveFilterChange={setMoveFilter}
+          onOpenMove={(key) => navigate({ view: 'move', key })}
+        />
+      )}
+
+      {route.view === 'move' && (
+        <MoveDetailView
+          moveDetail={moveDetail}
+          moveDetailError={moveDetailError}
+          loadingMoveDetail={loadingMoveDetail}
+          onBack={() => navigate({ view: 'moves' })}
+        />
+      )}
     </div>
   )
 }

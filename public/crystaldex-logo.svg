@@ -1,0 +1,30 @@
+<svg width="420" height="64" viewBox="0 0 420 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">CRYSTAL DEX Logo</title>
+  <desc id="desc">A light blue geometric crystal followed by the text CRYSTAL DEX.</desc>
+
+  <defs>
+    <filter id="glow" x="0" y="0" width="74" height="64" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="2.4"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(0,2)" shape-rendering="crispEdges">
+    <path d="M31 2L37 8L37 10L43 16L43 18L49 24L49 30L43 36L43 42L37 48L37 50L31 58L25 50L25 48L19 42L19 36L13 30L13 24L19 18L19 16L25 10L25 8L31 2Z" fill="#3AB1F0"/>
+    <path d="M31 2L37 8L37 10L43 16L43 18L49 24L49 30L43 36L43 42L37 48L37 50L31 58V2Z" fill="#8FD7F6"/>
+    <path d="M31 2V58L25 50L25 48L19 42L19 36L13 30L13 24L19 18L19 16L25 10L25 8L31 2Z" fill="#1A74DB"/>
+
+    <path d="M31 12L37 18L37 26L31 32L25 26L25 18L31 12Z" fill="#0D3FA7"/>
+    <path d="M31 14L34 18L34 25L31 29L28 25L28 18L31 14Z" fill="#000"/>
+
+    <path d="M17 29L23 35L23 46L31 54L31 58L25 50L25 48L19 42L19 36L13 30L13 24L17 29Z" fill="#2B1E98"/>
+    <path d="M45 30L49 24V30L43 36L43 42L37 48L37 50L31 58V54L39 46V35L45 30Z" fill="#4DBAF0"/>
+
+    <path d="M31 2L37 8M31 2L25 8M37 8L43 16M25 8L19 16M43 16L49 24M19 16L13 24M49 30L43 36M13 30L19 36M43 36L37 48M19 36L25 48M37 48L31 58M25 48L31 58M31 2V58M13 24L31 32L49 24M13 30L31 20L49 30" stroke="#6CD0FF" stroke-width="2" stroke-linecap="square"/>
+    <path d="M31 2L37 8L37 10L43 16L43 18L49 24L49 30L43 36L43 42L37 48L37 50L31 58L25 50L25 48L19 42L19 36L13 30L13 24L19 18L19 16L25 10L25 8L31 2Z" stroke="#35A7E8" stroke-width="2" stroke-linejoin="miter"/>
+    <path d="M31 2L37 8L37 10L43 16L43 18L49 24L49 30L43 36L43 42L37 48L37 50L31 58L25 50L25 48L19 42L19 36L13 30L13 24L19 18L19 16L25 10L25 8L31 2Z" fill="#8EDBFF" opacity="0.22" filter="url(#glow)"/>
+  </g>
+
+  <g transform="translate(82,0)">
+    <text x="0" y="43" fill="#EAF8FF" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="34" font-weight="800" letter-spacing="1.8">CRYSTAL DEX</text>
+  </g>
+</svg>

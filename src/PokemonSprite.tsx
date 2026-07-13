@@ -1,24 +1,30 @@
 import { useEffect, useRef, useState } from 'react'
-import { spriteUrl } from './pokemon'
 
 const FRAME_MS = 100 // duration of each animation frame
 const REPEAT_DELAY_MS = 1000 // pause on the resting frame between loops
-const SCALE = 2 // display sprites at 2x for visibility
+const DISPLAY_SIZE = 112
 
-// Renders a Pokémon's sprites: the front image is a vertical stack of square
-// animation frames (frame size == image width). If there is more than one
-// frame it plays as a looping animation; otherwise it shows the single frame.
-// The back image is a single sprite rendered as-is.
-export function PokemonSprite({ name }: { name: string }) {
+interface AnimatedFrontSpriteProps {
+  front: string
+  className?: string
+  ariaLabel?: string
+  displaySize?: number
+  onError?: () => void
+}
+
+// Renders a front sprite sheet (stacked square frames) into a looping canvas.
+export function AnimatedFrontSprite({
+  front,
+  className,
+  ariaLabel = 'front sprite',
+  displaySize = DISPLAY_SIZE,
+  onError,
+}: AnimatedFrontSpriteProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const [frontError, setFrontError] = useState(false)
-  const [backError, setBackError] = useState(false)
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-
-    setFrontError(false)
 
     const img = new Image()
     let timer: number | undefined
@@ -32,8 +38,8 @@ export function PokemonSprite({ name }: { name: string }) {
 
       canvas.width = frameSize
       canvas.height = frameSize
-      canvas.style.width = `${frameSize * SCALE}px`
-      canvas.style.height = `${frameSize * SCALE}px`
+      canvas.style.width = `${displaySize}px`
+      canvas.style.height = `${displaySize}px`
 
       const ctx = canvas.getContext('2d')
       if (!ctx) return
@@ -63,33 +69,57 @@ export function PokemonSprite({ name }: { name: string }) {
       }
       draw()
     }
+
     img.onerror = () => {
-      if (!cancelled) setFrontError(true)
+      if (!cancelled) onError?.()
     }
-    img.src = spriteUrl(name, 'front')
+
+    img.src = front
 
     return () => {
       cancelled = true
       if (timer) window.clearTimeout(timer)
     }
-  }, [name])
+  }, [front, onError, displaySize])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className={className}
+      aria-label={ariaLabel}
+      role="img"
+    />
+  )
+}
+
+// Renders a Pokémon's sprites: the front image is a vertical stack of square
+// animation frames (frame size == image width). If there is more than one
+// frame it plays as a looping animation; otherwise it shows the single frame.
+// The back image is a single sprite rendered as-is.
+export function PokemonSprite({ front, back }: { front: string; back: string }) {
+  const [frontError, setFrontError] = useState(false)
+  const [backError, setBackError] = useState(false)
+
+  useEffect(() => {
+    setFrontError(false)
+  }, [front])
 
   if (frontError && backError) return null
 
   return (
     <div className="sprites">
-      <canvas
-        ref={canvasRef}
-        className="sprite sprite-front"
-        style={{ display: frontError ? 'none' : undefined }}
-        aria-label={`${name} front sprite`}
-        role="img"
-      />
+      {!frontError && (
+        <AnimatedFrontSprite
+          front={front}
+          className="sprite sprite-front"
+          onError={() => setFrontError(true)}
+        />
+      )}
       {!backError && (
         <img
           className="sprite sprite-back"
-          src={spriteUrl(name, 'back')}
-          alt={`${name} back sprite`}
+          src={back}
+          alt="back sprite"
           onError={() => setBackError(true)}
         />
       )}
