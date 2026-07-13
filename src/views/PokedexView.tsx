@@ -163,30 +163,32 @@ export function PokedexView({
             value={filter}
             onChange={(e) => onFilterChange(e.target.value)}
           />
-          <div className="pokedex-filter-row">
-            <select
-              className="pokedex-filter-select"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              aria-label="Filter by type"
-            >
-              <option value="">All types</option>
-              {allTypes.map((t) => (
-                <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-              ))}
-            </select>
-            <select
-              className="pokedex-filter-select"
-              value={regionFilter}
-              onChange={(e) => setRegionFilter(e.target.value)}
-              aria-label="Filter by region"
-            >
-              <option value="">All regions</option>
-              {allRegions.map((r) => (
-                <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
-              ))}
-            </select>
-          </div>
+          {!selected && (
+            <div className="pokedex-filter-row">
+              <select
+                className="pokedex-filter-select"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                aria-label="Filter by type"
+              >
+                <option value="">All types</option>
+                {allTypes.map((t) => (
+                  <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                ))}
+              </select>
+              <select
+                className="pokedex-filter-select"
+                value={regionFilter}
+                onChange={(e) => setRegionFilter(e.target.value)}
+                aria-label="Filter by region"
+              >
+                <option value="">All regions</option>
+                {allRegions.map((r) => (
+                  <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {!selected ? (
