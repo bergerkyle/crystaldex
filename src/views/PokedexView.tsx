@@ -14,6 +14,7 @@ interface PokedexViewProps {
   loadingDetail: boolean
   allNames: Set<string>
   onFilterChange: (value: string) => void
+  onNavigatePokedexHome: () => void
   onSelectPokemon: (name: string) => void
   onOpenMove: (key: string) => void
   mobileSidebarOpen: boolean
@@ -31,6 +32,7 @@ export function PokedexView({
   loadingDetail,
   allNames,
   onFilterChange,
+  onNavigatePokedexHome,
   onSelectPokemon,
   onOpenMove,
   mobileSidebarOpen,
@@ -56,7 +58,15 @@ export function PokedexView({
 
       <aside className={`sidebar ${mobileSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-head">
-          <h2 className="title">Pokedex</h2>
+          <button
+            className="title title-button"
+            onClick={() => {
+              onNavigatePokedexHome()
+              onCloseSidebar()
+            }}
+          >
+            Pokedex
+          </button>
           <button
             className="sidebar-close"
             onClick={onCloseSidebar}
@@ -69,7 +79,7 @@ export function PokedexView({
           </button>
         </div>
         <input
-          className="search desktop-search"
+          className="search"
           type="search"
           placeholder="Search Pokemon..."
           value={filter}

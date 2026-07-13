@@ -64,6 +64,7 @@ export default function App() {
   const [moveListError, setMoveListError] = useState<string | null>(null)
   const [loadingMoveList, setLoadingMoveList] = useState(true)
   const [moveFilter, setMoveFilter] = useState('')
+  const [mobileMovesSidebarOpen, setMobileMovesSidebarOpen] = useState(false)
 
   const [moveDetail, setMoveDetail] = useState<MoveCatalogItem | null>(null)
   const [moveDetailError, setMoveDetailError] = useState<string | null>(null)
@@ -119,6 +120,12 @@ export default function App() {
   }, [route.view])
 
   useEffect(() => {
+    if (route.view !== 'moves') {
+      setMobileMovesSidebarOpen(false)
+    }
+  }, [route.view])
+
+  useEffect(() => {
     if (route.view !== 'pokedex' || !selected) return
     setLoadingDetail(true)
     setDetailError(null)
@@ -165,9 +172,19 @@ export default function App() {
         onNavigateHome={() => navigate({ view: 'pokedex' })}
         onNavigatePokedex={() => navigate({ view: 'pokedex' })}
         onNavigateMoves={() => navigate({ view: 'moves' })}
-        mobilePokedexSidebarOpen={mobilePokedexSidebarOpen}
-        onTogglePokedexSidebar={() =>
-          setMobilePokedexSidebarOpen((isOpen) => !isOpen)
+        mobileSidebarOpen={
+          route.view === 'pokedex' ? mobilePokedexSidebarOpen : mobileMovesSidebarOpen
+        }
+        onToggleSidebar={
+          route.view === 'move'
+            ? undefined
+            : () => {
+                if (route.view === 'pokedex') {
+                  setMobilePokedexSidebarOpen((isOpen) => !isOpen)
+                } else {
+                  setMobileMovesSidebarOpen((isOpen) => !isOpen)
+                }
+              }
         }
       />
 
@@ -183,6 +200,7 @@ export default function App() {
           loadingDetail={loadingDetail}
           allNames={allNames}
           onFilterChange={setFilter}
+          onNavigatePokedexHome={() => navigate({ view: 'pokedex' })}
           onSelectPokemon={(name) => navigate({ view: 'pokedex', pokemon: name })}
           onOpenMove={(key) => navigate({ view: 'move', key })}
           mobileSidebarOpen={mobilePokedexSidebarOpen}
@@ -198,6 +216,8 @@ export default function App() {
           moveFilter={moveFilter}
           onMoveFilterChange={setMoveFilter}
           onOpenMove={(key) => navigate({ view: 'move', key })}
+          mobileSidebarOpen={mobileMovesSidebarOpen}
+          onCloseSidebar={() => setMobileMovesSidebarOpen(false)}
         />
       )}
 

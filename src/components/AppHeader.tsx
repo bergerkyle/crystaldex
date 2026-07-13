@@ -3,8 +3,8 @@ interface AppHeaderProps {
   onNavigateHome: () => void
   onNavigatePokedex: () => void
   onNavigateMoves: () => void
-  mobilePokedexSidebarOpen?: boolean
-  onTogglePokedexSidebar?: () => void
+  mobileSidebarOpen?: boolean
+  onToggleSidebar?: () => void
 }
 
 export function AppHeader({
@@ -12,16 +12,20 @@ export function AppHeader({
   onNavigateHome,
   onNavigatePokedex,
   onNavigateMoves,
-  mobilePokedexSidebarOpen,
-  onTogglePokedexSidebar,
+  mobileSidebarOpen,
+  onToggleSidebar,
 }: AppHeaderProps) {
   return (
     <header className="topbar">
-      {active === 'pokedex' && onTogglePokedexSidebar && (
+      {onToggleSidebar && (
         <button
           className="mobile-nav-launcher"
-          onClick={onTogglePokedexSidebar}
-          aria-label={mobilePokedexSidebarOpen ? 'Close pokedex list' : 'Open pokedex list'}
+          onClick={onToggleSidebar}
+          aria-label={
+            mobileSidebarOpen
+              ? `Close ${active === 'moves' ? 'moves' : 'pokedex'} sidebar`
+              : `Open ${active === 'moves' ? 'moves' : 'pokedex'} sidebar`
+          }
         >
           <span className="mobile-nav-launcher-icon" aria-hidden="true">
             <span className="mobile-nav-launcher-line" />
@@ -31,6 +35,7 @@ export function AppHeader({
         </button>
       )}
       <button className="brand" onClick={onNavigateHome} aria-label="Go to pokedex home">
+        <img className="brand-crystal" src="/crystal.png" alt="" aria-hidden="true" />
         CRYSTAL DEX
       </button>
       <nav className="topnav">
