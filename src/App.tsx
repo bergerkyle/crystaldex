@@ -255,6 +255,8 @@ export default function App() {
             moveDetail={moveDetail}
             moveDetailError={moveDetailError}
             loadingMoveDetail={loadingMoveDetail}
+            moveList={moveList}
+            onOpenMove={(key) => navigate({ view: 'move', key })}
           />
         </MovesView>
       )}
