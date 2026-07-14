@@ -163,7 +163,7 @@ export function PokedexView({
       </aside>
 
       <div className="pokedex-main">
-        <h1 className="pokedex-page-title">Pokédex</h1>
+        <h1 className="pokedex-page-title md:hidden">Pokédex</h1>
         <div className="mobile-pokedex-controls">
           {!selected && (
             <input

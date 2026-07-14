@@ -27,6 +27,14 @@ export interface Evolution {
   to: EvolutionTarget
 }
 
+export interface EvolutionSource {
+  method: Evolution['method']
+  level?: number
+  item?: string
+  condition?: string
+  from: EvolutionTarget
+}
+
 export interface Move {
   level: number
   key: string
@@ -67,15 +75,22 @@ export interface Sprites {
   back: string
 }
 
+export interface Ability {
+  name: string
+  description: string
+}
+
 export interface PokemonDetail {
   name: string
   region: string
   types: string[]
   stats: PokemonStats
   evolutions: Evolution[]
+  evolutionSources: EvolutionSource[]
   moves: Move[]
   tmMoves: TmMove[]
   sprites: Sprites
+  ability: Ability | null
 }
 
 // Display order and colors requested for the stat bars.
@@ -171,4 +186,14 @@ export function evolutionMethodText(evo: Evolution): string {
     default:
       return ''
   }
+}
+
+export function evolutionSourceMethodText(evo: EvolutionSource): string {
+  return evolutionMethodText({
+    method: evo.method,
+    level: evo.level,
+    item: evo.item,
+    condition: evo.condition,
+    to: evo.from,
+  })
 }

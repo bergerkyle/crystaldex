@@ -18,8 +18,10 @@ export function MoveDetailView({
   onOpenMove,
 }: MoveDetailViewProps) {
   return (
-    <main className="move-detail-page">
-      <MoveAutocomplete moveList={moveList} onSelectMove={onOpenMove} />
+    <main className="move-detail-page !pt-0">
+      <div className="block md:hidden">
+        <MoveAutocomplete moveList={moveList} onSelectMove={onOpenMove} />
+      </div>
       {loadingMoveDetail && <p className="muted">Loading...</p>}
       {moveDetailError && <p className="error">{moveDetailError}</p>}
       {moveDetail && (

@@ -128,6 +128,8 @@ export function MovesView({
     setOpenTypeSections((prev) => ({ ...prev, [type]: !prev[type] }))
   }
 
+  const isFilteringMoves = moveFilter.trim().length > 0
+
   const renderMainContent = () => {
     if (children) return children
 
@@ -283,6 +285,11 @@ export function MovesView({
         <div className="moves-sidebar-scroll">
           {sidebarGroupedMoves.map((group) => (
             <section className="moves-sidebar-type" key={`sidebar-${group.type}`}>
+              {(() => {
+                const isOpen = isFilteringMoves || openTypeSections[group.type] === true
+
+                return (
+                  <>
               <button
                 className="moves-sidebar-type-toggle"
                 onClick={() => toggleTypeSection(group.type)}
@@ -290,7 +297,7 @@ export function MovesView({
                   backgroundColor: TYPE_HEADER_COLORS[group.type] ?? '#666',
                   color: headerTextColor(TYPE_HEADER_COLORS[group.type] ?? '#666'),
                 }}
-                aria-expanded={openTypeSections[group.type] === true}
+                aria-expanded={isOpen}
               >
                 <span className="moves-sidebar-type-label">
                   {TYPE_ICONS[group.type] && (
@@ -306,10 +313,10 @@ export function MovesView({
                   {formatConstant(group.type)}
                 </span>
                 <span className="moves-sidebar-caret" aria-hidden="true">
-                  {openTypeSections[group.type] ? '▾' : '▸'}
+                  {isOpen ? '▾' : '▸'}
                 </span>
               </button>
-              {openTypeSections[group.type] && (
+              {isOpen && (
                 <ul className="moves-sidebar-move-list">
                   {group.moves.map((move) => (
                     <li key={`sidebar-${group.type}-${move.key}`}>
@@ -326,6 +333,9 @@ export function MovesView({
                   ))}
                 </ul>
               )}
+                  </>
+                )
+              })()}
             </section>
           ))}
         </div>

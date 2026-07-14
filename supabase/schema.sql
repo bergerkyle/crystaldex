@@ -77,6 +77,16 @@ create table if not exists public.pokemon_tmhm (
   sort          integer not null default 0
 );
 
+-- Ability catalog: one row per ability, referenced by many Pokémon.
+create table if not exists public.abilities (
+  id          bigint generated always as identity primary key,
+  name        text not null unique,
+  description text not null default ''
+);
+
+alter table public.pokemon
+  add column if not exists ability_id bigint references public.abilities(id) on delete set null;
+
 -- Small key/value store for tracking source-file SHAs between syncs.
 create table if not exists public.sync_meta (
   key    text primary key,
@@ -88,6 +98,7 @@ create index if not exists pokemon_moves_pokemon_name_idx on public.pokemon_move
 create index if not exists pokemon_moves_move_key_idx on public.pokemon_moves (move_key);
 create index if not exists pokemon_tmhm_pokemon_name_idx on public.pokemon_tmhm (pokemon_name);
 create index if not exists pokemon_tmhm_move_key_idx on public.pokemon_tmhm (move_key);
+create index if not exists pokemon_ability_id_idx on public.pokemon (ability_id);
 
 -- The API reads/writes with the service-role key, which bypasses RLS. Enabling
 -- RLS with no public policies keeps the anon key from reading the tables.
@@ -96,4 +107,5 @@ alter table public.evolutions enable row level security;
 alter table public.moves enable row level security;
 alter table public.pokemon_moves enable row level security;
 alter table public.pokemon_tmhm enable row level security;
+alter table public.abilities enable row level security;
 alter table public.sync_meta enable row level security;

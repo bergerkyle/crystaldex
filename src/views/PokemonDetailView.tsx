@@ -3,6 +3,7 @@ import {
   MAX_STAT,
   STAT_DISPLAY,
   evolutionMethodText,
+  evolutionSourceMethodText,
   type PokemonDetail,
   type PokemonListItem,
   formatName,
@@ -32,8 +33,10 @@ export function PokemonDetailView({
   onOpenMove,
 }: PokemonDetailViewProps) {
   return (
-    <main className="detail">
-      <PokemonAutocomplete list={list} allNames={allNames} onSelectPokemon={onSelectPokemon} />
+    <main className="detail !pt-0 md:!p-8">
+      <div className="block md:hidden">
+        <PokemonAutocomplete list={list} allNames={allNames} onSelectPokemon={onSelectPokemon} />
+      </div>
       {!selected && <p className="muted">Select a Pokemon to view its stats.</p>}
       {loadingDetail && <p className="muted">Loading...</p>}
       {detailError && <p className="error">{detailError}</p>}
@@ -49,7 +52,32 @@ export function PokemonDetailView({
           </div>
           {detail.region && <p className="region">{formatName(detail.region)}</p>}
           <PokemonSprite front={detail.sprites.front} back={detail.sprites.back} />
-          {detail.evolutions.length > 0 && (
+          <div className="ability mb-4">
+            <p className="ability-name">
+              <strong>Ability: {detail.ability ? detail.ability.name : '(None)'}</strong>
+            </p>
+            {detail.ability && detail.ability.description && (
+              <p className="ability-desc">{detail.ability.description}</p>
+            )}
+          </div>
+          <div className="block sm:flex gap-4">
+          {(detail.evolutionSources.length > 0) && (
+            <ul className="evolutions">
+              {detail.evolutionSources.map((evo, i) => (
+                <li key={`${evo.from.name}-${i}`}>
+                  Evolves from{' '}
+                  <button
+                    className="evo-link"
+                    onClick={() => onSelectPokemon(evo.from.name.toLowerCase())}
+                  >
+                    {formatName(evo.from.name, evo.from.region, allNames)}
+                  </button>{' '}
+                  {evolutionSourceMethodText(evo)}
+                </li>
+              ))}
+            </ul>
+          )}
+          {(detail.evolutions.length > 0) && (
             <ul className="evolutions">
               {detail.evolutions.map((evo, i) => (
                 <li key={`${evo.to.name}-${i}`}>
@@ -65,6 +93,7 @@ export function PokemonDetailView({
               ))}
             </ul>
           )}
+          </div>
           <div className="stats">
             {STAT_DISPLAY.map(({ key, label, color }) => {
               const value = detail.stats[key]

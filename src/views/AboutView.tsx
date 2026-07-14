@@ -1,11 +1,10 @@
-const VERSION = '0.7.13'
-
 interface AboutViewProps {
+  version: string
   lastSynced: string | null
   loadingAbout: boolean
 }
 
-export function AboutView({ lastSynced, loadingAbout }: AboutViewProps) {
+export function AboutView({ version, lastSynced, loadingAbout }: AboutViewProps) {
   const formattedSync = lastSynced
     ? new Intl.DateTimeFormat(undefined, {
         dateStyle: 'medium',
@@ -35,7 +34,7 @@ export function AboutView({ lastSynced, loadingAbout }: AboutViewProps) {
         <div className="about-meta-grid">
           <div className="about-meta-item">
             <span className="about-meta-label">Version</span>
-            <span className="about-meta-value">{VERSION}</span>
+            <span className="about-meta-value">{version}</span>
           </div>
           <div className="about-meta-item">
             <span className="about-meta-label">Last synced</span>

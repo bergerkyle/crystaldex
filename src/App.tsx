@@ -74,6 +74,7 @@ export default function App() {
   const [loadingMoveDetail, setLoadingMoveDetail] = useState(false)
 
   const [lastSynced, setLastSynced] = useState<string | null>(null)
+  const [aboutVersion, setAboutVersion] = useState<string>('0.0.0')
   const [loadingAbout, setLoadingAbout] = useState(false)
 
   useEffect(() => {
@@ -175,8 +176,14 @@ export default function App() {
         if (!res.ok) throw new Error(`Failed to load about (${res.status})`)
         return res.json() as Promise<{ version: string; lastSynced: string | null }>
       })
-      .then((data) => setLastSynced(data.lastSynced))
-      .catch(() => setLastSynced(null))
+      .then((data) => {
+        setAboutVersion(data.version)
+        setLastSynced(data.lastSynced)
+      })
+      .catch(() => {
+        setAboutVersion('0.0.0')
+        setLastSynced(null)
+      })
       .finally(() => setLoadingAbout(false))
   }, [route.view])
 
@@ -261,7 +268,7 @@ export default function App() {
         </MovesView>
       )}
       {route.view === 'about' && (
-        <AboutView lastSynced={lastSynced} loadingAbout={loadingAbout} />
+        <AboutView version={aboutVersion} lastSynced={lastSynced} loadingAbout={loadingAbout} />
       )}
     </div>
   )
