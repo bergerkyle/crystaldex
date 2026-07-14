@@ -1,0 +1,7 @@
+dist
+node_modules
+.vercel
+coverage
+package-lock.json
+pnpm-lock.yaml
+components/about.htm

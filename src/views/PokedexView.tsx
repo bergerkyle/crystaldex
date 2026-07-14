@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { formatName, type PokemonDetail, type PokemonListItem } from '../pokemon'
+import {
+  formatName,
+  type PokemonDetail,
+  type PokemonListItem,
+} from '../pokemon'
 import { AnimatedFrontSprite } from '../PokemonSprite'
 import { PokemonDetailView } from './PokemonDetailView'
 import { TypeMetaChip } from './moveMeta'
@@ -18,6 +22,7 @@ interface PokedexViewProps {
   onNavigatePokedexHome: () => void
   onSelectPokemon: (name: string) => void
   onOpenMove: (key: string) => void
+  onOpenLocation: (region: string, route: string) => void
   mobileSidebarOpen: boolean
   onCloseSidebar: () => void
 }
@@ -36,6 +41,7 @@ export function PokedexView({
   onNavigatePokedexHome,
   onSelectPokemon,
   onOpenMove,
+  onOpenLocation,
   mobileSidebarOpen,
   onCloseSidebar,
 }: PokedexViewProps) {
@@ -57,13 +63,19 @@ export function PokedexView({
   }, [list])
 
   const query = filter.trim().toLowerCase()
-  const filtered = useMemo(() =>
-    list.filter((p) => {
-      if (query && !p.name.toLowerCase().includes(query)) return false
-      if (typeFilter && !p.types.map((t) => t.toLowerCase()).includes(typeFilter)) return false
-      if (regionFilter && p.region.toLowerCase() !== regionFilter) return false
-      return true
-    }),
+  const filtered = useMemo(
+    () =>
+      list.filter((p) => {
+        if (query && !p.name.toLowerCase().includes(query)) return false
+        if (
+          typeFilter &&
+          !p.types.map((t) => t.toLowerCase()).includes(typeFilter)
+        )
+          return false
+        if (regionFilter && p.region.toLowerCase() !== regionFilter)
+          return false
+        return true
+      }),
     [list, query, typeFilter, regionFilter],
   )
   const sorted = [...filtered].sort((a, b) =>
@@ -125,7 +137,9 @@ export function PokedexView({
           >
             <option value="">All types</option>
             {allTypes.map((t) => (
-              <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+              <option key={t} value={t}>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </option>
             ))}
           </select>
           <select
@@ -136,7 +150,9 @@ export function PokedexView({
           >
             <option value="">All regions</option>
             {allRegions.map((r) => (
-              <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+              <option key={r} value={r}>
+                {r.charAt(0).toUpperCase() + r.slice(1)}
+              </option>
             ))}
           </select>
         </div>
@@ -146,7 +162,11 @@ export function PokedexView({
           {filtered.map((p) => (
             <li key={`${p.region}/${p.name}`}>
               <button
-                className={p.name.toLowerCase() === selected?.toLowerCase() ? 'active' : ''}
+                className={
+                  p.name.toLowerCase() === selected?.toLowerCase()
+                    ? 'active'
+                    : ''
+                }
                 onClick={() => {
                   onSelectPokemon(p.name.toLowerCase())
                   onCloseSidebar()
@@ -184,7 +204,9 @@ export function PokedexView({
               >
                 <option value="">All types</option>
                 {allTypes.map((t) => (
-                  <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                  <option key={t} value={t}>
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </option>
                 ))}
               </select>
               <select
@@ -195,7 +217,9 @@ export function PokedexView({
               >
                 <option value="">All regions</option>
                 {allRegions.map((r) => (
-                  <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                  <option key={r} value={r}>
+                    {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </option>
                 ))}
               </select>
             </div>
@@ -227,7 +251,10 @@ export function PokedexView({
                       <h3 className="pokemon-card-name">
                         {formatName(p.name, p.region, allNames)}
                       </h3>
-                      <div className="pokemon-card-types" aria-label="Pokemon types">
+                      <div
+                        className="pokemon-card-types"
+                        aria-label="Pokemon types"
+                      >
                         {p.types.map((type) => (
                           <TypeMetaChip key={`${p.name}-${type}`} type={type} />
                         ))}
@@ -238,29 +265,32 @@ export function PokedexView({
               </ul>
             )}
 
-            {!loadingList && !listError && sorted.length > 0 && totalPages > 1 && (
-              <div className="pagination">
-                <button
-                  className="pagination-btn"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  aria-label="Previous page"
-                >
-                  ← Prev
-                </button>
-                <span className="pagination-info">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  className="pagination-btn"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  aria-label="Next page"
-                >
-                  Next →
-                </button>
-              </div>
-            )}
+            {!loadingList &&
+              !listError &&
+              sorted.length > 0 &&
+              totalPages > 1 && (
+                <div className="pagination">
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    aria-label="Previous page"
+                  >
+                    ← Prev
+                  </button>
+                  <span className="pagination-info">
+                    Page {page} of {totalPages}
+                  </span>
+                  <button
+                    className="pagination-btn"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    aria-label="Next page"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
 
             {!loadingList && !listError && sorted.length === 0 && (
               <p className="muted">No matches.</p>
@@ -276,6 +306,7 @@ export function PokedexView({
             list={list}
             onSelectPokemon={onSelectPokemon}
             onOpenMove={onOpenMove}
+            onOpenLocation={onOpenLocation}
           />
         )}
       </div>

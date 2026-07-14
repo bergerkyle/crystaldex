@@ -34,9 +34,12 @@ export function MoveDetailView({
           <p className="move-meta move-detail-meta">
             <TypeMetaChip type={moveDetail.type} />
             <CategoryMetaChip category={moveDetail.category} />
-            <span className="meta-text">Power {moveDetail.power > 0 ? moveDetail.power : '-'}</span>
             <span className="meta-text">
-              Accuracy {moveDetail.accuracy > 0 ? `${moveDetail.accuracy}%` : '-'}
+              Power {moveDetail.power > 0 ? moveDetail.power : '-'}
+            </span>
+            <span className="meta-text">
+              Accuracy{' '}
+              {moveDetail.accuracy > 0 ? `${moveDetail.accuracy}%` : '-'}
             </span>
             <span className="meta-text">PP {moveDetail.pp}</span>
           </p>

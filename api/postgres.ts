@@ -4,6 +4,8 @@ import { execSync } from 'node:child_process'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
   type AbilityDef,
+  type PokemonEncounter,
+  type RouteEncounter,
   type EvosAttacks,
   type Evolution,
   type Move,
@@ -14,6 +16,7 @@ import {
   fetchAbilityCatalog,
   fetchEvosAttacks,
   fetchMoveCatalog,
+  fetchWildEncounterData,
   fetchRaw,
   fetchTree,
   normalizeKey,
@@ -41,7 +44,9 @@ function formatDateVersion(source: string): string | null {
 
 function resolveCommitDateVersion(): string {
   const envTimestamp =
-    process.env.VERCEL_GIT_COMMIT_TIMESTAMP ?? process.env.GIT_COMMIT_TIMESTAMP ?? null
+    process.env.VERCEL_GIT_COMMIT_TIMESTAMP ??
+    process.env.GIT_COMMIT_TIMESTAMP ??
+    null
   if (envTimestamp) {
     const fromEnv = formatDateVersion(envTimestamp)
     if (fromEnv) return fromEnv
@@ -129,6 +134,16 @@ interface PokemonRow {
   ability_id: number | null
 }
 
+interface LocationEncounterRow {
+  region: string
+  route: string
+  method: 'grass' | 'water'
+  time: 'morn' | 'day' | 'nite' | null
+  pokemon_name: string
+  pokemon_region: string
+  rate: number
+}
+
 // ---------------------------------------------------------------------------
 // Sync
 // ---------------------------------------------------------------------------
@@ -146,7 +161,9 @@ export async function syncDatabase(): Promise<{
   const supabase = getSupabase()
   const tree = await fetchTree()
   const entries = entriesFromTree(tree)
-  console.log(`[sync] fetched tree: ${tree.length} nodes, ${entries.length} pokemon entries`)
+  console.log(
+    `[sync] fetched tree: ${tree.length} nodes, ${entries.length} pokemon entries`,
+  )
 
   // Index blobs we need for parsing and sprite cache busting.
   const spriteShaByPath = new Map<string, string>()
@@ -156,7 +173,9 @@ export async function syncDatabase(): Promise<{
     if (node.path.startsWith('gfx/pokemon/') && node.path.endsWith('.png')) {
       spriteShaByPath.set(node.path, node.sha)
     } else {
-      const evo = node.path.match(/^data\/pokemon\/evos_attacks_([a-z0-9]+)\.asm$/)
+      const evo = node.path.match(
+        /^data\/pokemon\/evos_attacks_([a-z0-9]+)\.asm$/,
+      )
       if (evo) evosShaByRegion.set(evo[1], node.sha)
     }
   }
@@ -164,10 +183,8 @@ export async function syncDatabase(): Promise<{
     `[sync] indexed assets: sprites=${spriteShaByPath.size}, evo_files=${evosShaByRegion.size}`,
   )
 
-  const [catalog, { abilities: abilityCatalog, pokemonAbilityMap }] = await Promise.all([
-    fetchMoveCatalog(),
-    fetchAbilityCatalog(),
-  ])
+  const [catalog, { abilities: abilityCatalog, pokemonAbilityMap }] =
+    await Promise.all([fetchMoveCatalog(), fetchAbilityCatalog()])
   const validMoveKeys = new Set(catalog.map((c) => c.key))
   console.log(
     `[sync] parsed move catalog: ${catalog.length} moves, ability catalog: ${abilityCatalog.length} abilities`,
@@ -175,7 +192,9 @@ export async function syncDatabase(): Promise<{
 
   // Build the TM/HM label map (move constant -> TM##/HM## + display order).
   const tmhmDefs = parseTmHm(await fetchRaw(ITEM_CONSTANTS_PATH))
-  const tmhmMap = new Map(tmhmDefs.map((d) => [d.move, { label: d.label, sort: d.sort }]))
+  const tmhmMap = new Map(
+    tmhmDefs.map((d) => [d.move, { label: d.label, sort: d.sort }]),
+  )
   console.log(`[sync] parsed tm/hm mapping: ${tmhmDefs.length} entries`)
 
   // Parse all region evolution/learnset files on every sync.
@@ -191,15 +210,52 @@ export async function syncDatabase(): Promise<{
   })
   console.log(`[sync] parsed evo/attack files for ${evosBlocks.size} regions`)
 
+  const encounterData = await fetchWildEncounterData()
+  const encounterRows: LocationEncounterRow[] = []
+  for (const route of encounterData.routes) {
+    for (const grass of route.grass) {
+      for (const encounter of grass.encounters) {
+        encounterRows.push({
+          region: route.region,
+          route: route.route,
+          method: 'grass',
+          time: grass.time,
+          pokemon_name: encounter.pokemon.name,
+          pokemon_region: encounter.pokemon.region,
+          rate: encounter.rate,
+        })
+      }
+    }
+    for (const encounter of route.water) {
+      encounterRows.push({
+        region: route.region,
+        route: route.route,
+        method: 'water',
+        time: null,
+        pokemon_name: encounter.pokemon.name,
+        pokemon_region: encounter.pokemon.region,
+        rate: encounter.rate,
+      })
+    }
+  }
+  console.log(
+    `[sync] parsed wild encounters: routes=${encounterData.routes.length}, rows=${encounterRows.length}`,
+  )
+
   // Build full write sets from source files.
   const upserts: PokemonRow[] = []
-  const evoWrites: { name: string; evolutions: Evolution[]; moves: Move[] }[] = []
-  const tmhmWrites: { name: string; rows: { move_key: string; label: string; sort: number }[] }[] =
+  const evoWrites: { name: string; evolutions: Evolution[]; moves: Move[] }[] =
     []
+  const tmhmWrites: {
+    name: string
+    rows: { move_key: string; label: string; sort: number }[]
+  }[] = []
 
   await mapLimit(entries, 16, async (entry) => {
-    const frontSha = spriteShaByPath.get(`gfx/pokemon/${entry.name}/front.png`) ?? null
-    const backSha = spriteShaByPath.get(`gfx/pokemon/${entry.name}/back.png`) ?? null
+    const frontSha =
+      spriteShaByPath.get(`gfx/pokemon/${entry.name}/front.png`) ?? null
+    const backSha =
+      spriteShaByPath.get(`gfx/pokemon/${entry.name}/back.png`) ?? null
     const block = entry.region
       ? evosBlocks
           .get(entry.region === 'beta' ? 'alt' : entry.region)
@@ -242,7 +298,11 @@ export async function syncDatabase(): Promise<{
       .filter((mv) => validMoveKeys.has(mv))
       .map((mv) => {
         const info = tmhmMap.get(mv)
-        return { move_key: mv, label: info?.label ?? '', sort: info?.sort ?? 9999 }
+        return {
+          move_key: mv,
+          label: info?.label ?? '',
+          sort: info?.sort ?? 9999,
+        }
       })
     tmhmWrites.push({ name: entry.name, rows })
   })
@@ -253,17 +313,34 @@ export async function syncDatabase(): Promise<{
   // Full refresh: clear tables, then repopulate from source.
   console.log('[sync] clearing database tables')
   const clearTmhm = await supabase.from('pokemon_tmhm').delete().gt('id', 0)
-  if (clearTmhm.error) throw new Error(`Clear tm/hm failed: ${clearTmhm.error.message}`)
-  const clearPokeMoves = await supabase.from('pokemon_moves').delete().gt('id', 0)
-  if (clearPokeMoves.error) throw new Error(`Clear learnset failed: ${clearPokeMoves.error.message}`)
+  if (clearTmhm.error)
+    throw new Error(`Clear tm/hm failed: ${clearTmhm.error.message}`)
+  const clearPokeMoves = await supabase
+    .from('pokemon_moves')
+    .delete()
+    .gt('id', 0)
+  if (clearPokeMoves.error)
+    throw new Error(`Clear learnset failed: ${clearPokeMoves.error.message}`)
   const clearEvos = await supabase.from('evolutions').delete().gt('id', 0)
-  if (clearEvos.error) throw new Error(`Clear evolutions failed: ${clearEvos.error.message}`)
+  if (clearEvos.error)
+    throw new Error(`Clear evolutions failed: ${clearEvos.error.message}`)
   const clearPokemon = await supabase.from('pokemon').delete().neq('name', '')
-  if (clearPokemon.error) throw new Error(`Clear pokemon failed: ${clearPokemon.error.message}`)
+  if (clearPokemon.error)
+    throw new Error(`Clear pokemon failed: ${clearPokemon.error.message}`)
   const clearMoves = await supabase.from('moves').delete().neq('key', '')
-  if (clearMoves.error) throw new Error(`Clear moves failed: ${clearMoves.error.message}`)
+  if (clearMoves.error)
+    throw new Error(`Clear moves failed: ${clearMoves.error.message}`)
   const clearAbilities = await supabase.from('abilities').delete().gt('id', 0)
-  if (clearAbilities.error) throw new Error(`Clear abilities failed: ${clearAbilities.error.message}`)
+  if (clearAbilities.error)
+    throw new Error(`Clear abilities failed: ${clearAbilities.error.message}`)
+  const clearEncounters = await supabase
+    .from('location_encounters')
+    .delete()
+    .gt('id', 0)
+  if (clearEncounters.error)
+    throw new Error(
+      `Clear location encounters failed: ${clearEncounters.error.message}`,
+    )
   console.log('[sync] clear complete')
 
   console.log('[sync] inserting move catalog')
@@ -274,14 +351,21 @@ export async function syncDatabase(): Promise<{
 
   // Insert abilities and build key->id map for linking to pokemon.
   console.log('[sync] inserting abilities')
-  const { data: insertedAbilities, error: abilitiesInsertError } = await supabase
-    .from('abilities')
-    .insert(abilityCatalog.map((a: AbilityDef) => ({ name: a.name, description: a.description })))
-    .select('id, name')
+  const { data: insertedAbilities, error: abilitiesInsertError } =
+    await supabase
+      .from('abilities')
+      .insert(
+        abilityCatalog.map((a: AbilityDef) => ({
+          name: a.name,
+          description: a.description,
+        })),
+      )
+      .select('id, name')
   if (abilitiesInsertError)
     throw new Error(`Insert abilities failed: ${abilitiesInsertError.message}`)
   const abilityIdByName = new Map<string, number>()
-  for (const row of insertedAbilities ?? []) abilityIdByName.set(row.name, row.id)
+  for (const row of insertedAbilities ?? [])
+    abilityIdByName.set(row.name, row.id)
   const abilityIdByKey = new Map<string, number>()
   for (const ability of abilityCatalog) {
     const id = abilityIdByName.get(ability.name)
@@ -292,7 +376,10 @@ export async function syncDatabase(): Promise<{
   // Resolve ability_id for each pokemon upsert row.
   const pokemonInserts = upserts.map((row) => {
     const abilityKey = pokemonAbilityMap.get(row.name)
-    return { ...row, ability_id: abilityKey ? (abilityIdByKey.get(abilityKey) ?? null) : null }
+    return {
+      ...row,
+      ability_id: abilityKey ? (abilityIdByKey.get(abilityKey) ?? null) : null,
+    }
   })
 
   console.log('[sync] inserting pokemon rows')
@@ -327,7 +414,11 @@ export async function syncDatabase(): Promise<{
         if (!known) skippedMoves++
         return known
       })
-      .map((mv) => ({ pokemon_name: e.name, move_key: mv.move, level: mv.level })),
+      .map((mv) => ({
+        pokemon_name: e.name,
+        move_key: mv.move,
+        level: mv.level,
+      })),
   )
   for (const batch of chunk(learnsetRows, 500)) {
     const { error } = await supabase.from('pokemon_moves').insert(batch)
@@ -339,13 +430,27 @@ export async function syncDatabase(): Promise<{
   }
 
   const tmhmRows = tmhmWrites.flatMap((t) =>
-    t.rows.map((r) => ({ pokemon_name: t.name, move_key: r.move_key, label: r.label, sort: r.sort })),
+    t.rows.map((r) => ({
+      pokemon_name: t.name,
+      move_key: r.move_key,
+      label: r.label,
+      sort: r.sort,
+    })),
   )
   for (const batch of chunk(tmhmRows, 500)) {
     const { error } = await supabase.from('pokemon_tmhm').insert(batch)
     if (error) throw new Error(`Insert tm/hm failed: ${error.message}`)
   }
   console.log(`[sync] inserted tm/hm rows: ${tmhmRows.length}`)
+
+  for (const batch of chunk(encounterRows, 500)) {
+    const { error } = await supabase.from('location_encounters').insert(batch)
+    if (error)
+      throw new Error(`Insert location encounters failed: ${error.message}`)
+  }
+  console.log(
+    `[sync] inserted location encounter rows: ${encounterRows.length}`,
+  )
 
   const durationMs = Date.now() - syncStartedAt
   console.log(`[sync] complete in ${durationMs}ms`)
@@ -429,7 +534,10 @@ export interface PokemonDetail {
   }[]
   sprites: { front: string; back: string }
   ability: { name: string; description: string } | null
+  encounters: PokemonEncounter[]
 }
+
+export interface EncounterRoute extends RouteEncounter {}
 
 export async function getPokemon(name: string): Promise<PokemonDetail | null> {
   const supabase = getSupabase()
@@ -442,18 +550,40 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
   if (error) throw new Error(error.message)
   if (!p) return null
 
-  const [evoRes, evoSourceRes, moveRes, tmhmRes] = await Promise.all([
-    supabase.from('evolutions').select('*').eq('pokemon_name', name).order('id'),
-    supabase.from('evolutions').select('*').eq('to_name', name).order('id'),
-    supabase.from('pokemon_moves').select('level, move_key').eq('pokemon_name', name).order('level'),
-    supabase.from('pokemon_tmhm').select('label, sort, move_key').eq('pokemon_name', name).order('sort'),
-  ])
+  const [evoRes, evoSourceRes, moveRes, tmhmRes, encounterRes] =
+    await Promise.all([
+      supabase
+        .from('evolutions')
+        .select('*')
+        .eq('pokemon_name', name)
+        .order('id'),
+      supabase.from('evolutions').select('*').eq('to_name', name).order('id'),
+      supabase
+        .from('pokemon_moves')
+        .select('level, move_key')
+        .eq('pokemon_name', name)
+        .order('level'),
+      supabase
+        .from('pokemon_tmhm')
+        .select('label, sort, move_key')
+        .eq('pokemon_name', name)
+        .order('sort'),
+      supabase
+        .from('location_encounters')
+        .select('region, route, method, time, rate')
+        .eq('pokemon_name', name)
+        .order('region')
+        .order('route'),
+    ])
   if (evoRes.error) throw new Error(evoRes.error.message)
   if (evoSourceRes.error) throw new Error(evoSourceRes.error.message)
   if (moveRes.error) throw new Error(moveRes.error.message)
   if (tmhmRes.error) throw new Error(tmhmRes.error.message)
+  if (encounterRes.error) throw new Error(encounterRes.error.message)
 
-  const sourceNames = [...new Set((evoSourceRes.data ?? []).map((row) => row.pokemon_name))]
+  const sourceNames = [
+    ...new Set((evoSourceRes.data ?? []).map((row) => row.pokemon_name)),
+  ]
   const sourceRegionsByName = new Map<string, string>()
   if (sourceNames.length > 0) {
     const { data: sourcePokemon, error: sourcePokemonError } = await supabase
@@ -461,7 +591,8 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
       .select('name, region')
       .in('name', sourceNames)
     if (sourcePokemonError) throw new Error(sourcePokemonError.message)
-    for (const row of sourcePokemon ?? []) sourceRegionsByName.set(row.name, row.region)
+    for (const row of sourcePokemon ?? [])
+      sourceRegionsByName.set(row.name, row.region)
   }
 
   const moveKeys = new Set<string>()
@@ -538,8 +669,64 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
       }
     }),
     sprites: { front: p.front_sprite, back: p.back_sprite },
-    ability: ability ? { name: ability.name, description: ability.description } : null,
+    ability: ability
+      ? { name: ability.name, description: ability.description }
+      : null,
+    encounters: (encounterRes.data ?? []).map((row) => ({
+      region: row.region,
+      route: row.route,
+      method: row.method,
+      rate: row.rate,
+      time: row.time ?? undefined,
+    })),
   }
+}
+
+export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('location_encounters')
+    .select('region, route, method, time, rate, pokemon_name, pokemon_region')
+    .order('region')
+    .order('route')
+    .order('method')
+    .order('time')
+    .order('id')
+  if (error) throw new Error(error.message)
+
+  const routesByKey = new Map<string, EncounterRoute>()
+  for (const row of data ?? []) {
+    const key = `${row.region}:${row.route}`
+    const existing: EncounterRoute = routesByKey.get(key) ?? {
+      region: row.region,
+      route: row.route,
+      grass: [],
+      water: [],
+    }
+
+    if (row.method === 'grass' && row.time) {
+      let grass = existing.grass.find((entry) => entry.time === row.time)
+      if (!grass) {
+        grass = { time: row.time, encounters: [] }
+        existing.grass.push(grass)
+      }
+      grass.encounters.push({
+        pokemon: { name: row.pokemon_name, region: row.pokemon_region },
+        rate: row.rate,
+      })
+    }
+
+    if (row.method === 'water') {
+      existing.water.push({
+        pokemon: { name: row.pokemon_name, region: row.pokemon_region },
+        rate: row.rate,
+      })
+    }
+
+    routesByKey.set(key, existing)
+  }
+
+  return [...routesByKey.values()]
 }
 
 export async function listMoves(): Promise<MoveDef[]> {
@@ -563,7 +750,10 @@ export async function getMove(key: string): Promise<MoveDef | null> {
   return data ? (data as MoveDef) : null
 }
 
-export async function getAbout(): Promise<{ version: string; lastSynced: string | null }> {
+export async function getAbout(): Promise<{
+  version: string
+  lastSynced: string | null
+}> {
   const supabase = getSupabase()
   const { data, error } = await supabase
     .from('pokemon')

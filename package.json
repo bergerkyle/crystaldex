@@ -11,7 +11,9 @@
     "dev:web": "vite",
     "dev:api": "tsx watch api/index.ts",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.3",
@@ -29,6 +31,7 @@
     "autoprefixer": "^10.5.2",
     "concurrently": "^10.0.3",
     "postcss": "^8.5.19",
+    "prettier": "^3.9.5",
     "tailwindcss": "3.4.17",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

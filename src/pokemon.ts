@@ -80,6 +80,40 @@ export interface Ability {
   description: string
 }
 
+export type EncounterMethod = 'grass' | 'water'
+
+export type EncounterTime = 'morn' | 'day' | 'nite'
+
+export interface EncounterPokemon {
+  name: string
+  region: string
+}
+
+export interface EncounterRate {
+  pokemon: EncounterPokemon
+  rate: number
+}
+
+export interface RouteGrassEncounters {
+  time: EncounterTime
+  encounters: EncounterRate[]
+}
+
+export interface RouteEncounter {
+  region: string
+  route: string
+  grass: RouteGrassEncounters[]
+  water: EncounterRate[]
+}
+
+export interface PokemonEncounter {
+  region: string
+  route: string
+  method: EncounterMethod
+  rate: number
+  time?: EncounterTime
+}
+
 export interface PokemonDetail {
   name: string
   region: string
@@ -91,6 +125,7 @@ export interface PokemonDetail {
   tmMoves: TmMove[]
   sprites: Sprites
   ability: Ability | null
+  encounters: PokemonEncounter[]
 }
 
 // Display order and colors requested for the stat bars.
@@ -166,6 +201,54 @@ export function formatConstant(raw: string): string {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
+}
+
+export function formatLocation(raw: string): string {
+  return raw
+    .split('_')
+    .filter(Boolean)
+    .map((segment) => {
+      if (/^\d+[a-z]$/i.test(segment)) return segment.toUpperCase()
+      if (/^[A-Z]?[0-9]+[A-Z]$/i.test(segment)) return segment.toUpperCase()
+      const lower = segment.toLowerCase()
+      return lower.charAt(0).toUpperCase() + lower.slice(1)
+    })
+    .join(' ')
+}
+
+export function formatEncounterMethod(method: EncounterMethod): string {
+  return method === 'grass' ? 'Grass' : 'Surf'
+}
+
+export function formatEncounterTime(time?: EncounterTime): string {
+  if (!time) return 'Any'
+  if (time === 'morn') return 'Morning'
+  if (time === 'nite') return 'Night'
+  return 'Day'
+}
+
+const REGION_DISPLAY_ORDER = ['kanto', 'johto', 'hoenn'] as const
+
+export function compareRegionOrder(left: string, right: string): number {
+  const leftIndex = REGION_DISPLAY_ORDER.indexOf(
+    left.toLowerCase() as (typeof REGION_DISPLAY_ORDER)[number],
+  )
+  const rightIndex = REGION_DISPLAY_ORDER.indexOf(
+    right.toLowerCase() as (typeof REGION_DISPLAY_ORDER)[number],
+  )
+  const normalizedLeft = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex
+  const normalizedRight =
+    rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex
+  return normalizedLeft !== normalizedRight
+    ? normalizedLeft - normalizedRight
+    : left.localeCompare(right)
+}
+
+export function compareLocationOrder(left: string, right: string): number {
+  return formatLocation(left).localeCompare(formatLocation(right), undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  })
 }
 
 // Human-readable description of an evolution's trigger (without the target name).

@@ -37,8 +37,12 @@ export function MovesView({
   onCloseSidebar,
   children,
 }: MovesViewProps) {
-  const [moveSortByType, setMoveSortByType] = useState<Record<string, MoveSortState>>({})
-  const [openTypeSections, setOpenTypeSections] = useState<Record<string, boolean>>({})
+  const [moveSortByType, setMoveSortByType] = useState<
+    Record<string, MoveSortState>
+  >({})
+  const [openTypeSections, setOpenTypeSections] = useState<
+    Record<string, boolean>
+  >({})
 
   const filteredMoves = useMemo(() => {
     const query = moveFilter.trim().toLowerCase()
@@ -52,15 +56,16 @@ export function MovesView({
   }, [moveList, moveFilter])
 
   const sortedGroupedMoves = useMemo(() => {
-    const compareBySort = (sort: MoveSortState) => (a: MoveCatalogItem, b: MoveCatalogItem) => {
-      const direction = sort.dir === 'asc' ? 1 : -1
-      if (sort.key === 'name' || sort.key === 'category') {
-        const left = String(a[sort.key]).toLowerCase()
-        const right = String(b[sort.key]).toLowerCase()
-        return left.localeCompare(right) * direction
+    const compareBySort =
+      (sort: MoveSortState) => (a: MoveCatalogItem, b: MoveCatalogItem) => {
+        const direction = sort.dir === 'asc' ? 1 : -1
+        if (sort.key === 'name' || sort.key === 'category') {
+          const left = String(a[sort.key]).toLowerCase()
+          const right = String(b[sort.key]).toLowerCase()
+          return left.localeCompare(right) * direction
+        }
+        return (a[sort.key] - b[sort.key]) * direction
       }
-      return (a[sort.key] - b[sort.key]) * direction
-    }
 
     const grouped = new Map<string, MoveCatalogItem[]>()
     for (const move of filteredMoves) {
@@ -143,7 +148,10 @@ export function MovesView({
                 key={type}
                 href={`#type-heading-${type}`}
                 className="type-jump-link"
-                style={{ backgroundColor: TYPE_HEADER_COLORS[type], color: '#fff' }}
+                style={{
+                  backgroundColor: TYPE_HEADER_COLORS[type],
+                  color: '#fff',
+                }}
               >
                 {TYPE_ICONS[type] && (
                   <img
@@ -162,9 +170,11 @@ export function MovesView({
         </div>
         {loadingMoveList && <p className="muted">Loading...</p>}
         {moveListError && <p className="error">{moveListError}</p>}
-        {!loadingMoveList && !moveListError && sortedGroupedMoves.length === 0 && (
-          <p className="muted">No moves found.</p>
-        )}
+        {!loadingMoveList &&
+          !moveListError &&
+          sortedGroupedMoves.length === 0 && (
+            <p className="muted">No moves found.</p>
+          )}
         {sortedGroupedMoves.map((group) => (
           <section className="move-type-section" key={group.type}>
             <h3
@@ -172,7 +182,9 @@ export function MovesView({
               id={`type-heading-${group.type}`}
               style={{
                 backgroundColor: TYPE_HEADER_COLORS[group.type] ?? '#666',
-                color: headerTextColor(TYPE_HEADER_COLORS[group.type] ?? '#666'),
+                color: headerTextColor(
+                  TYPE_HEADER_COLORS[group.type] ?? '#666',
+                ),
               }}
             >
               <span className="move-type-heading-inner">
@@ -193,27 +205,42 @@ export function MovesView({
                 <thead>
                   <tr>
                     <th>
-                      <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'name')}>
+                      <button
+                        className="sort-btn"
+                        onClick={() => toggleMoveSort(group.type, 'name')}
+                      >
                         Name{sortIndicator(group.type, 'name')}
                       </button>
                     </th>
                     <th>
-                      <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'category')}>
+                      <button
+                        className="sort-btn"
+                        onClick={() => toggleMoveSort(group.type, 'category')}
+                      >
                         Category{sortIndicator(group.type, 'category')}
                       </button>
                     </th>
                     <th>
-                      <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'power')}>
+                      <button
+                        className="sort-btn"
+                        onClick={() => toggleMoveSort(group.type, 'power')}
+                      >
                         Power{sortIndicator(group.type, 'power')}
                       </button>
                     </th>
                     <th>
-                      <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'accuracy')}>
+                      <button
+                        className="sort-btn"
+                        onClick={() => toggleMoveSort(group.type, 'accuracy')}
+                      >
                         Accuracy{sortIndicator(group.type, 'accuracy')}
                       </button>
                     </th>
                     <th>
-                      <button className="sort-btn" onClick={() => toggleMoveSort(group.type, 'pp')}>
+                      <button
+                        className="sort-btn"
+                        onClick={() => toggleMoveSort(group.type, 'pp')}
+                      >
                         PP{sortIndicator(group.type, 'pp')}
                       </button>
                     </th>
@@ -221,7 +248,11 @@ export function MovesView({
                 </thead>
                 <tbody>
                   {group.moves.map((m) => (
-                    <tr key={m.key} className="move-table-row" onClick={() => onOpenMove(m.key)}>
+                    <tr
+                      key={m.key}
+                      className="move-table-row"
+                      onClick={() => onOpenMove(m.key)}
+                    >
                       <td className="move-table-name-cell">{m.name}</td>
                       <td>
                         <CategoryMetaChip category={m.category} />
@@ -248,7 +279,10 @@ export function MovesView({
         aria-label="Close moves sidebar"
       />
 
-      <aside className={`moves-sidebar ${mobileSidebarOpen ? 'open' : ''}`} aria-label="Moves by type">
+      <aside
+        className={`moves-sidebar ${mobileSidebarOpen ? 'open' : ''}`}
+        aria-label="Moves by type"
+      >
         <div className="moves-sidebar-head">
           <button
             className="moves-sidebar-title moves-sidebar-title-btn"
@@ -279,60 +313,69 @@ export function MovesView({
         />
         {loadingMoveList && <p className="muted">Loading...</p>}
         {moveListError && <p className="error">{moveListError}</p>}
-        {!loadingMoveList && !moveListError && sidebarGroupedMoves.length === 0 && (
-          <p className="muted">No moves found.</p>
-        )}
+        {!loadingMoveList &&
+          !moveListError &&
+          sidebarGroupedMoves.length === 0 && (
+            <p className="muted">No moves found.</p>
+          )}
         <div className="moves-sidebar-scroll">
           {sidebarGroupedMoves.map((group) => (
-            <section className="moves-sidebar-type" key={`sidebar-${group.type}`}>
+            <section
+              className="moves-sidebar-type"
+              key={`sidebar-${group.type}`}
+            >
               {(() => {
-                const isOpen = isFilteringMoves || openTypeSections[group.type] === true
+                const isOpen =
+                  isFilteringMoves || openTypeSections[group.type] === true
 
                 return (
                   <>
-              <button
-                className="moves-sidebar-type-toggle"
-                onClick={() => toggleTypeSection(group.type)}
-                style={{
-                  backgroundColor: TYPE_HEADER_COLORS[group.type] ?? '#666',
-                  color: headerTextColor(TYPE_HEADER_COLORS[group.type] ?? '#666'),
-                }}
-                aria-expanded={isOpen}
-              >
-                <span className="moves-sidebar-type-label">
-                  {TYPE_ICONS[group.type] && (
-                    <img
-                      className="type-jump-icon"
-                      src={TYPE_ICONS[group.type]}
-                      alt=""
-                      width={14}
-                      height={14}
-                      aria-hidden="true"
-                    />
-                  )}
-                  {formatConstant(group.type)}
-                </span>
-                <span className="moves-sidebar-caret" aria-hidden="true">
-                  {isOpen ? '▾' : '▸'}
-                </span>
-              </button>
-              {isOpen && (
-                <ul className="moves-sidebar-move-list">
-                  {group.moves.map((move) => (
-                    <li key={`sidebar-${group.type}-${move.key}`}>
-                      <button
-                        className="moves-sidebar-move-btn"
-                        onClick={() => {
-                          onOpenMove(move.key)
-                          onCloseSidebar()
-                        }}
-                      >
-                        {move.name}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                    <button
+                      className="moves-sidebar-type-toggle"
+                      onClick={() => toggleTypeSection(group.type)}
+                      style={{
+                        backgroundColor:
+                          TYPE_HEADER_COLORS[group.type] ?? '#666',
+                        color: headerTextColor(
+                          TYPE_HEADER_COLORS[group.type] ?? '#666',
+                        ),
+                      }}
+                      aria-expanded={isOpen}
+                    >
+                      <span className="moves-sidebar-type-label">
+                        {TYPE_ICONS[group.type] && (
+                          <img
+                            className="type-jump-icon"
+                            src={TYPE_ICONS[group.type]}
+                            alt=""
+                            width={14}
+                            height={14}
+                            aria-hidden="true"
+                          />
+                        )}
+                        {formatConstant(group.type)}
+                      </span>
+                      <span className="moves-sidebar-caret" aria-hidden="true">
+                        {isOpen ? '▾' : '▸'}
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <ul className="moves-sidebar-move-list">
+                        {group.moves.map((move) => (
+                          <li key={`sidebar-${group.type}-${move.key}`}>
+                            <button
+                              className="moves-sidebar-move-btn"
+                              onClick={() => {
+                                onOpenMove(move.key)
+                                onCloseSidebar()
+                              }}
+                            >
+                              {move.name}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </>
                 )
               })()}
@@ -341,9 +384,7 @@ export function MovesView({
         </div>
       </aside>
 
-      <main className="moves-page">
-        {renderMainContent()}
-      </main>
+      <main className="moves-page">{renderMainContent()}</main>
     </div>
   )
 }

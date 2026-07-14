@@ -6,16 +6,17 @@ interface MoveAutocompleteProps {
   onSelectMove: (key: string) => void
 }
 
-export function MoveAutocomplete({ moveList, onSelectMove }: MoveAutocompleteProps) {
+export function MoveAutocomplete({
+  moveList,
+  onSelectMove,
+}: MoveAutocompleteProps) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const trimmed = query.trim().toLowerCase()
   const suggestions = trimmed
-    ? moveList
-        .filter((m) => m.name.toLowerCase().startsWith(trimmed))
-        .slice(0, 5)
+    ? moveList.filter((m) => m.name.toLowerCase().startsWith(trimmed))
     : []
 
   const handleSelect = (key: string) => {
@@ -34,7 +35,10 @@ export function MoveAutocomplete({ moveList, onSelectMove }: MoveAutocompletePro
   // Close dropdown when clicking outside the component
   useEffect(() => {
     const handlePointerDown = (e: PointerEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         setOpen(false)
       }
     }

@@ -11,6 +11,17 @@ const MOVE_DESCRIPTIONS_PATH = 'data/moves/descriptions.asm'
 export const ITEM_CONSTANTS_PATH = 'constants/item_constants.asm'
 const ABILITIES_ASM_PATH = 'data/abilities/abilities.asm'
 const ABILITIES_DESCRIPTIONS_PATH = 'data/abilities/descriptions.asm'
+const WILD_PROBABILITIES_PATH = 'data/wild/probabilities.asm'
+const WILD_GRASS_PATHS = [
+  'data/wild/hoenn_grass.asm',
+  'data/wild/kanto_grass.asm',
+  'data/wild/johto_grass.asm',
+] as const
+const WILD_WATER_PATHS = [
+  'data/wild/hoenn_water.asm',
+  'data/wild/kanto_water.asm',
+  'data/wild/johto_water.asm',
+] as const
 
 export const SPRITE_BASE = `https://raw.githubusercontent.com/${REPO}/${REF}/gfx/pokemon`
 
@@ -86,11 +97,52 @@ export interface AbilityDef {
   description: string
 }
 
+export type EncounterMethod = 'grass' | 'water'
+
+export type EncounterTime = 'morn' | 'day' | 'nite'
+
+export interface EncounterPokemon {
+  name: string
+  region: string
+}
+
+export interface EncounterRate {
+  pokemon: EncounterPokemon
+  rate: number
+}
+
+export interface RouteGrassEncounters {
+  time: EncounterTime
+  encounters: EncounterRate[]
+}
+
+export interface RouteEncounter {
+  region: string
+  route: string
+  grass: RouteGrassEncounters[]
+  water: EncounterRate[]
+}
+
+export interface PokemonEncounter {
+  region: string
+  route: string
+  method: EncounterMethod
+  rate: number
+  time?: EncounterTime
+}
+
+export interface WildEncounterData {
+  routes: RouteEncounter[]
+  pokemon: Map<string, PokemonEncounter[]>
+}
+
 interface TreeNode {
   path: string
   type: string
   sha: string
 }
+
+let wildEncounterDataPromise: Promise<WildEncounterData> | null = null
 
 // ---------------------------------------------------------------------------
 // GitHub fetch helpers
@@ -121,7 +173,9 @@ export async function fetchTree(): Promise<TreeNode[]> {
 
 export async function fetchRaw(path: string): Promise<string> {
   const url = `https://raw.githubusercontent.com/${REPO}/${REF}/${path}`
-  const res = await fetch(url, { headers: { 'User-Agent': 'crystaldex-pokedex' } })
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'crystaldex-pokedex' },
+  })
   if (!res.ok) throw new Error(`Failed to fetch ${path} (${res.status})`)
   return res.text()
 }
@@ -198,7 +252,10 @@ export function normalizeKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
-function resolveTarget(species: string, entries: PokemonEntry[]): EvolutionTarget {
+function resolveTarget(
+  species: string,
+  entries: PokemonEntry[],
+): EvolutionTarget {
   const key = normalizeKey(species)
   const entry = entries.find((e) => normalizeKey(e.name) === key)
   return entry
@@ -206,27 +263,52 @@ function resolveTarget(species: string, entries: PokemonEntry[]): EvolutionTarge
     : { name: species.toLowerCase(), region: '' }
 }
 
-function parseEvolution(line: string, entries: PokemonEntry[]): Evolution | null {
+function parseEvolution(
+  line: string,
+  entries: PokemonEntry[],
+): Evolution | null {
   const trimmed = line.trim()
   if (trimmed.startsWith(';')) return null
 
   let m: RegExpMatchArray | null
 
-  if ((m = trimmed.match(/^dbbw\s+EVOLVE_LEVEL\s*,\s*(\d+)\s*,\s*([A-Z0-9_]+)/))) {
-    return { method: 'level', level: Number(m[1]), to: resolveTarget(m[2], entries) }
+  if (
+    (m = trimmed.match(/^dbbw\s+EVOLVE_LEVEL\s*,\s*(\d+)\s*,\s*([A-Z0-9_]+)/))
+  ) {
+    return {
+      method: 'level',
+      level: Number(m[1]),
+      to: resolveTarget(m[2], entries),
+    }
   }
-  if ((m = trimmed.match(/^dbww\s+EVOLVE_ITEM\s*,\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/))) {
+  if (
+    (m = trimmed.match(
+      /^dbww\s+EVOLVE_ITEM\s*,\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/,
+    ))
+  ) {
     return { method: 'item', item: m[1], to: resolveTarget(m[2], entries) }
   }
-  if ((m = trimmed.match(/^dbww\s+EVOLVE_TRADE\s*,\s*(-1|[A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/))) {
+  if (
+    (m = trimmed.match(
+      /^dbww\s+EVOLVE_TRADE\s*,\s*(-1|[A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/,
+    ))
+  ) {
     return {
       method: 'trade',
       item: m[1] === '-1' ? undefined : m[1],
       to: resolveTarget(m[2], entries),
     }
   }
-  if ((m = trimmed.match(/^dbbw\s+EVOLVE_HAPPINESS\s*,\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/))) {
-    return { method: 'happiness', condition: m[1], to: resolveTarget(m[2], entries) }
+  if (
+    (m = trimmed.match(
+      /^dbbw\s+EVOLVE_HAPPINESS\s*,\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/,
+    ))
+  ) {
+    return {
+      method: 'happiness',
+      condition: m[1],
+      to: resolveTarget(m[2], entries),
+    }
   }
   if (
     (m = trimmed.match(
@@ -340,15 +422,18 @@ function parseMoveNames(source: string): string[] {
 }
 
 function parseMoveDescriptions(source: string): string[] {
-  const labels = [...source.matchAll(/^\s*dw\s+([A-Za-z0-9_]+Description)\b/gm)].map(
-    (m) => m[1],
-  )
+  const labels = [
+    ...source.matchAll(/^\s*dw\s+([A-Za-z0-9_]+Description)\b/gm),
+  ].map((m) => m[1])
 
   const textByLabel = new Map<string, string>()
   let currentLabel: string | null = null
   let currentText = ''
 
-  const appendDescriptionFragment = (base: string, fragment: string): string => {
+  const appendDescriptionFragment = (
+    base: string,
+    fragment: string,
+  ): string => {
     const clean = fragment.replace(/@/g, '').trim()
     if (!clean) return base
     if (!base) return clean
@@ -382,12 +467,14 @@ function parseMoveDescriptions(source: string): string[] {
 // Move constants, stats (moves.asm), names (names.asm), and descriptions
 // (descriptions.asm) are parallel ordered lists.
 export async function fetchMoveCatalog(): Promise<MoveDef[]> {
-  const [constSource, statsSource, namesSource, descSource] = await Promise.all([
-    fetchRaw(MOVE_CONSTANTS_PATH),
-    fetchRaw(MOVES_ASM_PATH),
-    fetchRaw(MOVE_NAMES_PATH),
-    fetchRaw(MOVE_DESCRIPTIONS_PATH),
-  ])
+  const [constSource, statsSource, namesSource, descSource] = await Promise.all(
+    [
+      fetchRaw(MOVE_CONSTANTS_PATH),
+      fetchRaw(MOVES_ASM_PATH),
+      fetchRaw(MOVE_NAMES_PATH),
+      fetchRaw(MOVE_DESCRIPTIONS_PATH),
+    ],
+  )
   const keys = parseMoveConstants(constSource)
   const stats = parseMoveStats(statsSource)
   const names = parseMoveNames(namesSource)
@@ -401,7 +488,12 @@ export async function fetchMoveCatalog(): Promise<MoveDef[]> {
       `Move data length mismatch: constants=${keys.length}, stats=${stats.length}, names=${names.length}, descriptions=${descriptions.length}`,
     )
   }
-  const count = Math.min(keys.length, stats.length, names.length, descriptions.length)
+  const count = Math.min(
+    keys.length,
+    stats.length,
+    names.length,
+    descriptions.length,
+  )
   const catalog: MoveDef[] = []
   for (let i = 0; i < count; i++) {
     catalog.push({
@@ -449,6 +541,241 @@ export function parseTmHm(source: string): TmHmDef[] {
   return defs
 }
 
+function parseProbabilityTable(source: string, label: string): number[] {
+  const tableMatch = source.match(
+    new RegExp(`${label}:([\\s\\S]*?)assert_table_length`, 'm'),
+  )
+  if (!tableMatch) {
+    throw new Error(`Could not parse ${label} from wild probabilities`)
+  }
+
+  const rates: number[] = []
+  let previous = 0
+  for (const line of tableMatch[1].split('\n')) {
+    const match = line.match(/mon_prob\s+(\d+)\s*,\s*\d+/)
+    if (!match) continue
+    const cumulative = Number(match[1])
+    rates.push(cumulative - previous)
+    previous = cumulative
+  }
+  return rates
+}
+
+function resolveEncounterPokemon(
+  rawSpecies: string,
+  entriesByKey: Map<string, PokemonEntry>,
+): EncounterPokemon {
+  const key = normalizeKey(rawSpecies)
+  const entry = entriesByKey.get(key)
+  return entry
+    ? { name: entry.name, region: entry.region }
+    : { name: key, region: '' }
+}
+
+function mergeEncounterRates(
+  species: string[],
+  rates: number[],
+  entriesByKey: Map<string, PokemonEntry>,
+): EncounterRate[] {
+  const totals = new Map<string, EncounterRate>()
+  for (let index = 0; index < Math.min(species.length, rates.length); index++) {
+    const pokemon = resolveEncounterPokemon(species[index], entriesByKey)
+    const key = `${pokemon.region}:${pokemon.name}`
+    const existing = totals.get(key)
+    if (existing) {
+      existing.rate += rates[index]
+      continue
+    }
+    totals.set(key, { pokemon, rate: rates[index] })
+  }
+  return [...totals.values()].sort(
+    (a, b) => b.rate - a.rate || a.pokemon.name.localeCompare(b.pokemon.name),
+  )
+}
+
+function wildRegionFromPath(path: string): string {
+  const match = path.match(/\/([a-z0-9]+)_(grass|water)\.asm$/)
+  return match?.[1] ?? ''
+}
+
+function parseGrassWildFile(
+  sourceRegion: string,
+  source: string,
+  grassRates: number[],
+  entriesByKey: Map<string, PokemonEntry>,
+): RouteEncounter[] {
+  const routes: RouteEncounter[] = []
+  for (const block of source.matchAll(
+    /def_grass_wildmons\s+([A-Z0-9_]+)([\s\S]*?)end_grass_wildmons/g,
+  )) {
+    const route = block[1]
+    const body = block[2]
+    const slotsByTime: Record<EncounterTime, string[]> = {
+      morn: [],
+      day: [],
+      nite: [],
+    }
+    let currentTime: EncounterTime | null = null
+
+    for (const line of body.split('\n')) {
+      const timeMatch = line.match(/^\s*;\s*(morn|day|nite)\b/)
+      if (timeMatch) {
+        currentTime = timeMatch[1] as EncounterTime
+        continue
+      }
+      const monMatch = line.match(/^\s*dbw\s+\d+\s*,\s*([A-Z0-9_]+)/)
+      if (currentTime && monMatch) {
+        slotsByTime[currentTime].push(monMatch[1])
+      }
+    }
+
+    routes.push({
+      region: sourceRegion,
+      route,
+      grass: (['morn', 'day', 'nite'] as const).map((time) => ({
+        time,
+        encounters: mergeEncounterRates(
+          slotsByTime[time],
+          grassRates,
+          entriesByKey,
+        ),
+      })),
+      water: [],
+    })
+  }
+  return routes
+}
+
+function parseWaterWildFile(
+  sourceRegion: string,
+  source: string,
+  waterRates: number[],
+  entriesByKey: Map<string, PokemonEntry>,
+): RouteEncounter[] {
+  const routes: RouteEncounter[] = []
+  for (const block of source.matchAll(
+    /def_water_wildmons\s+([A-Z0-9_]+)([\s\S]*?)end_water_wildmons/g,
+  )) {
+    const route = block[1]
+    const species = [
+      ...block[2].matchAll(/^\s*dbw\s+\d+\s*,\s*([A-Z0-9_]+)/gm),
+    ].map((match) => match[1])
+    routes.push({
+      region: sourceRegion,
+      route,
+      grass: [],
+      water: mergeEncounterRates(species, waterRates, entriesByKey),
+    })
+  }
+  return routes
+}
+
+function buildPokemonEncounterIndex(
+  routes: RouteEncounter[],
+): Map<string, PokemonEncounter[]> {
+  const encountersByPokemon = new Map<string, PokemonEncounter[]>()
+
+  const pushEncounter = (
+    pokemon: EncounterPokemon,
+    encounter: PokemonEncounter,
+  ) => {
+    const list = encountersByPokemon.get(pokemon.name) ?? []
+    list.push(encounter)
+    encountersByPokemon.set(pokemon.name, list)
+  }
+
+  for (const route of routes) {
+    for (const grass of route.grass) {
+      for (const encounter of grass.encounters) {
+        pushEncounter(encounter.pokemon, {
+          region: route.region,
+          route: route.route,
+          method: 'grass',
+          time: grass.time,
+          rate: encounter.rate,
+        })
+      }
+    }
+    for (const encounter of route.water) {
+      pushEncounter(encounter.pokemon, {
+        region: route.region,
+        route: route.route,
+        method: 'water',
+        rate: encounter.rate,
+      })
+    }
+  }
+
+  return encountersByPokemon
+}
+
+export async function fetchWildEncounterData(): Promise<WildEncounterData> {
+  if (wildEncounterDataPromise) return wildEncounterDataPromise
+
+  wildEncounterDataPromise = (async () => {
+    const [tree, probabilitiesSource, ...wildSources] = await Promise.all([
+      fetchTree(),
+      fetchRaw(WILD_PROBABILITIES_PATH),
+      ...WILD_GRASS_PATHS.map((path) => fetchRaw(path)),
+      ...WILD_WATER_PATHS.map((path) => fetchRaw(path)),
+    ])
+
+    const entriesByKey = new Map(
+      entriesFromTree(tree).map((entry) => [normalizeKey(entry.name), entry]),
+    )
+    const grassRates = parseProbabilityTable(
+      probabilitiesSource,
+      'GrassMonProbTable',
+    )
+    const waterRates = parseProbabilityTable(
+      probabilitiesSource,
+      'WaterMonProbTable',
+    )
+
+    const routesByKey = new Map<string, RouteEncounter>()
+    const mergeRoute = (route: RouteEncounter) => {
+      const existing = routesByKey.get(route.route)
+      if (!existing) {
+        routesByKey.set(route.route, route)
+        return
+      }
+      if (route.grass.length > 0) existing.grass = route.grass
+      if (route.water.length > 0) existing.water = route.water
+    }
+
+    for (const [index, source] of wildSources
+      .slice(0, WILD_GRASS_PATHS.length)
+      .entries()) {
+      for (const route of parseGrassWildFile(
+        wildRegionFromPath(WILD_GRASS_PATHS[index]),
+        source,
+        grassRates,
+        entriesByKey,
+      ))
+        mergeRoute(route)
+    }
+    for (const [index, source] of wildSources
+      .slice(WILD_GRASS_PATHS.length)
+      .entries()) {
+      for (const route of parseWaterWildFile(
+        wildRegionFromPath(WILD_WATER_PATHS[index]),
+        source,
+        waterRates,
+        entriesByKey,
+      ))
+        mergeRoute(route)
+    }
+
+    const routes = [...routesByKey.values()]
+    return {
+      routes,
+      pokemon: buildPokemonEncounterIndex(routes),
+    }
+  })()
+
+  return wildEncounterDataPromise
+}
+
 // The `tmhm` macro line in a base_stats file lists the move constants a Pokémon
 // can learn from TMs/HMs (and move tutors).
 export function parseTmHmLearnset(source: string): string[] {
@@ -464,7 +791,11 @@ export function parseTmHmLearnset(source: string): string[] {
 // Sprite URLs point straight at GitHub's CDN (already cached by the browser and
 // GitHub). When a sprite file is edited its git SHA changes, so we append it as
 // a version query to bust stale browser caches without proxying the bytes.
-export function spriteUrl(name: string, kind: 'front' | 'back', sha?: string): string {
+export function spriteUrl(
+  name: string,
+  kind: 'front' | 'back',
+  sha?: string,
+): string {
   const url = `${SPRITE_BASE}/${name}/${kind}.png`
   return sha ? `${url}?v=${sha.slice(0, 8)}` : url
 }
@@ -509,7 +840,9 @@ function parseAbilityDescriptions(source: string): Map<string, string> {
 
 // Parse XxxMons:: dw POKEMON ... dw -1 blocks from abilities.asm.
 // Returns [{abilityKey, mons[]}] in file order (pokemon names are lowercased).
-function parseAbilityMons(source: string): { abilityKey: string; mons: string[] }[] {
+function parseAbilityMons(
+  source: string,
+): { abilityKey: string; mons: string[] }[] {
   const result: { abilityKey: string; mons: string[] }[] = []
   let current: { abilityKey: string; mons: string[] } | null = null
 

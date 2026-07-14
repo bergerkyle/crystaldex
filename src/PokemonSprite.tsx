@@ -96,7 +96,13 @@ export function AnimatedFrontSprite({
 // animation frames (frame size == image width). If there is more than one
 // frame it plays as a looping animation; otherwise it shows the single frame.
 // The back image is a single sprite rendered as-is.
-export function PokemonSprite({ front, back }: { front: string; back: string }) {
+export function PokemonSprite({
+  front,
+  back,
+}: {
+  front: string
+  back: string
+}) {
   const [frontError, setFrontError] = useState(false)
   const [backError, setBackError] = useState(false)
 

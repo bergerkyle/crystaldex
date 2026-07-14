@@ -1,5 +1,13 @@
 import express from 'express'
-import { getAbout, getMove, getPokemon, listMoves, listPokemon, syncDatabase } from './postgres.js'
+import {
+  getAbout,
+  getMove,
+  getPokemon,
+  listEncounterRoutes,
+  listMoves,
+  listPokemon,
+  syncDatabase,
+} from './postgres.js'
 
 // Load local env files for dev; on Vercel the env vars are injected directly.
 // `process.loadEnvFile()` with no argument only reads `.env`, so load the
@@ -25,14 +33,21 @@ app.get('/api/pokemon', async (_req, res) => {
   console.log('[pokemon:list] request start')
   try {
     const payload = await listPokemon()
-    console.log(`[pokemon:list] returning ${payload.length} rows in ${Date.now() - startedAt}ms`)
+    console.log(
+      `[pokemon:list] returning ${payload.length} rows in ${Date.now() - startedAt}ms`,
+    )
     res.json(payload)
   } catch (err) {
     console.error(
       `[pokemon:list] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Failed to load Pokémon list' })
+    res
+      .status(502)
+      .json({
+        error:
+          err instanceof Error ? err.message : 'Failed to load Pokémon list',
+      })
   }
 })
 
@@ -47,14 +62,45 @@ app.get('/api/pokemon/:name', async (req, res) => {
       res.status(404).json({ error: 'Pokémon not found' })
       return
     }
-    console.log(`[pokemon:detail] success for ${name} in ${Date.now() - startedAt}ms`)
+    console.log(
+      `[pokemon:detail] success for ${name} in ${Date.now() - startedAt}ms`,
+    )
     res.json(detail)
   } catch (err) {
     console.error(
       `[pokemon:detail] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Failed to load Pokémon' })
+    res
+      .status(502)
+      .json({
+        error: err instanceof Error ? err.message : 'Failed to load Pokémon',
+      })
+  }
+})
+
+app.get('/api/encounters/routes', async (_req, res) => {
+  const startedAt = Date.now()
+  console.log('[encounters:routes] request start')
+  try {
+    const routes = await listEncounterRoutes()
+    console.log(
+      `[encounters:routes] returning ${routes.length} rows in ${Date.now() - startedAt}ms`,
+    )
+    res.json(routes)
+  } catch (err) {
+    console.error(
+      `[encounters:routes] failed after ${Date.now() - startedAt}ms:`,
+      err instanceof Error ? err.message : err,
+    )
+    res
+      .status(502)
+      .json({
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Failed to load encounter routes',
+      })
   }
 })
 
@@ -67,14 +113,20 @@ app.get('/api/moves', async (_req, res) => {
   console.log('[moves:list] request start')
   try {
     const moves = await listMoves()
-    console.log(`[moves:list] returning ${moves.length} rows in ${Date.now() - startedAt}ms`)
+    console.log(
+      `[moves:list] returning ${moves.length} rows in ${Date.now() - startedAt}ms`,
+    )
     res.json(moves)
   } catch (err) {
     console.error(
       `[moves:list] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Failed to load moves' })
+    res
+      .status(502)
+      .json({
+        error: err instanceof Error ? err.message : 'Failed to load moves',
+      })
   }
 })
 
@@ -89,14 +141,20 @@ app.get('/api/moves/:key', async (req, res) => {
       res.status(404).json({ error: 'Move not found' })
       return
     }
-    console.log(`[moves:detail] success for ${key} in ${Date.now() - startedAt}ms`)
+    console.log(
+      `[moves:detail] success for ${key} in ${Date.now() - startedAt}ms`,
+    )
     res.json(move)
   } catch (err) {
     console.error(
       `[moves:detail] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Failed to load move' })
+    res
+      .status(502)
+      .json({
+        error: err instanceof Error ? err.message : 'Failed to load move',
+      })
   }
 })
 
@@ -116,7 +174,9 @@ app.get('/api/sync', async (req, res) => {
     const result = await syncDatabase()
     res.json({ status: 'ok', ...result })
   } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : 'Sync failed' })
+    res
+      .status(500)
+      .json({ error: err instanceof Error ? err.message : 'Sync failed' })
   }
 })
 
@@ -129,7 +189,11 @@ app.get('/api/about', async (_req, res) => {
     const about = await getAbout()
     res.json(about)
   } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Failed to load about info' })
+    res
+      .status(502)
+      .json({
+        error: err instanceof Error ? err.message : 'Failed to load about info',
+      })
   }
 })
 

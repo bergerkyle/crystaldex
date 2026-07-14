@@ -83,7 +83,10 @@ export function TypeMetaChip({ type }: { type: string }) {
   return (
     <span
       className="meta-chip meta-chip-type"
-      style={{ backgroundColor: TYPE_HEADER_COLORS[key] ?? '#666', color: '#fff' }}
+      style={{
+        backgroundColor: TYPE_HEADER_COLORS[key] ?? '#666',
+        color: '#fff',
+      }}
     >
       {TYPE_ICONS[key] && (
         <img

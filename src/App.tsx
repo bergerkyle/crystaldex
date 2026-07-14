@@ -1,15 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AppHeader } from './components/AppHeader'
 import { AboutView } from './views/AboutView'
+import { LocationDetailView } from './views/LocationDetailView'
+import { LocationsLayout } from './views/LocationsLayout'
+import { LocationsView } from './views/LocationsView'
 import { MoveDetailView } from './views/MoveDetailView'
 import { MovesView } from './views/MovesView'
 import { PokedexView } from './views/PokedexView'
-import { type MoveCatalogItem, type PokemonDetail, type PokemonListItem } from './pokemon'
+import {
+  type MoveCatalogItem,
+  type PokemonDetail,
+  type PokemonListItem,
+  type RouteEncounter,
+} from './pokemon'
 
 type Route =
   | { view: 'pokedex'; pokemon?: string }
   | { view: 'moves' }
   | { view: 'move'; key: string }
+  | { view: 'locations' }
+  | { view: 'location'; region: string; route: string }
   | { view: 'about' }
 
 function parseRoute(pathname: string, search: string): Route {
@@ -18,16 +28,37 @@ function parseRoute(pathname: string, search: string): Route {
   const moveFromQuery = params.get('move')?.trim()
 
   if (pathname.startsWith('/moves/')) {
-    const key = decodeURIComponent(pathname.slice('/moves/'.length)).trim().toUpperCase()
+    const key = decodeURIComponent(pathname.slice('/moves/'.length))
+      .trim()
+      .toUpperCase()
     if (key) return { view: 'move', key }
   }
   if (pathname === '/moves') {
     if (moveFromQuery) return { view: 'move', key: moveFromQuery.toUpperCase() }
     return { view: 'moves' }
   }
+  if (pathname.startsWith('/locations/')) {
+    const parts = pathname
+      .slice('/locations/'.length)
+      .split('/')
+      .map((part) => decodeURIComponent(part).trim())
+      .filter(Boolean)
+    if (parts.length >= 2) {
+      return {
+        view: 'location',
+        region: parts[0].toLowerCase(),
+        route: parts.slice(1).join('/').toUpperCase(),
+      }
+    }
+  }
+  if (pathname === '/locations' || pathname === '/encounters') {
+    return { view: 'locations' }
+  }
 
   if (pathname.startsWith('/pokedex/')) {
-    const pokemon = decodeURIComponent(pathname.slice('/pokedex/'.length)).trim().toLowerCase()
+    const pokemon = decodeURIComponent(pathname.slice('/pokedex/'.length))
+      .trim()
+      .toLowerCase()
     if (pokemon) return { view: 'pokedex', pokemon }
   }
   if (pathname === '/pokedex' && pokemonFromQuery) {
@@ -35,16 +66,23 @@ function parseRoute(pathname: string, search: string): Route {
   }
 
   if (moveFromQuery) return { view: 'move', key: moveFromQuery.toUpperCase() }
-  if (pokemonFromQuery) return { view: 'pokedex', pokemon: pokemonFromQuery.toLowerCase() }
+  if (pokemonFromQuery)
+    return { view: 'pokedex', pokemon: pokemonFromQuery.toLowerCase() }
 
   return { view: 'pokedex' }
 }
 
 function routePath(route: Route): string {
   if (route.view === 'about') return '/about'
+  if (route.view === 'locations') return '/locations'
+  if (route.view === 'location') {
+    return `/locations/${encodeURIComponent(route.region.toLowerCase())}/${encodeURIComponent(route.route.toUpperCase())}`
+  }
   if (route.view === 'moves') return '/moves'
-  if (route.view === 'move') return `/moves/${encodeURIComponent(route.key.toUpperCase())}`
-  if (route.pokemon) return `/pokedex/${encodeURIComponent(route.pokemon.toUpperCase())}`
+  if (route.view === 'move')
+    return `/moves/${encodeURIComponent(route.key.toUpperCase())}`
+  if (route.pokemon)
+    return `/pokedex/${encodeURIComponent(route.pokemon.toUpperCase())}`
   return '/pokedex'
 }
 
@@ -57,7 +95,8 @@ export default function App() {
   const [listError, setListError] = useState<string | null>(null)
   const [loadingList, setLoadingList] = useState(true)
   const [filter, setFilter] = useState('')
-  const [mobilePokedexSidebarOpen, setMobilePokedexSidebarOpen] = useState(false)
+  const [mobilePokedexSidebarOpen, setMobilePokedexSidebarOpen] =
+    useState(false)
 
   const [detail, setDetail] = useState<PokemonDetail | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
@@ -76,6 +115,14 @@ export default function App() {
   const [lastSynced, setLastSynced] = useState<string | null>(null)
   const [aboutVersion, setAboutVersion] = useState<string>('0.0.0')
   const [loadingAbout, setLoadingAbout] = useState(false)
+  const [encounterRoutes, setEncounterRoutes] = useState<RouteEncounter[]>([])
+  const [encounterRoutesError, setEncounterRoutesError] = useState<
+    string | null
+  >(null)
+  const [loadingEncounterRoutes, setLoadingEncounterRoutes] = useState(false)
+  const [locationFilter, setLocationFilter] = useState('')
+  const [mobileLocationsSidebarOpen, setMobileLocationsSidebarOpen] =
+    useState(false)
 
   useEffect(() => {
     const onPopState = () =>
@@ -119,7 +166,7 @@ export default function App() {
       .finally(() => setLoadingMoveList(false))
   }, [])
 
-  const selected = route.view === 'pokedex' ? route.pokemon ?? null : null
+  const selected = route.view === 'pokedex' ? (route.pokemon ?? null) : null
 
   useEffect(() => {
     if (route.view !== 'pokedex') {
@@ -134,13 +181,20 @@ export default function App() {
   }, [route.view])
 
   useEffect(() => {
+    if (route.view !== 'locations' && route.view !== 'location') {
+      setMobileLocationsSidebarOpen(false)
+    }
+  }, [route.view])
+
+  useEffect(() => {
     if (route.view !== 'pokedex' || !selected) return
     setLoadingDetail(true)
     setDetailError(null)
     setDetail(null)
     fetch(`/api/pokemon/${encodeURIComponent(selected)}`)
       .then((res) => {
-        if (!res.ok) throw new Error(`Failed to load ${selected} (${res.status})`)
+        if (!res.ok)
+          throw new Error(`Failed to load ${selected} (${res.status})`)
         return res.json() as Promise<PokemonDetail>
       })
       .then(setDetail)
@@ -163,7 +217,9 @@ export default function App() {
       })
       .then(setMoveDetail)
       .catch((err: unknown) =>
-        setMoveDetailError(err instanceof Error ? err.message : 'Unknown error'),
+        setMoveDetailError(
+          err instanceof Error ? err.message : 'Unknown error',
+        ),
       )
       .finally(() => setLoadingMoveDetail(false))
   }, [route])
@@ -174,7 +230,10 @@ export default function App() {
     fetch('/api/about')
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load about (${res.status})`)
-        return res.json() as Promise<{ version: string; lastSynced: string | null }>
+        return res.json() as Promise<{
+          version: string
+          lastSynced: string | null
+        }>
       })
       .then((data) => {
         setAboutVersion(data.version)
@@ -187,29 +246,91 @@ export default function App() {
       .finally(() => setLoadingAbout(false))
   }, [route.view])
 
+  useEffect(() => {
+    if (
+      (route.view !== 'locations' && route.view !== 'location') ||
+      encounterRoutes.length > 0 ||
+      loadingEncounterRoutes
+    )
+      return
+    setLoadingEncounterRoutes(true)
+    setEncounterRoutesError(null)
+    fetch('/api/encounters/routes')
+      .then((res) => {
+        if (!res.ok)
+          throw new Error(`Failed to load encounters (${res.status})`)
+        return res.json() as Promise<RouteEncounter[]>
+      })
+      .then(setEncounterRoutes)
+      .catch((err: unknown) =>
+        setEncounterRoutesError(
+          err instanceof Error ? err.message : 'Unknown error',
+        ),
+      )
+      .finally(() => setLoadingEncounterRoutes(false))
+  }, [route.view, encounterRoutes.length, loadingEncounterRoutes])
+
   const allNames = useMemo(
     () => new Set(list.map((p) => p.name.toLowerCase())),
     [list],
   )
 
+  const filteredLocationRoutes = useMemo(() => {
+    const query = locationFilter.trim().toLowerCase()
+    if (!query) return encounterRoutes
+    return encounterRoutes.filter((route) => {
+      const location = route.route.toLowerCase()
+      const formattedLocation = route.route.toLowerCase().replace(/_/g, ' ')
+      const region = route.region.toLowerCase()
+      return (
+        location.includes(query) ||
+        formattedLocation.includes(query) ||
+        region.includes(query)
+      )
+    })
+  }, [encounterRoutes, locationFilter])
+
   return (
     <div className="app-shell">
       <AppHeader
-        active={route.view === 'pokedex' ? 'pokedex' : route.view === 'about' ? 'about' : 'moves'}
+        active={
+          route.view === 'pokedex'
+            ? 'pokedex'
+            : route.view === 'about'
+              ? 'about'
+              : route.view === 'locations' || route.view === 'location'
+                ? 'locations'
+                : 'moves'
+        }
         onNavigateHome={() => navigate({ view: 'pokedex' })}
         onNavigatePokedex={() => navigate({ view: 'pokedex' })}
         onNavigateMoves={() => navigate({ view: 'moves' })}
+        onNavigateLocations={() => navigate({ view: 'locations' })}
         onNavigateAbout={() => navigate({ view: 'about' })}
         mobileSidebarOpen={
-          route.view === 'pokedex' ? mobilePokedexSidebarOpen : mobileMovesSidebarOpen
+          route.view === 'pokedex'
+            ? mobilePokedexSidebarOpen
+            : route.view === 'moves' || route.view === 'move'
+              ? mobileMovesSidebarOpen
+              : route.view === 'locations' || route.view === 'location'
+                ? mobileLocationsSidebarOpen
+                : undefined
         }
-        onToggleSidebar={route.view === 'about' ? undefined : () => {
-          if (route.view === 'pokedex') {
-            setMobilePokedexSidebarOpen((isOpen) => !isOpen)
-          } else {
-            setMobileMovesSidebarOpen((isOpen) => !isOpen)
-          }
-        }}
+        onToggleSidebar={
+          route.view === 'pokedex'
+            ? () => {
+                setMobilePokedexSidebarOpen((isOpen) => !isOpen)
+              }
+            : route.view === 'moves' || route.view === 'move'
+              ? () => {
+                  setMobileMovesSidebarOpen((isOpen) => !isOpen)
+                }
+              : route.view === 'locations' || route.view === 'location'
+                ? () => {
+                    setMobileLocationsSidebarOpen((isOpen) => !isOpen)
+                  }
+                : undefined
+        }
       />
 
       {route.view === 'pokedex' && (
@@ -225,8 +346,13 @@ export default function App() {
           allNames={allNames}
           onFilterChange={setFilter}
           onNavigatePokedexHome={() => navigate({ view: 'pokedex' })}
-          onSelectPokemon={(name) => navigate({ view: 'pokedex', pokemon: name })}
+          onSelectPokemon={(name) =>
+            navigate({ view: 'pokedex', pokemon: name })
+          }
           onOpenMove={(key) => navigate({ view: 'move', key })}
+          onOpenLocation={(region, routeName) =>
+            navigate({ view: 'location', region, route: routeName })
+          }
           mobileSidebarOpen={mobilePokedexSidebarOpen}
           onCloseSidebar={() => setMobilePokedexSidebarOpen(false)}
         />
@@ -268,7 +394,61 @@ export default function App() {
         </MovesView>
       )}
       {route.view === 'about' && (
-        <AboutView version={aboutVersion} lastSynced={lastSynced} loadingAbout={loadingAbout} />
+        <AboutView
+          version={aboutVersion}
+          lastSynced={lastSynced}
+          loadingAbout={loadingAbout}
+        />
+      )}
+      {(route.view === 'locations' || route.view === 'location') && (
+        <LocationsLayout
+          routes={filteredLocationRoutes}
+          loading={loadingEncounterRoutes}
+          error={encounterRoutesError}
+          locationFilter={locationFilter}
+          onLocationFilterChange={setLocationFilter}
+          onOpenLocation={(region, routeName) =>
+            navigate({ view: 'location', region, route: routeName })
+          }
+          onNavigateLocationsHome={() => navigate({ view: 'locations' })}
+          mobileSidebarOpen={mobileLocationsSidebarOpen}
+          onCloseSidebar={() => setMobileLocationsSidebarOpen(false)}
+        >
+          {route.view === 'locations' ? (
+            <LocationsView
+              routes={filteredLocationRoutes}
+              loading={loadingEncounterRoutes}
+              error={encounterRoutesError}
+              allRoutes={encounterRoutes}
+              onOpenLocation={(region, routeName) =>
+                navigate({ view: 'location', region, route: routeName })
+              }
+            />
+          ) : (
+            <LocationDetailView
+              routeDetail={
+                encounterRoutes.find(
+                  (routeEntry) =>
+                    routeEntry.region.toLowerCase() ===
+                      route.region.toLowerCase() &&
+                    routeEntry.route.toUpperCase() ===
+                      route.route.toUpperCase(),
+                ) ?? null
+              }
+              allRoutes={encounterRoutes}
+              loading={loadingEncounterRoutes}
+              error={encounterRoutesError}
+              allNames={allNames}
+              onBack={() => navigate({ view: 'locations' })}
+              onOpenLocation={(region, routeName) =>
+                navigate({ view: 'location', region, route: routeName })
+              }
+              onSelectPokemon={(name: string) =>
+                navigate({ view: 'pokedex', pokemon: name })
+              }
+            />
+          )}
+        </LocationsLayout>
       )}
     </div>
   )
