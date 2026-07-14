@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { formatName, type PokemonDetail, type PokemonListItem } from '../pokemon'
 import { AnimatedFrontSprite } from '../PokemonSprite'
 import { PokemonDetailView } from './PokemonDetailView'
@@ -41,6 +41,8 @@ export function PokedexView({
 }: PokedexViewProps) {
   const [typeFilter, setTypeFilter] = useState('')
   const [regionFilter, setRegionFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 24
 
   const allTypes = useMemo(() => {
     const set = new Set<string>()
@@ -69,6 +71,13 @@ export function PokedexView({
       formatName(b.name, b.region, allNames),
     ),
   )
+
+  useEffect(() => {
+    setPage(1)
+  }, [query, typeFilter, regionFilter])
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
+  const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div className="pokedex">
@@ -198,7 +207,7 @@ export function PokedexView({
 
             {!loadingList && !listError && sorted.length > 0 && (
               <ul className="pokemon-card-grid">
-                {sorted.map((p) => (
+                {paginated.map((p) => (
                   <li key={`${p.region}/${p.name}`}>
                     <button
                       className="pokemon-card"
@@ -225,6 +234,30 @@ export function PokedexView({
                   </li>
                 ))}
               </ul>
+            )}
+
+            {!loadingList && !listError && sorted.length > 0 && totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="pagination-btn"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  aria-label="Previous page"
+                >
+                  ← Prev
+                </button>
+                <span className="pagination-info">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  aria-label="Next page"
+                >
+                  Next →
+                </button>
+              </div>
             )}
 
             {!loadingList && !listError && sorted.length === 0 && (
