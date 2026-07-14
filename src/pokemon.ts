@@ -80,7 +80,9 @@ export interface Ability {
   description: string
 }
 
-export type EncounterMethod = 'grass' | 'water'
+export type EncounterMethod = 'grass' | 'water' | 'fishing'
+
+export type FishingRod = 'old' | 'good' | 'super'
 
 export type EncounterTime = 'morn' | 'day' | 'nite'
 
@@ -104,6 +106,13 @@ export interface RouteEncounter {
   route: string
   grass: RouteGrassEncounters[]
   water: EncounterRate[]
+  fishing: RouteFishingEncounters[]
+}
+
+export interface RouteFishingEncounters {
+  rod: FishingRod
+  time?: EncounterTime
+  encounters: EncounterRate[]
 }
 
 export interface PokemonEncounter {
@@ -112,6 +121,7 @@ export interface PokemonEncounter {
   method: EncounterMethod
   rate: number
   time?: EncounterTime
+  rod?: FishingRod
 }
 
 export interface PokemonDetail {
@@ -217,7 +227,16 @@ export function formatLocation(raw: string): string {
 }
 
 export function formatEncounterMethod(method: EncounterMethod): string {
-  return method === 'grass' ? 'Grass' : 'Surf'
+  if (method === 'grass') return 'Grass'
+  if (method === 'water') return 'Surf'
+  return 'Fishing'
+}
+
+export function formatFishingRod(rod?: FishingRod): string {
+  if (!rod) return 'Any'
+  if (rod === 'old') return 'Old Rod'
+  if (rod === 'good') return 'Good Rod'
+  return 'Super Rod'
 }
 
 export function formatEncounterTime(time?: EncounterTime): string {

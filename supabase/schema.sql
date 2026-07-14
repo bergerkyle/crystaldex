@@ -82,12 +82,30 @@ create table if not exists public.location_encounters (
   id             bigint generated always as identity primary key,
   region         text not null,
   route          text not null,
-  method         text not null check (method in ('grass', 'water')),
+  method         text not null check (method in ('grass', 'water', 'fishing')),
+  rod            text check (rod in ('old', 'good', 'super')),
   time           text check (time in ('morn', 'day', 'nite')),
   pokemon_name   text not null references public.pokemon(name) on delete cascade,
   pokemon_region text not null default '',
   rate           integer not null check (rate >= 0)
 );
+
+alter table public.location_encounters
+  add column if not exists rod text;
+
+alter table public.location_encounters
+  drop constraint if exists location_encounters_method_check;
+
+alter table public.location_encounters
+  add constraint location_encounters_method_check
+  check (method in ('grass', 'water', 'fishing'));
+
+alter table public.location_encounters
+  drop constraint if exists location_encounters_rod_check;
+
+alter table public.location_encounters
+  add constraint location_encounters_rod_check
+  check (rod is null or rod in ('old', 'good', 'super'));
 
 -- Ability catalog: one row per ability, referenced by many Pokémon.
 create table if not exists public.abilities (

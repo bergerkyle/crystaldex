@@ -22,6 +22,8 @@ const WILD_WATER_PATHS = [
   'data/wild/kanto_water.asm',
   'data/wild/johto_water.asm',
 ] as const
+const WILD_FISH_PATH = 'data/wild/fish.asm'
+const MAPS_PATH = 'data/maps/maps.asm'
 
 export const SPRITE_BASE = `https://raw.githubusercontent.com/${REPO}/${REF}/gfx/pokemon`
 
@@ -97,7 +99,9 @@ export interface AbilityDef {
   description: string
 }
 
-export type EncounterMethod = 'grass' | 'water'
+export type EncounterMethod = 'grass' | 'water' | 'fishing'
+
+export type FishingRod = 'old' | 'good' | 'super'
 
 export type EncounterTime = 'morn' | 'day' | 'nite'
 
@@ -121,6 +125,13 @@ export interface RouteEncounter {
   route: string
   grass: RouteGrassEncounters[]
   water: EncounterRate[]
+  fishing: RouteFishingEncounters[]
+}
+
+export interface RouteFishingEncounters {
+  rod: FishingRod
+  time?: EncounterTime
+  encounters: EncounterRate[]
 }
 
 export interface PokemonEncounter {
@@ -129,6 +140,7 @@ export interface PokemonEncounter {
   method: EncounterMethod
   rate: number
   time?: EncounterTime
+  rod?: FishingRod
 }
 
 export interface WildEncounterData {
@@ -641,6 +653,7 @@ function parseGrassWildFile(
         ),
       })),
       water: [],
+      fishing: [],
     })
   }
   return routes
@@ -665,9 +678,220 @@ function parseWaterWildFile(
       route,
       grass: [],
       water: mergeEncounterRates(species, waterRates, entriesByKey),
+      fishing: [],
     })
   }
   return routes
+}
+
+interface FishRodEntry {
+  cumulativeRate: number
+  level: number
+  species: string
+}
+
+interface TimeFishEntry {
+  day: { level: number; species: string }
+  nite: { level: number; species: string }
+}
+
+function normalizeToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function parseRateValue(raw: string): number {
+  const match = raw.match(/(\d+)/)
+  return match ? Number(match[1]) : 0
+}
+
+function parseTimeFishGroups(source: string): Map<number, TimeFishEntry> {
+  const result = new Map<number, TimeFishEntry>()
+  const blockMatch = source.match(/TimeFishGroups:([\s\S]*)$/m)
+  if (!blockMatch) return result
+
+  for (const line of blockMatch[1].split('\n')) {
+    const m = line.match(
+      /^\s*dbwbw\s+(\d+)\s*,\s*([A-Z0-9_]+)\s*,\s*(\d+)\s*,\s*([A-Z0-9_]+)\s*;\s*(\d+)/,
+    )
+    if (!m) continue
+    const groupIndex = Number(m[5])
+    result.set(groupIndex, {
+      day: { level: Number(m[1]), species: m[2] },
+      nite: { level: Number(m[3]), species: m[4] },
+    })
+  }
+
+  return result
+}
+
+function parseFishRodTable(
+  source: string,
+  tableLabel: string,
+  visited: Set<string> = new Set(),
+): FishRodEntry[] {
+  if (visited.has(tableLabel)) return []
+  visited.add(tableLabel)
+
+  const rows: FishRodEntry[] = []
+  const blockMatch = source.match(
+    new RegExp(`\\.${tableLabel}:([\\s\\S]*?)(?=\\n\\.[A-Za-z0-9_]+:|$)`, 'm'),
+  )
+  if (!blockMatch) return rows
+
+  for (const line of blockMatch[1].split('\n')) {
+    const m = line.match(/^\s*dbbw\s+([^,]+)\s*,\s*(\d+)\s*,\s*([A-Z0-9_]+)/)
+    if (!m) continue
+    rows.push({
+      cumulativeRate: parseRateValue(m[1]),
+      level: Number(m[2]),
+      species: m[3],
+    })
+  }
+
+  if (rows.length > 0) return rows
+
+  const aliasLabel = blockMatch[1].match(/^\s*\.([A-Za-z0-9_]+):/m)?.[1]
+  if (!aliasLabel || aliasLabel === tableLabel) return rows
+  return parseFishRodTable(source, aliasLabel, visited)
+}
+
+function slotRatesFromCumulative(entries: FishRodEntry[]): number[] {
+  const rates: number[] = []
+  let previous = 0
+  for (const entry of entries) {
+    rates.push(Math.max(0, entry.cumulativeRate - previous))
+    previous = entry.cumulativeRate
+  }
+  return rates
+}
+
+function mapNameToRouteToken(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/([A-Za-z])([0-9]+)/g, '$1_$2')
+    .replace(/([0-9])([A-Za-z])/g, '$1_$2')
+    .toUpperCase()
+}
+
+function parseFishGroups(source: string): Map<
+  string,
+  {
+    old: FishRodEntry[]
+    good: FishRodEntry[]
+    super: FishRodEntry[]
+  }
+> {
+  const groups = new Map<
+    string,
+    {
+      old: FishRodEntry[]
+      good: FishRodEntry[]
+      super: FishRodEntry[]
+    }
+  >()
+
+  const tableMatch = source.match(/FishGroups:([\s\S]*?)assert_table_length/m)
+  if (!tableMatch) return groups
+
+  for (const m of tableMatch[1].matchAll(
+    /fishgroup\s+[^,]+,\s*\.([A-Za-z0-9_]+)_Old\s*,\s*\.([A-Za-z0-9_]+)_Good\s*,\s*\.([A-Za-z0-9_]+)_Super/g,
+  )) {
+    const oldLabel = m[1]
+    const goodLabel = m[2]
+    const superLabel = m[3]
+    const key = normalizeToken(oldLabel)
+
+    groups.set(key, {
+      old: parseFishRodTable(source, `${oldLabel}_Old`),
+      good: parseFishRodTable(source, `${goodLabel}_Good`),
+      super: parseFishRodTable(source, `${superLabel}_Super`),
+    })
+  }
+
+  return groups
+}
+
+function parseMapFishingGroups(source: string): Map<string, string> {
+  const result = new Map<string, string>()
+  for (const line of source.split('\n')) {
+    const m = line.match(
+      /^\s*map\s+([A-Za-z0-9_]+)\s*,[\s\S]*?,\s*FISHGROUP_([A-Z0-9_]+)/,
+    )
+    if (!m) continue
+    const route = mapNameToRouteToken(m[1])
+    result.set(route, m[2])
+  }
+  return result
+}
+
+function expandFishRodEncounters(
+  rod: FishingRod,
+  rodEntries: FishRodEntry[],
+  timeGroups: Map<number, TimeFishEntry>,
+  entriesByKey: Map<string, PokemonEntry>,
+): RouteFishingEncounters[] {
+  const slotRates = slotRatesFromCumulative(rodEntries)
+  const byTime = new Map<EncounterTime | 'any', EncounterRate[]>()
+
+  for (let index = 0; index < rodEntries.length; index++) {
+    const entry = rodEntries[index]
+    const slotRate = slotRates[index] ?? 0
+    if (slotRate <= 0) continue
+
+    if (entry.species === 'TIME_GROUP') {
+      const timeGroup = timeGroups.get(entry.level)
+      if (!timeGroup) continue
+
+      const dayPokemon = resolveEncounterPokemon(
+        timeGroup.day.species,
+        entriesByKey,
+      )
+      const nitePokemon = resolveEncounterPokemon(
+        timeGroup.nite.species,
+        entriesByKey,
+      )
+      byTime.set('day', [
+        ...(byTime.get('day') ?? []),
+        { pokemon: dayPokemon, rate: slotRate },
+      ])
+      byTime.set('nite', [
+        ...(byTime.get('nite') ?? []),
+        { pokemon: nitePokemon, rate: slotRate },
+      ])
+      continue
+    }
+
+    const pokemon = resolveEncounterPokemon(entry.species, entriesByKey)
+    byTime.set('any', [
+      ...(byTime.get('any') ?? []),
+      { pokemon, rate: slotRate },
+    ])
+  }
+
+  const merged: RouteFishingEncounters[] = []
+  for (const [time, rows] of byTime) {
+    const totals = new Map<string, EncounterRate>()
+    for (const row of rows) {
+      const key = `${row.pokemon.region}:${row.pokemon.name}`
+      const existing = totals.get(key)
+      if (existing) {
+        existing.rate += row.rate
+      } else {
+        totals.set(key, { pokemon: row.pokemon, rate: row.rate })
+      }
+    }
+
+    merged.push({
+      rod,
+      time: time === 'any' ? undefined : time,
+      encounters: [...totals.values()].sort(
+        (a, b) =>
+          b.rate - a.rate || a.pokemon.name.localeCompare(b.pokemon.name),
+      ),
+    })
+  }
+
+  return merged
 }
 
 function buildPokemonEncounterIndex(
@@ -704,6 +928,18 @@ function buildPokemonEncounterIndex(
         rate: encounter.rate,
       })
     }
+    for (const fishing of route.fishing) {
+      for (const encounter of fishing.encounters) {
+        pushEncounter(encounter.pokemon, {
+          region: route.region,
+          route: route.route,
+          method: 'fishing',
+          rod: fishing.rod,
+          time: fishing.time,
+          rate: encounter.rate,
+        })
+      }
+    }
   }
 
   return encountersByPokemon
@@ -713,12 +949,15 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
   if (wildEncounterDataPromise) return wildEncounterDataPromise
 
   wildEncounterDataPromise = (async () => {
-    const [tree, probabilitiesSource, ...wildSources] = await Promise.all([
-      fetchTree(),
-      fetchRaw(WILD_PROBABILITIES_PATH),
-      ...WILD_GRASS_PATHS.map((path) => fetchRaw(path)),
-      ...WILD_WATER_PATHS.map((path) => fetchRaw(path)),
-    ])
+    const [tree, probabilitiesSource, fishSource, mapsSource, ...wildSources] =
+      await Promise.all([
+        fetchTree(),
+        fetchRaw(WILD_PROBABILITIES_PATH),
+        fetchRaw(WILD_FISH_PATH),
+        fetchRaw(MAPS_PATH),
+        ...WILD_GRASS_PATHS.map((path) => fetchRaw(path)),
+        ...WILD_WATER_PATHS.map((path) => fetchRaw(path)),
+      ])
 
     const entriesByKey = new Map(
       entriesFromTree(tree).map((entry) => [normalizeKey(entry.name), entry]),
@@ -742,6 +981,7 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
       }
       if (route.grass.length > 0) existing.grass = route.grass
       if (route.water.length > 0) existing.water = route.water
+      if (route.fishing.length > 0) existing.fishing = route.fishing
     }
 
     for (const [index, source] of wildSources
@@ -765,6 +1005,51 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
         entriesByKey,
       ))
         mergeRoute(route)
+    }
+
+    const routeRegions = new Map<string, Set<string>>()
+    for (const route of routesByKey.values()) {
+      const regions = routeRegions.get(route.route) ?? new Set<string>()
+      regions.add(route.region)
+      routeRegions.set(route.route, regions)
+    }
+
+    const fishGroups = parseFishGroups(fishSource)
+    const timeGroups = parseTimeFishGroups(fishSource)
+    const routeFishingGroups = parseMapFishingGroups(mapsSource)
+
+    for (const [route, fishGroupRaw] of routeFishingGroups) {
+      if (fishGroupRaw === 'NONE') continue
+      const regions = routeRegions.get(route)
+      if (!regions || regions.size === 0) continue
+
+      const fishGroup = fishGroups.get(normalizeToken(fishGroupRaw))
+      if (!fishGroup) continue
+
+      const rods: Array<{ rod: FishingRod; rows: FishRodEntry[] }> = [
+        { rod: 'old', rows: fishGroup.old },
+        { rod: 'good', rows: fishGroup.good },
+        { rod: 'super', rows: fishGroup.super },
+      ]
+
+      const fishing = rods.flatMap((rodInfo) =>
+        expandFishRodEncounters(
+          rodInfo.rod,
+          rodInfo.rows,
+          timeGroups,
+          entriesByKey,
+        ),
+      )
+
+      for (const region of regions) {
+        mergeRoute({
+          region,
+          route,
+          grass: [],
+          water: [],
+          fishing,
+        })
+      }
     }
 
     const routes = [...routesByKey.values()]

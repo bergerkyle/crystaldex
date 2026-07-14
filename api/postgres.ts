@@ -137,7 +137,8 @@ interface PokemonRow {
 interface LocationEncounterRow {
   region: string
   route: string
-  method: 'grass' | 'water'
+  method: 'grass' | 'water' | 'fishing'
+  rod: 'old' | 'good' | 'super' | null
   time: 'morn' | 'day' | 'nite' | null
   pokemon_name: string
   pokemon_region: string
@@ -219,6 +220,7 @@ export async function syncDatabase(): Promise<{
           region: route.region,
           route: route.route,
           method: 'grass',
+          rod: null,
           time: grass.time,
           pokemon_name: encounter.pokemon.name,
           pokemon_region: encounter.pokemon.region,
@@ -231,11 +233,26 @@ export async function syncDatabase(): Promise<{
         region: route.region,
         route: route.route,
         method: 'water',
+        rod: null,
         time: null,
         pokemon_name: encounter.pokemon.name,
         pokemon_region: encounter.pokemon.region,
         rate: encounter.rate,
       })
+    }
+    for (const fishing of route.fishing) {
+      for (const encounter of fishing.encounters) {
+        encounterRows.push({
+          region: route.region,
+          route: route.route,
+          method: 'fishing',
+          rod: fishing.rod,
+          time: fishing.time ?? null,
+          pokemon_name: encounter.pokemon.name,
+          pokemon_region: encounter.pokemon.region,
+          rate: encounter.rate,
+        })
+      }
     }
   }
   console.log(
@@ -570,7 +587,7 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
         .order('sort'),
       supabase
         .from('location_encounters')
-        .select('region, route, method, time, rate')
+        .select('region, route, method, rod, time, rate')
         .eq('pokemon_name', name)
         .order('region')
         .order('route'),
@@ -676,6 +693,7 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
       region: row.region,
       route: row.route,
       method: row.method,
+      rod: row.rod ?? undefined,
       rate: row.rate,
       time: row.time ?? undefined,
     })),
@@ -688,7 +706,8 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
   const rows: {
     region: string
     route: string
-    method: 'grass' | 'water'
+    method: 'grass' | 'water' | 'fishing'
+    rod: 'old' | 'good' | 'super' | null
     time: 'morn' | 'day' | 'nite' | null
     rate: number
     pokemon_name: string
@@ -700,7 +719,9 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
     const to = from + pageSize - 1
     const { data, error } = await supabase
       .from('location_encounters')
-      .select('region, route, method, time, rate, pokemon_name, pokemon_region')
+      .select(
+        'region, route, method, rod, time, rate, pokemon_name, pokemon_region',
+      )
       .order('region')
       .order('route')
       .order('method')
@@ -721,6 +742,7 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
       route: row.route,
       grass: [],
       water: [],
+      fishing: [],
     }
 
     if (row.method === 'grass' && row.time) {
@@ -737,6 +759,25 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
 
     if (row.method === 'water') {
       existing.water.push({
+        pokemon: { name: row.pokemon_name, region: row.pokemon_region },
+        rate: row.rate,
+      })
+    }
+
+    if (row.method === 'fishing' && row.rod) {
+      let fishing = existing.fishing.find(
+        (entry) =>
+          entry.rod === row.rod && entry.time === (row.time ?? undefined),
+      )
+      if (!fishing) {
+        fishing = {
+          rod: row.rod,
+          time: row.time ?? undefined,
+          encounters: [],
+        }
+        existing.fishing.push(fishing)
+      }
+      fishing.encounters.push({
         pokemon: { name: row.pokemon_name, region: row.pokemon_region },
         rate: row.rate,
       })

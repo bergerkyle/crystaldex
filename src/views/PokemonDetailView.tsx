@@ -6,6 +6,7 @@ import {
   compareRegionOrder,
   evolutionMethodText,
   evolutionSourceMethodText,
+  formatFishingRod,
   formatEncounterMethod,
   formatEncounterTime,
   formatLocation,
@@ -54,6 +55,7 @@ interface DisplayEncounter {
   region: string
   route: string
   method: PokemonDetail['encounters'][number]['method']
+  rod?: PokemonDetail['encounters'][number]['rod']
   rate: number
   timeLabel: string
 }
@@ -68,6 +70,7 @@ function groupDisplayEncounters(
       region: string
       route: string
       method: PokemonDetail['encounters'][number]['method']
+      rod?: PokemonDetail['encounters'][number]['rod']
       rate: number
       times: Set<string>
     }
@@ -78,6 +81,7 @@ function groupDisplayEncounters(
       encounter.region,
       encounter.route,
       encounter.method,
+      encounter.rod ?? '',
       encounter.rate,
     ].join('|')
     const existing = grouped.get(key)
@@ -90,6 +94,7 @@ function groupDisplayEncounters(
       region: encounter.region,
       route: encounter.route,
       method: encounter.method,
+      rod: encounter.rod,
       rate: encounter.rate,
       times: new Set(encounter.time ? [encounter.time] : []),
     })
@@ -122,6 +127,7 @@ function groupDisplayEncounters(
         region: entry.region,
         route: entry.route,
         method: entry.method,
+        rod: entry.rod,
         rate: entry.rate,
         timeLabel,
       }
@@ -319,6 +325,7 @@ export function PokemonDetailView({
                       <th>Route</th>
                       <th>Region</th>
                       <th>Method</th>
+                      <th>Rod</th>
                       <th>Time</th>
                       <th>Rate</th>
                     </tr>
@@ -340,6 +347,11 @@ export function PokemonDetailView({
                         </td>
                         <td>{formatName(encounter.region)}</td>
                         <td>{formatEncounterMethod(encounter.method)}</td>
+                        <td>
+                          {encounter.method === 'fishing'
+                            ? formatFishingRod(encounter.rod)
+                            : '-'}
+                        </td>
                         <td>{encounter.timeLabel}</td>
                         <td>{encounter.rate}%</td>
                       </tr>
