@@ -89,7 +89,6 @@ export function PokemonDetailView({
               <span className="stat-value">
                 {STAT_DISPLAY.reduce((sum, { key }) => sum + detail.stats[key], 0)}
               </span>
-              <div className="stat-track" />
             </div>
           </div>
           {detail.moves.length > 0 && (
