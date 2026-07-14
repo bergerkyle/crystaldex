@@ -129,32 +129,11 @@ export function MovesView({
   }
 
   const renderMainContent = () => {
-    if (children)
-      return (
-        <>
-          <div className="moves-mobile-search">
-            <input
-              className="search"
-              type="search"
-              placeholder="Search moves..."
-              value={moveFilter}
-              onChange={(e) => onMoveFilterChange(e.target.value)}
-            />
-          </div>
-          {children}
-        </>
-      )
+    if (children) return children
 
     return (
       <>
         <h1 className="moves-page-title">Moves</h1>
-        <input
-          className="search moves-main-search"
-          type="search"
-          placeholder="Search moves..."
-          value={moveFilter}
-          onChange={(e) => onMoveFilterChange(e.target.value)}
-        />
         <div className="moves-toolbar">
           <nav className="type-jump-nav" aria-label="Jump to move type">
             {TYPE_ORDER.map((type) => (
