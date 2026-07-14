@@ -129,21 +129,7 @@ export function MovesView({
   }
 
   const renderMainContent = () => {
-    if (children)
-      return (
-        <>
-          <div className="moves-mobile-search">
-            <input
-              className="search"
-              type="search"
-              placeholder="Search moves..."
-              value={moveFilter}
-              onChange={(e) => onMoveFilterChange(e.target.value)}
-            />
-          </div>
-          {children}
-        </>
-      )
+    if (children) return children
 
     return (
       <>

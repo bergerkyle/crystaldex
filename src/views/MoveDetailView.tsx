@@ -1,5 +1,4 @@
 import { type MoveCatalogItem } from '../pokemon'
-import { MoveAutocomplete } from '../components/MoveAutocomplete'
 import { CategoryMetaChip, TypeMetaChip } from './moveMeta'
 
 interface MoveDetailViewProps {
@@ -19,7 +18,21 @@ export function MoveDetailView({
 }: MoveDetailViewProps) {
   return (
     <main className="move-detail-page">
-      <MoveAutocomplete moveList={moveList} onSelectMove={onOpenMove} />
+      <select
+        className="move-detail-select"
+        value={moveDetail?.key ?? ''}
+        onChange={(e) => {
+          if (e.target.value) onOpenMove(e.target.value)
+        }}
+        aria-label="Select a move"
+      >
+        {!moveDetail && <option value="">Select a move...</option>}
+        {moveList.map((m) => (
+          <option key={m.key} value={m.key}>
+            {m.name}
+          </option>
+        ))}
+      </select>
       {loadingMoveDetail && <p className="muted">Loading...</p>}
       {moveDetailError && <p className="error">{moveDetailError}</p>}
       {moveDetail && (
