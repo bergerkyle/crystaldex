@@ -27,6 +27,56 @@ interface EncounterTableRow {
   rod?: FishingRod
 }
 
+const ENCOUNTER_METHOD_ICONS = {
+  surf: '/surf.png',
+  old: '/Bag_Old_Rod_III_Sprite.png',
+  good: '/Bag_Good_Rod_III_Sprite.png',
+  super: '/Bag_Super_Rod_III_Sprite.png',
+} as const
+
+function RodLabel({ rod }: { rod?: FishingRod }) {
+  const icon =
+    rod === 'old'
+      ? ENCOUNTER_METHOD_ICONS.old
+      : rod === 'good'
+        ? ENCOUNTER_METHOD_ICONS.good
+        : rod === 'super'
+          ? ENCOUNTER_METHOD_ICONS.super
+          : null
+
+  return (
+    <span className="encounter-method-label">
+      {icon && (
+        <img
+          className="encounter-method-icon"
+          src={icon}
+          alt=""
+          width={14}
+          height={14}
+          aria-hidden="true"
+        />
+      )}
+      {formatFishingRod(rod)}
+    </span>
+  )
+}
+
+function SurfLabel() {
+  return (
+    <span className="encounter-method-label">
+      <img
+        className="encounter-method-icon"
+        src={ENCOUNTER_METHOD_ICONS.surf}
+        alt=""
+        width={14}
+        height={14}
+        aria-hidden="true"
+      />
+      Surf
+    </span>
+  )
+}
+
 function buildLandEncounterRows(
   grass: RouteEncounter['grass'],
 ): EncounterTableRow[] {
@@ -83,6 +133,32 @@ function buildLandEncounterRows(
     })
 }
 
+function rodOrder(rod?: FishingRod): number {
+  if (rod === 'old') return 0
+  if (rod === 'good') return 1
+  if (rod === 'super') return 2
+  return 3
+}
+
+function buildFishingEncounterRows(
+  fishing: RouteEncounter['fishing'],
+): EncounterTableRow[] {
+  const rows = fishing.flatMap((group) =>
+    group.encounters.map((entry) => ({
+      pokemon: entry.pokemon,
+      rod: group.rod,
+      time: group.time ? formatEncounterTime(group.time) : 'Any',
+      rate: entry.rate,
+    })),
+  )
+
+  return rows.sort((a, b) => {
+    const byRod = rodOrder(a.rod) - rodOrder(b.rod)
+    if (byRod !== 0) return byRod
+    return a.pokemon.name.localeCompare(b.pokemon.name)
+  })
+}
+
 function EncounterTable({
   title,
   rows,
@@ -129,8 +205,12 @@ function EncounterTable({
                       )}
                     </button>
                   </td>
-                  {showRod && <td>{formatFishingRod(row.rod)}</td>}
-                  <td>{row.time}</td>
+                  {showRod && (
+                    <td>
+                      <RodLabel rod={row.rod} />
+                    </td>
+                  )}
+                  <td>{row.time === 'Surf' ? <SurfLabel /> : row.time}</td>
                   <td>{row.rate}%</td>
                 </tr>
               ))}
@@ -194,14 +274,7 @@ export function LocationDetailView({
 
           <EncounterTable
             title="Fishing Locations"
-            rows={routeDetail.fishing.flatMap((group) =>
-              group.encounters.map((entry) => ({
-                pokemon: entry.pokemon,
-                rod: group.rod,
-                time: group.time ? formatEncounterTime(group.time) : 'Any',
-                rate: entry.rate,
-              })),
-            )}
+            rows={buildFishingEncounterRows(routeDetail.fishing)}
             allNames={allNames}
             onSelectPokemon={onSelectPokemon}
             showRod

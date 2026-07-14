@@ -998,6 +998,19 @@ a:hover {
   font-size: 0.9rem;
 }
 
+.encounter-method-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.encounter-method-icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
 .encounter-empty {
   color: var(--muted);
 }

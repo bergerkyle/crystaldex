@@ -706,7 +706,7 @@ function parseRateValue(raw: string): number {
 
 function parseTimeFishGroups(source: string): Map<number, TimeFishEntry> {
   const result = new Map<number, TimeFishEntry>()
-  const blockMatch = source.match(/TimeFishGroups:([\s\S]*)$/m)
+  const blockMatch = source.match(/TimeFishGroups:([\s\S]*)/)
   if (!blockMatch) return result
 
   for (const line of blockMatch[1].split('\n')) {
@@ -734,7 +734,7 @@ function parseFishRodTable(
 
   const rows: FishRodEntry[] = []
   const blockMatch = source.match(
-    new RegExp(`\\.${tableLabel}:([\\s\\S]*?)(?=\\n\\.[A-Za-z0-9_]+:|$)`, 'm'),
+    new RegExp(`\\.${tableLabel}:([\\s\\S]*?)(?=\\n\\.[A-Za-z0-9_]+:|$)`),
   )
   if (!blockMatch) return rows
 

@@ -60,6 +60,78 @@ interface DisplayEncounter {
   timeLabel: string
 }
 
+const ENCOUNTER_METHOD_ICONS = {
+  surf: '/surf.png',
+  old: '/Bag_Old_Rod_III_Sprite.png',
+  good: '/Bag_Good_Rod_III_Sprite.png',
+  super: '/Bag_Super_Rod_III_Sprite.png',
+} as const
+
+function EncounterMethodLabel({
+  method,
+  rod,
+}: {
+  method: PokemonDetail['encounters'][number]['method']
+  rod?: PokemonDetail['encounters'][number]['rod']
+}) {
+  if (method === 'fishing') {
+    const icon =
+      rod === 'old'
+        ? ENCOUNTER_METHOD_ICONS.old
+        : rod === 'good'
+          ? ENCOUNTER_METHOD_ICONS.good
+          : rod === 'super'
+            ? ENCOUNTER_METHOD_ICONS.super
+            : null
+    return (
+      <span className="encounter-method-label">
+        {icon && (
+          <img
+            className="encounter-method-icon"
+            src={icon}
+            alt=""
+            width={14}
+            height={14}
+            aria-hidden="true"
+          />
+        )}
+        {formatFishingRod(rod)}
+      </span>
+    )
+  }
+
+  if (method === 'water') {
+    return (
+      <span className="encounter-method-label">
+        <img
+          className="encounter-method-icon"
+          src={ENCOUNTER_METHOD_ICONS.surf}
+          alt=""
+          width={14}
+          height={14}
+          aria-hidden="true"
+        />
+        {formatEncounterMethod(method)}
+      </span>
+    )
+  }
+
+  return <>{formatEncounterMethod(method)}</>
+}
+
+function encounterGroupOrder(entry: {
+  method: PokemonDetail['encounters'][number]['method']
+  rod?: PokemonDetail['encounters'][number]['rod']
+}): number {
+  if (entry.method === 'grass') return 0
+  if (entry.method === 'water') return 1
+  if (entry.method !== 'fishing') return 99
+  if (entry.rod === 'old') return 2
+  if (entry.rod === 'good') return 3
+  if (entry.rod === 'super') return 4
+  return 5
+}
+
 function groupDisplayEncounters(
   encounters: PokemonDetail['encounters'],
 ): DisplayEncounter[] {
@@ -102,6 +174,8 @@ function groupDisplayEncounters(
 
   return [...grouped.values()]
     .sort((a, b) => {
+      const groupOrder = encounterGroupOrder(a) - encounterGroupOrder(b)
+      if (groupOrder !== 0) return groupOrder
       const regionOrder = compareRegionOrder(a.region, b.region)
       if (regionOrder !== 0) return regionOrder
       const routeOrder = compareLocationOrder(a.route, b.route)
@@ -325,7 +399,6 @@ export function PokemonDetailView({
                       <th>Route</th>
                       <th>Region</th>
                       <th>Method</th>
-                      <th>Rod</th>
                       <th>Time</th>
                       <th>Rate</th>
                     </tr>
@@ -346,11 +419,11 @@ export function PokemonDetailView({
                           </button>
                         </td>
                         <td>{formatName(encounter.region)}</td>
-                        <td>{formatEncounterMethod(encounter.method)}</td>
                         <td>
-                          {encounter.method === 'fishing'
-                            ? formatFishingRod(encounter.rod)
-                            : '-'}
+                          <EncounterMethodLabel
+                            method={encounter.method}
+                            rod={encounter.rod}
+                          />
                         </td>
                         <td>{encounter.timeLabel}</td>
                         <td>{encounter.rate}%</td>
