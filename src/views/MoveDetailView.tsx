@@ -1,19 +1,25 @@
 import { type MoveCatalogItem } from '../pokemon'
+import { MoveAutocomplete } from '../components/MoveAutocomplete'
 import { CategoryMetaChip, TypeMetaChip } from './moveMeta'
 
 interface MoveDetailViewProps {
   moveDetail: MoveCatalogItem | null
   moveDetailError: string | null
   loadingMoveDetail: boolean
+  moveList: MoveCatalogItem[]
+  onOpenMove: (key: string) => void
 }
 
 export function MoveDetailView({
   moveDetail,
   moveDetailError,
   loadingMoveDetail,
+  moveList,
+  onOpenMove,
 }: MoveDetailViewProps) {
   return (
     <main className="move-detail-page">
+      <MoveAutocomplete moveList={moveList} onSelectMove={onOpenMove} />
       {loadingMoveDetail && <p className="muted">Loading...</p>}
       {moveDetailError && <p className="error">{moveDetailError}</p>}
       {moveDetail && (
