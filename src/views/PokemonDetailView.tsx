@@ -4,8 +4,10 @@ import {
   STAT_DISPLAY,
   evolutionMethodText,
   type PokemonDetail,
+  type PokemonListItem,
   formatName,
 } from '../pokemon'
+import { PokemonAutocomplete } from '../components/PokemonAutocomplete'
 import { CategoryMetaChip, TypeMetaChip } from './moveMeta'
 
 interface PokemonDetailViewProps {
@@ -14,6 +16,7 @@ interface PokemonDetailViewProps {
   loadingDetail: boolean
   detailError: string | null
   allNames: Set<string>
+  list: PokemonListItem[]
   onSelectPokemon: (name: string) => void
   onOpenMove: (key: string) => void
 }
@@ -24,11 +27,13 @@ export function PokemonDetailView({
   loadingDetail,
   detailError,
   allNames,
+  list,
   onSelectPokemon,
   onOpenMove,
 }: PokemonDetailViewProps) {
   return (
     <main className="detail">
+      <PokemonAutocomplete list={list} allNames={allNames} onSelectPokemon={onSelectPokemon} />
       {!selected && <p className="muted">Select a Pokemon to view its stats.</p>}
       {loadingDetail && <p className="muted">Loading...</p>}
       {detailError && <p className="error">{detailError}</p>}
