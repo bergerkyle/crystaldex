@@ -22,7 +22,7 @@ import {
   parseTmHmLearnset,
   parseTypes,
   spriteUrl,
-} from './parser'
+} from './parser.js'
 
 // ---------------------------------------------------------------------------
 // Supabase client

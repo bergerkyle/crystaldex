@@ -1,5 +1,5 @@
 import express from 'express'
-import { getAbout, getMove, getPokemon, listMoves, listPokemon, syncDatabase } from './postgres'
+import { getAbout, getMove, getPokemon, listMoves, listPokemon, syncDatabase } from './postgres.js'
 
 // Load local env files for dev; on Vercel the env vars are injected directly.
 // `process.loadEnvFile()` with no argument only reads `.env`, so load the
