@@ -165,13 +165,15 @@ export function PokedexView({
       <div className="pokedex-main">
         <h1 className="pokedex-page-title">Pokédex</h1>
         <div className="mobile-pokedex-controls">
-          <input
-            className="search"
-            type="search"
-            placeholder="Search Pokemon..."
-            value={filter}
-            onChange={(e) => onFilterChange(e.target.value)}
-          />
+          {!selected && (
+            <input
+              className="search"
+              type="search"
+              placeholder="Search Pokemon..."
+              value={filter}
+              onChange={(e) => onFilterChange(e.target.value)}
+            />
+          )}
           {!selected && (
             <div className="pokedex-filter-row">
               <select
@@ -271,6 +273,7 @@ export function PokedexView({
             loadingDetail={loadingDetail}
             detailError={detailError}
             allNames={allNames}
+            list={list}
             onSelectPokemon={onSelectPokemon}
             onOpenMove={onOpenMove}
           />
