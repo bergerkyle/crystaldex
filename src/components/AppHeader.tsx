@@ -76,6 +76,7 @@ export function AppHeader({
             <span className="mobile-nav-launcher-icon" aria-hidden="true">
               <span className="mobile-nav-launcher-line" />
               <span className="mobile-nav-launcher-line" />
+              <span className="mobile-nav-launcher-line" />
             </span>
           </button>
         )}
