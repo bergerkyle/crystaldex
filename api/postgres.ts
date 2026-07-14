@@ -17,6 +17,7 @@ import {
   fetchEvosAttacks,
   fetchMoveCatalog,
   fetchWildEncounterData,
+  resetWildEncounterCache,
   fetchRaw,
   fetchTree,
   normalizeKey,
@@ -211,6 +212,7 @@ export async function syncDatabase(): Promise<{
   })
   console.log(`[sync] parsed evo/attack files for ${evosBlocks.size} regions`)
 
+  resetWildEncounterCache()
   const encounterData = await fetchWildEncounterData()
   const encounterRows: LocationEncounterRow[] = []
   for (const route of encounterData.routes) {

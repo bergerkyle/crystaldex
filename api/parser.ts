@@ -156,6 +156,10 @@ interface TreeNode {
 
 let wildEncounterDataPromise: Promise<WildEncounterData> | null = null
 
+export function resetWildEncounterCache(): void {
+  wildEncounterDataPromise = null
+}
+
 // ---------------------------------------------------------------------------
 // GitHub fetch helpers
 // ---------------------------------------------------------------------------
