@@ -1,6 +1,7 @@
 import { PokemonSprite } from '../PokemonSprite'
 import {
   MAX_STAT,
+  compareLocationOrder,
   STAT_DISPLAY,
   compareRegionOrder,
   evolutionMethodText,
@@ -98,6 +99,8 @@ function groupDisplayEncounters(
     .sort((a, b) => {
       const regionOrder = compareRegionOrder(a.region, b.region)
       if (regionOrder !== 0) return regionOrder
+      const routeOrder = compareLocationOrder(a.route, b.route)
+      if (routeOrder !== 0) return routeOrder
       return a.firstIndex - b.firstIndex
     })
     .map((entry) => {

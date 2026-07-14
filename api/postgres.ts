@@ -684,18 +684,37 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
 
 export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
   const supabase = getSupabase()
-  const { data, error } = await supabase
-    .from('location_encounters')
-    .select('region, route, method, time, rate, pokemon_name, pokemon_region')
-    .order('region')
-    .order('route')
-    .order('method')
-    .order('time')
-    .order('id')
-  if (error) throw new Error(error.message)
+  const pageSize = 1000
+  const rows: {
+    region: string
+    route: string
+    method: 'grass' | 'water'
+    time: 'morn' | 'day' | 'nite' | null
+    rate: number
+    pokemon_name: string
+    pokemon_region: string
+  }[] = []
+
+  for (let page = 0; ; page += 1) {
+    const from = page * pageSize
+    const to = from + pageSize - 1
+    const { data, error } = await supabase
+      .from('location_encounters')
+      .select('region, route, method, time, rate, pokemon_name, pokemon_region')
+      .order('region')
+      .order('route')
+      .order('method')
+      .order('time')
+      .order('id')
+      .range(from, to)
+    if (error) throw new Error(error.message)
+    if (!data || data.length === 0) break
+    rows.push(...data)
+    if (data.length < pageSize) break
+  }
 
   const routesByKey = new Map<string, EncounterRoute>()
-  for (const row of data ?? []) {
+  for (const row of rows) {
     const key = `${row.region}:${row.route}`
     const existing: EncounterRoute = routesByKey.get(key) ?? {
       region: row.region,

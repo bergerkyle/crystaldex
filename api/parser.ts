@@ -734,9 +734,10 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
 
     const routesByKey = new Map<string, RouteEncounter>()
     const mergeRoute = (route: RouteEncounter) => {
-      const existing = routesByKey.get(route.route)
+      const routeKey = `${route.region}:${route.route}`
+      const existing = routesByKey.get(routeKey)
       if (!existing) {
-        routesByKey.set(route.route, route)
+        routesByKey.set(routeKey, route)
         return
       }
       if (route.grass.length > 0) existing.grass = route.grass
