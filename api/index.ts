@@ -602,7 +602,7 @@ async function syncDatabase(): Promise<{
     const backSha =
       spriteShaByPath.get(`gfx/pokemon/${entry.name}/back.png`) ?? null
     const block = entry.region
-      ? evosBlocks.get(entry.region)?.get(normalizeKey(entry.name))
+      ? evosBlocks.get(entry.region === 'beta' ? 'alt' : entry.region)?.get(normalizeKey(entry.name))
       : undefined
     evoWrites.push({
       name: entry.name,
