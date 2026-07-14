@@ -336,6 +336,43 @@ a:hover {
   gap: 0.3rem;
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-bottom: 1rem;
+}
+
+.pagination-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: rgba(108, 133, 205, 0.2);
+  border-color: rgba(180, 188, 226, 0.5);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pagination-info {
+  font-size: 0.9rem;
+  color: var(--muted);
+  min-width: 7rem;
+  text-align: center;
+}
+
 .moves-layout {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
