@@ -625,12 +625,6 @@ a:hover {
   margin: 0 0 0.75rem;
 }
 
-.moves-main-search {
-  display: none;
-  width: 100%;
-  margin-bottom: 1rem;
-}
-
 .moves-toolbar {
   display: flex;
   flex-direction: column;
@@ -1125,10 +1119,6 @@ a:hover {
 
 
   .moves-mobile-search {
-    display: block;
-  }
-
-  .moves-main-search {
     display: block;
   }
 
