@@ -1167,13 +1167,19 @@ function parseAbilityMons(
   let current: { abilityKey: string; mons: string[] } | null = null
 
   for (const line of source.split('\n')) {
-    const label = line.match(/^([A-Za-z0-9_]+)Mons::/)
+    // Upstream files are inconsistent: some labels end with `Mons::`, others
+    // with `Mons:`. Accept both to avoid assigning mons to the previous block.
+    const label = line.match(/^([A-Za-z0-9_]+)Mons:{1,2}\s*$/)
     if (label) {
       current = { abilityKey: label[1], mons: [] }
       result.push(current)
       continue
     }
     if (!current) continue
+    if (/^\s*dw\s+-1\b/.test(line)) {
+      current = null
+      continue
+    }
     const dw = line.match(/^\s*dw\s+([A-Z][A-Z0-9_]*)/)
     if (dw) {
       current.mons.push(dw[1].toLowerCase())
