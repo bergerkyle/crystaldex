@@ -208,18 +208,27 @@ export async function syncDatabase(): Promise<{
   )
   console.log(`[sync] parsed tm/hm mapping: ${tmhmDefs.length} entries`)
 
-  // Parse all region evolution/learnset files on every sync.
-  const regionsToParse = new Set<string>()
-  for (const entry of entries) {
-    if (entry.region) regionsToParse.add(entry.region)
-  }
-
+  // Parse every evos_attacks file present in the repo on every sync.
+  // Some Pokemon are defined in a different region file than their folder.
+  const evoFileRegions = [...evosShaByRegion.keys()].sort()
   const evosBlocks = new Map<string, Map<string, EvosAttacks>>()
-  await mapLimit([...regionsToParse], 8, async (region) => {
-    if (!evosShaByRegion.has(region)) return
+  await mapLimit(evoFileRegions, 8, async (region) => {
     evosBlocks.set(region, await fetchEvosAttacks(region, entries))
   })
-  console.log(`[sync] parsed evo/attack files for ${evosBlocks.size} regions`)
+
+  const evosFallbackByPokemonKey = new Map<string, EvosAttacks>()
+  for (const region of evoFileRegions) {
+    const blocks = evosBlocks.get(region)
+    if (!blocks) continue
+    for (const [pokemonKey, evosAttacks] of blocks) {
+      if (!evosFallbackByPokemonKey.has(pokemonKey)) {
+        evosFallbackByPokemonKey.set(pokemonKey, evosAttacks)
+      }
+    }
+  }
+  console.log(
+    `[sync] parsed evo/attack files=${evosBlocks.size}, indexed pokemon blocks=${evosFallbackByPokemonKey.size}`,
+  )
 
   resetWildEncounterCache()
   const encounterData = await fetchWildEncounterData()
@@ -284,11 +293,12 @@ export async function syncDatabase(): Promise<{
       spriteShaByPath.get(`gfx/pokemon/${entry.name}/front.png`) ?? null
     const backSha =
       spriteShaByPath.get(`gfx/pokemon/${entry.name}/back.png`) ?? null
-    const block = entry.region
-      ? evosBlocks
-          .get(entry.region === 'beta' ? 'alt' : entry.region)
-          ?.get(normalizeKey(entry.name))
-      : undefined
+    const pokemonKey = normalizeKey(entry.name)
+    const preferredRegion = entry.region === 'beta' ? 'alt' : entry.region
+    const block =
+      (preferredRegion
+        ? evosBlocks.get(preferredRegion)?.get(pokemonKey)
+        : undefined) ?? evosFallbackByPokemonKey.get(pokemonKey)
     evoWrites.push({
       name: entry.name,
       evolutions: block?.evolutions ?? [],
