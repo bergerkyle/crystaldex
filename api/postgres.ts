@@ -24,6 +24,7 @@ import {
   parseStats,
   parseTmHm,
   parseTmHmLearnset,
+  parseShinyPalette,
   parseTypes,
   spriteUrl,
 } from './parser.js'
@@ -128,6 +129,8 @@ interface PokemonRow {
   speed: number
   front_sprite: string
   back_sprite: string
+  shiny_color_1: string | null
+  shiny_color_2: string | null
   stats_sha: string | null
   evos_sha: string | null
   front_sha: string | null
@@ -170,10 +173,16 @@ export async function syncDatabase(): Promise<{
   // Index blobs we need for parsing and sprite cache busting.
   const spriteShaByPath = new Map<string, string>()
   const evosShaByRegion = new Map<string, string>()
+  const shinyPalByPath = new Set<string>()
   for (const node of tree) {
     if (node.type !== 'blob') continue
     if (node.path.startsWith('gfx/pokemon/') && node.path.endsWith('.png')) {
       spriteShaByPath.set(node.path, node.sha)
+    } else if (
+      node.path.startsWith('gfx/pokemon/') &&
+      node.path.endsWith('/shiny.pal')
+    ) {
+      shinyPalByPath.add(node.path)
     } else {
       const evo = node.path.match(
         /^data\/pokemon\/evos_attacks_([a-z0-9]+)\.asm$/,
@@ -182,7 +191,7 @@ export async function syncDatabase(): Promise<{
     }
   }
   console.log(
-    `[sync] indexed assets: sprites=${spriteShaByPath.size}, evo_files=${evosShaByRegion.size}`,
+    `[sync] indexed assets: sprites=${spriteShaByPath.size}, shiny_pals=${shinyPalByPath.size}, evo_files=${evosShaByRegion.size}`,
   )
 
   const [catalog, { abilities: abilityCatalog, pokemonAbilityMap }] =
@@ -293,6 +302,18 @@ export async function syncDatabase(): Promise<{
     const types = parseTypes(source)
     if (!types) throw new Error(`Could not parse types for ${entry.path}`)
 
+    const shinyPath = `gfx/pokemon/${entry.name}/shiny.pal`
+    let shinyColor1: string | null = null
+    let shinyColor2: string | null = null
+    if (shinyPalByPath.has(shinyPath)) {
+      const shinySource = await fetchRaw(shinyPath)
+      const shinyPalette = parseShinyPalette(shinySource)
+      if (shinyPalette) {
+        shinyColor1 = shinyPalette.color1
+        shinyColor2 = shinyPalette.color2
+      }
+    }
+
     upserts.push({
       name: entry.name,
       region: entry.region,
@@ -306,6 +327,8 @@ export async function syncDatabase(): Promise<{
       speed: stats.speed,
       front_sprite: spriteUrl(entry.name, 'front', frontSha ?? undefined),
       back_sprite: spriteUrl(entry.name, 'back', backSha ?? undefined),
+      shiny_color_1: shinyColor1,
+      shiny_color_2: shinyColor2,
       stats_sha: null,
       evos_sha: null,
       front_sha: null,
@@ -485,6 +508,7 @@ export interface PokemonListItem {
   name: string
   region: string
   frontSprite: string
+  shinyPalette: { color1: string; color2: string } | null
   types: string[]
 }
 
@@ -492,13 +516,17 @@ export async function listPokemon(): Promise<PokemonListItem[]> {
   const supabase = getSupabase()
   const { data, error } = await supabase
     .from('pokemon')
-    .select('name, region, front_sprite, type_1, type_2')
+    .select('name, region, front_sprite, type_1, type_2, shiny_color_1, shiny_color_2')
     .order('name')
   if (error) throw new Error(error.message)
   return (data ?? []).map((row) => ({
     name: row.name,
     region: row.region,
     frontSprite: row.front_sprite,
+    shinyPalette:
+      row.shiny_color_1 && row.shiny_color_2
+        ? { color1: row.shiny_color_1, color2: row.shiny_color_2 }
+        : null,
     types: row.type_1 === row.type_2 ? [row.type_1] : [row.type_1, row.type_2],
   }))
 }
@@ -552,6 +580,7 @@ export interface PokemonDetail {
     pp: number
   }[]
   sprites: { front: string; back: string }
+  shinyPalette: { color1: string; color2: string } | null
   ability: { name: string; description: string } | null
   encounters: PokemonEncounter[]
 }
@@ -688,6 +717,10 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
       }
     }),
     sprites: { front: p.front_sprite, back: p.back_sprite },
+    shinyPalette:
+      p.shiny_color_1 && p.shiny_color_2
+        ? { color1: p.shiny_color_1, color2: p.shiny_color_2 }
+        : null,
     ability: ability
       ? { name: ability.name, description: ability.description }
       : null,

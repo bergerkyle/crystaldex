@@ -1066,6 +1066,24 @@ a:hover {
   color: var(--muted);
 }
 
+.shiny-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shiny-toggle input {
+  width: 1rem;
+  height: 1rem;
+}
+
+.pokedex-grid-shiny-toggle {
+  margin-bottom: 1rem;
+}
+
 .sprites {
   display: flex;
   gap: 1.5rem;

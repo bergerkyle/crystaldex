@@ -11,6 +11,10 @@ export interface PokemonListItem {
   name: string
   region: string
   frontSprite: string
+  shinyPalette: {
+    color1: string
+    color2: string
+  } | null
   types: string[]
 }
 
@@ -80,6 +84,11 @@ export interface Ability {
   description: string
 }
 
+export interface ShinyPalette {
+  color1: string
+  color2: string
+}
+
 export type EncounterMethod = 'grass' | 'water' | 'fishing'
 
 export type FishingRod = 'old' | 'good' | 'super'
@@ -134,6 +143,7 @@ export interface PokemonDetail {
   moves: Move[]
   tmMoves: TmMove[]
   sprites: Sprites
+  shinyPalette: ShinyPalette | null
   ability: Ability | null
   encounters: PokemonEncounter[]
 }

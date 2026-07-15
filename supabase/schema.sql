@@ -14,6 +14,8 @@ create table if not exists public.pokemon (
   speed            integer not null,
   front_sprite     text not null,
   back_sprite      text not null,
+  shiny_color_1    text,
+  shiny_color_2    text,
   -- git blob SHAs used to detect when a source file has been edited.
   stats_sha        text,
   evos_sha         text,
@@ -116,6 +118,12 @@ create table if not exists public.abilities (
 
 alter table public.pokemon
   add column if not exists ability_id bigint references public.abilities(id) on delete set null;
+
+alter table public.pokemon
+  add column if not exists shiny_color_1 text;
+
+alter table public.pokemon
+  add column if not exists shiny_color_2 text;
 
 -- Small key/value store for tracking source-file SHAs between syncs.
 create table if not exists public.sync_meta (

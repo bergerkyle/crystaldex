@@ -51,6 +51,11 @@ export interface PokemonEntry {
   path: string
 }
 
+export interface ShinyPalette {
+  color1: string
+  color2: string
+}
+
 export interface EvolutionTarget {
   name: string
   region: string
@@ -1088,6 +1093,31 @@ export function spriteUrl(
 ): string {
   const url = `${SPRITE_BASE}/${name}/${kind}.png`
   return sha ? `${url}?v=${sha.slice(0, 8)}` : url
+}
+
+function gbcChannelToRgb8(value: number): number {
+  const clamped = Math.max(0, Math.min(32, value))
+  return Math.round((clamped / 32) * 255)
+}
+
+function rgbToHex(red: number, green: number, blue: number): string {
+  const toHex = (value: number) => value.toString(16).padStart(2, '0')
+  return `#${toHex(red)}${toHex(green)}${toHex(blue)}`
+}
+
+// Parse two RGB lines from gfx/pokemon/<name>/shiny.pal.
+// CrystalShire stores channels on a 0..32 scale, so we convert to 0..255.
+export function parseShinyPalette(source: string): ShinyPalette | null {
+  const colors: string[] = []
+  for (const match of source.matchAll(/\bRGB\s+(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/g)) {
+    const red = gbcChannelToRgb8(Number(match[1]))
+    const green = gbcChannelToRgb8(Number(match[2]))
+    const blue = gbcChannelToRgb8(Number(match[3]))
+    colors.push(rgbToHex(red, green, blue))
+    if (colors.length === 2) break
+  }
+  if (colors.length < 2) return null
+  return { color1: colors[0], color2: colors[1] }
 }
 
 // ---------------------------------------------------------------------------

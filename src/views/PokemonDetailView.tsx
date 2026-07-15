@@ -1,4 +1,5 @@
 import { PokemonSprite } from '../PokemonSprite'
+import { useEffect, useState } from 'react'
 import {
   MAX_STAT,
   compareLocationOrder,
@@ -219,6 +220,12 @@ export function PokemonDetailView({
   onOpenMove,
   onOpenLocation,
 }: PokemonDetailViewProps) {
+  const [showShiny, setShowShiny] = useState(false)
+
+  useEffect(() => {
+    setShowShiny(false)
+  }, [detail?.name, detail?.region])
+
   const displayEncounters = detail
     ? groupDisplayEncounters(detail.encounters)
     : []
@@ -250,9 +257,22 @@ export function PokemonDetailView({
           {detail.region && (
             <p className="region">{formatName(detail.region)}</p>
           )}
+          {detail.shinyPalette && (
+            <label className="shiny-toggle" htmlFor="pokemon-shiny-toggle">
+              <input
+                id="pokemon-shiny-toggle"
+                type="checkbox"
+                checked={showShiny}
+                onChange={(event) => setShowShiny(event.target.checked)}
+              />
+              <span>Shiny</span>
+            </label>
+          )}
           <PokemonSprite
             front={detail.sprites.front}
             back={detail.sprites.back}
+            shiny={showShiny}
+            shinyPalette={detail.shinyPalette}
           />
           <div className="ability mb-4">
             <p className="ability-name">

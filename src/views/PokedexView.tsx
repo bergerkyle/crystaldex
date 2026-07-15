@@ -47,6 +47,7 @@ export function PokedexView({
 }: PokedexViewProps) {
   const [typeFilter, setTypeFilter] = useState('')
   const [regionFilter, setRegionFilter] = useState('')
+  const [showShinyGrid, setShowShinyGrid] = useState(false)
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 24
 
@@ -228,6 +229,14 @@ export function PokedexView({
 
         {!selected ? (
           <main className="detail pokemon-grid-page">
+            <label className="shiny-toggle pokedex-grid-shiny-toggle">
+              <input
+                type="checkbox"
+                checked={showShinyGrid}
+                onChange={(event) => setShowShinyGrid(event.target.checked)}
+              />
+              <span>Shiny</span>
+            </label>
             {loadingList && <p className="muted">Loading...</p>}
             {listError && <p className="error">{listError}</p>}
 
@@ -245,6 +254,8 @@ export function PokedexView({
                       <AnimatedFrontSprite
                         className="pokemon-card-sprite"
                         front={p.frontSprite}
+                        shiny={showShinyGrid}
+                        shinyPalette={p.shinyPalette}
                         ariaLabel={`${formatName(p.name, p.region, allNames)} front sprite`}
                         displaySize={112}
                       />
