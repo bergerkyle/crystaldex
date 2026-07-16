@@ -152,6 +152,79 @@ interface LocationEncounterRow {
   rate: number
 }
 
+interface SaveLookups {
+  speciesById: string[]
+  moveKeysById: string[]
+}
+
+let saveLookupsPromise: Promise<SaveLookups> | null = null
+
+function parseConstLookup(
+  source: string,
+  terminator: string,
+): { startValue: number; values: string[] } {
+  let started = false
+  let current = 0
+  const values: string[] = []
+  let startValue = 0
+
+  for (const line of source.split('\n')) {
+    if (!started) {
+      const constDef = line.match(/^\s*const_def(?:\s+(-?\d+))?\b/)
+      if (!constDef) continue
+      started = true
+      current = constDef[1] ? Number.parseInt(constDef[1], 10) : 0
+      startValue = current
+      continue
+    }
+
+    if (line.includes(terminator)) break
+
+    const constant = line.match(/^\s*const\s+([A-Z0-9_]+)/)
+    if (!constant) continue
+    values.push(constant[1])
+    current += 1
+  }
+
+  return { startValue, values }
+}
+
+export async function getSaveLookups(): Promise<SaveLookups> {
+  if (!saveLookupsPromise) {
+    saveLookupsPromise = (async () => {
+      const [pokemonConstants, moveConstants] = await Promise.all([
+        fetchRaw('constants/pokemon_constants.asm'),
+        fetchRaw('constants/move_constants.asm'),
+      ])
+
+      const speciesLookup = parseConstLookup(pokemonConstants, 'NUM_POKEMON')
+      const moveLookup = parseConstLookup(moveConstants, 'NUM_ATTACKS')
+
+      const speciesById = Array.from(
+        { length: speciesLookup.startValue + speciesLookup.values.length },
+        () => '',
+      )
+      for (let i = 0; i < speciesLookup.values.length; i++) {
+        speciesById[speciesLookup.startValue + i] = speciesLookup.values[i]
+      }
+
+      const moveKeysById = Array.from(
+        { length: moveLookup.startValue + moveLookup.values.length },
+        () => '',
+      )
+      for (let i = 0; i < moveLookup.values.length; i++) {
+        moveKeysById[moveLookup.startValue + i] = moveLookup.values[i]
+      }
+
+      return { speciesById, moveKeysById }
+    })().catch((err) => {
+      saveLookupsPromise = null
+      throw err
+    })
+  }
+  return saveLookupsPromise
+}
+
 // ---------------------------------------------------------------------------
 // Sync
 // ---------------------------------------------------------------------------

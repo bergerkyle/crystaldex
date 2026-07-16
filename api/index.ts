@@ -3,6 +3,7 @@ import {
   getAbout,
   getMove,
   getPokemon,
+  getSaveLookups,
   listEncounterRoutes,
   listMoves,
   listPokemon,
@@ -42,12 +43,9 @@ app.get('/api/pokemon', async (_req, res) => {
       `[pokemon:list] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res
-      .status(502)
-      .json({
-        error:
-          err instanceof Error ? err.message : 'Failed to load Pokémon list',
-      })
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load Pokémon list',
+    })
   }
 })
 
@@ -71,11 +69,9 @@ app.get('/api/pokemon/:name', async (req, res) => {
       `[pokemon:detail] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res
-      .status(502)
-      .json({
-        error: err instanceof Error ? err.message : 'Failed to load Pokémon',
-      })
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load Pokémon',
+    })
   }
 })
 
@@ -93,14 +89,10 @@ app.get('/api/encounters/routes', async (_req, res) => {
       `[encounters:routes] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res
-      .status(502)
-      .json({
-        error:
-          err instanceof Error
-            ? err.message
-            : 'Failed to load encounter routes',
-      })
+    res.status(502).json({
+      error:
+        err instanceof Error ? err.message : 'Failed to load encounter routes',
+    })
   }
 })
 
@@ -122,11 +114,9 @@ app.get('/api/moves', async (_req, res) => {
       `[moves:list] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res
-      .status(502)
-      .json({
-        error: err instanceof Error ? err.message : 'Failed to load moves',
-      })
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load moves',
+    })
   }
 })
 
@@ -150,11 +140,9 @@ app.get('/api/moves/:key', async (req, res) => {
       `[moves:detail] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res
-      .status(502)
-      .json({
-        error: err instanceof Error ? err.message : 'Failed to load move',
-      })
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load move',
+    })
   }
 })
 
@@ -189,16 +177,34 @@ app.get('/api/about', async (_req, res) => {
     const about = await getAbout()
     res.json(about)
   } catch (err) {
-    res
-      .status(502)
-      .json({
-        error: err instanceof Error ? err.message : 'Failed to load about info',
-      })
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load about info',
+    })
   }
 })
 
 app.get('/api/healthz', (_req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
+app.get('/api/save/lookups', async (_req, res) => {
+  const startedAt = Date.now()
+  console.log('[save:lookups] request start')
+  try {
+    const lookups = await getSaveLookups()
+    console.log(
+      `[save:lookups] success in ${Date.now() - startedAt}ms (species=${lookups.speciesById.length}, moves=${lookups.moveKeysById.length})`,
+    )
+    res.json(lookups)
+  } catch (err) {
+    console.error(
+      `[save:lookups] failed after ${Date.now() - startedAt}ms:`,
+      err instanceof Error ? err.message : err,
+    )
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load save lookups',
+    })
+  }
 })
 
 // ---------------------------------------------------------------------------

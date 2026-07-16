@@ -1457,6 +1457,230 @@ a:hover {
   color: var(--muted);
 }
 
+.save-page {
+  padding: 2rem 1rem 3rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.save-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.save-title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.save-description {
+  margin: 0;
+  color: var(--muted);
+}
+
+.save-panel {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 1rem;
+}
+
+.save-panel-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.save-upload-label {
+  display: inline-block;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+}
+
+.save-upload-input {
+  display: block;
+}
+
+.save-meta-grid,
+.save-inspector-grid {
+  margin-top: 0.85rem;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.save-meta-item {
+  border: 1px solid rgba(180, 188, 226, 0.22);
+  border-radius: 8px;
+  background: rgba(13, 16, 32, 0.48);
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.save-meta-key {
+  color: var(--muted);
+}
+
+.save-meta-value {
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.save-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.save-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 220px;
+}
+
+.save-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.save-btn {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+}
+
+.save-btn:hover {
+  background: rgba(108, 133, 205, 0.2);
+}
+
+.save-btn.primary {
+  background: var(--brand-blue);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.save-table-wrap {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.save-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.save-table th,
+.save-table td {
+  border-bottom: 1px solid rgba(180, 188, 226, 0.2);
+  padding: 0.45rem 0.4rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.save-offset {
+  white-space: nowrap;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.save-byte-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.save-byte-input {
+  width: 2.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elev);
+  color: var(--text);
+  text-align: center;
+  font: inherit;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  padding: 0.3rem 0.2rem;
+}
+
+.save-byte-input.selected {
+  border-color: var(--brand-blue);
+  box-shadow: 0 0 0 1px var(--brand-blue);
+}
+
+.save-ascii {
+  white-space: pre;
+  letter-spacing: 0.06em;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+}
+
+.save-badge-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 0.4rem;
+}
+
+.save-badge-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(180, 188, 226, 0.2);
+  border-radius: 8px;
+  background: rgba(13, 16, 32, 0.35);
+  padding: 0.35rem 0.5rem;
+}
+
+.save-party-table-wrap {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.save-party-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+}
+
+.save-party-table th,
+.save-party-table td {
+  border-bottom: 1px solid rgba(180, 188, 226, 0.2);
+  padding: 0.55rem 0.45rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.save-party-cell-sm {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.save-party-subtext {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.save-party-subtext-inline {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 @media (min-width: 901px) {
   .move-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1621,6 +1845,10 @@ a:hover {
 
   .detail {
     padding: 1rem;
+  }
+
+  .save-byte-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
