@@ -7,6 +7,7 @@ import { LocationsView } from './views/LocationsView'
 import { MoveDetailView } from './views/MoveDetailView'
 import { MovesView } from './views/MovesView'
 import { PokedexView } from './views/PokedexView'
+import { SaveView } from './views/SaveView.tsx'
 import {
   type MoveCatalogItem,
   type PokemonDetail,
@@ -20,7 +21,10 @@ type Route =
   | { view: 'move'; key: string }
   | { view: 'locations' }
   | { view: 'location'; region: string; route: string }
+  | { view: 'save' }
   | { view: 'about' }
+
+const SAVE_VIEW_PASSWORD = 'aaroniscool'
 
 function parseRoute(pathname: string, search: string): Route {
   const params = new URLSearchParams(search)
@@ -54,6 +58,11 @@ function parseRoute(pathname: string, search: string): Route {
   if (pathname === '/locations' || pathname === '/encounters') {
     return { view: 'locations' }
   }
+  if (pathname === '/save') {
+    const password = params.get('password')?.trim()
+    if (password === SAVE_VIEW_PASSWORD) return { view: 'save' }
+    return { view: 'pokedex' }
+  }
 
   if (pathname.startsWith('/pokedex/')) {
     const pokemon = decodeURIComponent(pathname.slice('/pokedex/'.length))
@@ -75,6 +84,7 @@ function parseRoute(pathname: string, search: string): Route {
 function routePath(route: Route): string {
   if (route.view === 'about') return '/about'
   if (route.view === 'locations') return '/locations'
+  if (route.view === 'save') return '/save'
   if (route.view === 'location') {
     return `/locations/${encodeURIComponent(route.region.toLowerCase())}/${encodeURIComponent(route.route.toUpperCase())}`
   }
@@ -139,6 +149,17 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'instant' })
     setRoute(nextRoute)
   }
+
+  useEffect(() => {
+    if (window.location.pathname !== '/save') return
+    const password = new URLSearchParams(window.location.search)
+      .get('password')
+      ?.trim()
+    if (password === SAVE_VIEW_PASSWORD) return
+
+    window.history.replaceState({}, '', '/pokedex')
+    setRoute({ view: 'pokedex' })
+  }, [route.view])
 
   useEffect(() => {
     fetch('/api/pokemon')
@@ -299,8 +320,8 @@ export default function App() {
             : route.view === 'about'
               ? 'about'
               : route.view === 'locations' || route.view === 'location'
-                ? 'locations'
-                : 'moves'
+                  ? 'locations'
+                  : 'moves'
         }
         onNavigateHome={() => navigate({ view: 'pokedex' })}
         onNavigatePokedex={() => navigate({ view: 'pokedex' })}
@@ -400,6 +421,7 @@ export default function App() {
           loadingAbout={loadingAbout}
         />
       )}
+      {route.view === 'save' && <SaveView />}
       {(route.view === 'locations' || route.view === 'location') && (
         <LocationsLayout
           routes={filteredLocationRoutes}
