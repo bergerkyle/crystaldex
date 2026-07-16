@@ -774,7 +774,7 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
   const rows: {
     region: string
     route: string
-    method: 'grass' | 'water' | 'fishing'
+    method: 'grass' | 'water' | 'fishing' | 'fixed'
     rod: 'old' | 'good' | 'super' | null
     time: 'morn' | 'day' | 'nite' | null
     rate: number
@@ -811,6 +811,7 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
       grass: [],
       water: [],
       fishing: [],
+      fixed: [],
     }
 
     if (row.method === 'grass' && row.time) {
@@ -846,6 +847,13 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
         existing.fishing.push(fishing)
       }
       fishing.encounters.push({
+        pokemon: { name: row.pokemon_name, region: row.pokemon_region },
+        rate: row.rate,
+      })
+    }
+
+    if (row.method === 'fixed') {
+      existing.fixed.push({
         pokemon: { name: row.pokemon_name, region: row.pokemon_region },
         rate: row.rate,
       })

@@ -116,6 +116,7 @@ export interface RouteEncounter {
   grass: RouteGrassEncounters[]
   water: EncounterRate[]
   fishing: RouteFishingEncounters[]
+  fixed: EncounterRate[]
 }
 
 export interface RouteFishingEncounters {

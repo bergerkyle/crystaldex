@@ -165,12 +165,14 @@ function EncounterTable({
   allNames,
   onSelectPokemon,
   showRod = false,
+  showTime = true,
 }: {
   title: string
   rows: EncounterTableRow[]
   allNames: Set<string>
   onSelectPokemon: (name: string) => void
   showRod?: boolean
+  showTime?: boolean
 }) {
   return (
     <section className="move-type-section">
@@ -184,7 +186,7 @@ function EncounterTable({
               <tr>
                 <th>Pokemon</th>
                 {showRod && <th>Rod</th>}
-                <th>Time</th>
+                {showTime && <th>Time</th>}
                 <th>Chance</th>
               </tr>
             </thead>
@@ -210,7 +212,9 @@ function EncounterTable({
                       <RodLabel rod={row.rod} />
                     </td>
                   )}
-                  <td>{row.time === 'Surf' ? <SurfLabel /> : row.time}</td>
+                  {showTime && (
+                    <td>{row.time === 'Surf' ? <SurfLabel /> : row.time}</td>
+                  )}
                   <td>{row.rate}%</td>
                 </tr>
               ))}
@@ -279,6 +283,20 @@ export function LocationDetailView({
             onSelectPokemon={onSelectPokemon}
             showRod
           />
+
+          {routeDetail.fixed.length > 0 && (
+            <EncounterTable
+              title="Fixed Encounters"
+              rows={routeDetail.fixed.map((entry) => ({
+                pokemon: entry.pokemon,
+                time: '',
+                rate: entry.rate,
+              }))}
+              allNames={allNames}
+              onSelectPokemon={onSelectPokemon}
+              showTime={false}
+            />
+          )}
         </>
       )}
     </div>

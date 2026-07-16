@@ -131,6 +131,7 @@ export interface RouteEncounter {
   grass: RouteGrassEncounters[]
   water: EncounterRate[]
   fishing: RouteFishingEncounters[]
+  fixed: EncounterRate[]
 }
 
 export interface RouteFishingEncounters {
@@ -663,6 +664,7 @@ function parseGrassWildFile(
       })),
       water: [],
       fishing: [],
+      fixed: [],
     })
   }
   return routes
@@ -688,6 +690,7 @@ function parseWaterWildFile(
       grass: [],
       water: mergeEncounterRates(species, waterRates, entriesByKey),
       fishing: [],
+      fixed: [],
     })
   }
   return routes
@@ -1057,6 +1060,7 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
           grass: [],
           water: [],
           fishing,
+          fixed: [],
         })
       }
     }
