@@ -7,7 +7,7 @@ import { LocationsView } from './views/LocationsView'
 import { MoveDetailView } from './views/MoveDetailView'
 import { MovesView } from './views/MovesView'
 import { PokedexView } from './views/PokedexView'
-import { SaveView } from './views/SaveView'
+import { SaveView } from './views/SaveView.tsx'
 import {
   type MoveCatalogItem,
   type PokemonDetail,
@@ -23,6 +23,8 @@ type Route =
   | { view: 'location'; region: string; route: string }
   | { view: 'save' }
   | { view: 'about' }
+
+const SAVE_VIEW_PASSWORD = 'aaroniscool'
 
 function parseRoute(pathname: string, search: string): Route {
   const params = new URLSearchParams(search)
@@ -56,7 +58,11 @@ function parseRoute(pathname: string, search: string): Route {
   if (pathname === '/locations' || pathname === '/encounters') {
     return { view: 'locations' }
   }
-  if (pathname === '/save') return { view: 'save' }
+  if (pathname === '/save') {
+    const password = params.get('password')?.trim()
+    if (password === SAVE_VIEW_PASSWORD) return { view: 'save' }
+    return { view: 'pokedex' }
+  }
 
   if (pathname.startsWith('/pokedex/')) {
     const pokemon = decodeURIComponent(pathname.slice('/pokedex/'.length))
@@ -143,6 +149,17 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'instant' })
     setRoute(nextRoute)
   }
+
+  useEffect(() => {
+    if (window.location.pathname !== '/save') return
+    const password = new URLSearchParams(window.location.search)
+      .get('password')
+      ?.trim()
+    if (password === SAVE_VIEW_PASSWORD) return
+
+    window.history.replaceState({}, '', '/pokedex')
+    setRoute({ view: 'pokedex' })
+  }, [route.view])
 
   useEffect(() => {
     fetch('/api/pokemon')
@@ -302,9 +319,7 @@ export default function App() {
             ? 'pokedex'
             : route.view === 'about'
               ? 'about'
-              : route.view === 'save'
-                ? 'save'
-                : route.view === 'locations' || route.view === 'location'
+              : route.view === 'locations' || route.view === 'location'
                   ? 'locations'
                   : 'moves'
         }
@@ -312,7 +327,6 @@ export default function App() {
         onNavigatePokedex={() => navigate({ view: 'pokedex' })}
         onNavigateMoves={() => navigate({ view: 'moves' })}
         onNavigateLocations={() => navigate({ view: 'locations' })}
-        onNavigateSave={() => navigate({ view: 'save' })}
         onNavigateAbout={() => navigate({ view: 'about' })}
         mobileSidebarOpen={
           route.view === 'pokedex'

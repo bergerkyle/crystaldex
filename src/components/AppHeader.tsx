@@ -1,19 +1,18 @@
 import { useLayoutEffect, useRef } from 'react'
 
 interface AppHeaderProps {
-  active: 'pokedex' | 'moves' | 'locations' | 'save' | 'about'
+  active: 'pokedex' | 'moves' | 'locations' | 'about'
   onNavigateHome: () => void
   onNavigatePokedex: () => void
   onNavigateMoves: () => void
   onNavigateLocations: () => void
-  onNavigateSave: () => void
   onNavigateAbout: () => void
   mobileSidebarOpen?: boolean
   onToggleSidebar?: () => void
 }
 
 interface NavItem {
-  key: 'pokedex' | 'moves' | 'locations' | 'save' | 'about'
+  key: 'pokedex' | 'moves' | 'locations' | 'about'
   label: string
   onClick: () => void
 }
@@ -24,7 +23,6 @@ export function AppHeader({
   onNavigatePokedex,
   onNavigateMoves,
   onNavigateLocations,
-  onNavigateSave,
   onNavigateAbout,
   mobileSidebarOpen,
   onToggleSidebar,
@@ -34,7 +32,6 @@ export function AppHeader({
     { key: 'pokedex', label: 'Pokédex', onClick: onNavigatePokedex },
     { key: 'moves', label: 'Moves', onClick: onNavigateMoves },
     { key: 'locations', label: 'Locations', onClick: onNavigateLocations },
-    { key: 'save', label: 'Save', onClick: onNavigateSave },
     { key: 'about', label: 'About', onClick: onNavigateAbout },
   ]
   const primaryNavItems = navItems.filter((item) => item.key !== 'about')
