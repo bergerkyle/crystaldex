@@ -1197,6 +1197,22 @@ function parseAbilityMons(
 // loadwildmon lines look like: `loadwildmon BAGON, 1`
 const LOADWILDMON_RE = /^\s*loadwildmon\s+([A-Z][A-Z0-9_]*)\s*,\s*\d+/gm
 
+// Maps that live directly under maps/ (no region subfolder) need an explicit
+// region assignment. Keys are the UPPER_SNAKE_CASE route token derived from the
+// filename (e.g. NationalPark -> NATIONAL_PARK).
+const FIXED_ENCOUNTER_REGION_OVERRIDES: Record<string, string> = {
+  NATIONAL_PARK: 'johto',
+  NATIONAL_PARK_BUG_CONTEST: 'johto',
+  ROUTE_35_NATIONAL_PARK_GATE: 'johto',
+  ROUTE_36_NATIONAL_PARK_GATE: 'johto',
+  POWER_PLANT: 'kanto',
+  FAST_SHIP_1_F: 'johto',
+  FAST_SHIP_B_1_F: 'johto',
+  FAST_SHIP_CABINS_NNW_NNE_NE: 'johto',
+  FAST_SHIP_CABINS_SE_SSE_CAPTAINS_CABIN: 'johto',
+  FAST_SHIP_CABINS_SW_SSW_NW: 'johto',
+}
+
 export interface FixedEncounterEntry {
   region: string
   route: string
@@ -1230,13 +1246,17 @@ export async function fetchFixedEncounters(
         if (matches.length === 0) continue
 
         const segments = node.path.split('/')
-        // maps/<region>/[subdirs/]<MapName>.asm
-        const region = segments[1] ?? ''
         const filename = (segments[segments.length - 1] ?? '').replace(
           /\.asm$/,
           '',
         )
         const route = mapNameToRouteToken(filename)
+        // maps/<region>/[subdirs/]<MapName>.asm — when depth > 2 the second
+        // segment is the region folder; otherwise fall back to the override map.
+        const region =
+          segments.length > 2
+            ? (segments[1] ?? '')
+            : (FIXED_ENCOUNTER_REGION_OVERRIDES[route] ?? '')
 
         for (const m of matches) {
           const pokemon = resolveEncounterPokemon(m[1], entriesByKey)
