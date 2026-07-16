@@ -2,8 +2,6 @@ import { type ChangeEvent, useEffect, useMemo, useState } from 'react'
 import { formatConstant } from '../pokemon'
 
 const BYTES_PER_ROW = 16
-const ROWS_PER_PAGE = 16
-const PAGE_SIZE = BYTES_PER_ROW * ROWS_PER_PAGE
 const SAVE_CHECK_VALUE_1 = 99
 const SAVE_CHECK_VALUE_2 = 127
 const NAME_LENGTH = 11
@@ -253,6 +251,11 @@ function writeUint16BE(bytes: Uint8Array, offset: number, value: number): void {
   bytes[offset + 1] = value & 0xff
 }
 
+function writeUint16LE(bytes: Uint8Array, offset: number, value: number): void {
+  bytes[offset] = value & 0xff
+  bytes[offset + 1] = (value >> 8) & 0xff
+}
+
 function normalizeConstantInput(raw: string): string {
   return raw
     .trim()
@@ -285,8 +288,7 @@ function decodeConvertedId(
 
   const entryOffset = tableOffset + 2 + (id - 1) * 2
   if (entryOffset + 1 >= saveData.length) return 0
-  const value = readUint16LE(saveData, entryOffset)
-  return value || id
+  return readUint16LE(saveData, entryOffset)
 }
 
 function encodeConvertedId(
@@ -310,6 +312,35 @@ function encodeConvertedId(
       minimumReservedIndex,
     )
     if (mapped === index) return id
+  }
+
+  return null
+}
+
+function allocateConvertedId(
+  saveData: Uint8Array,
+  tableOffset: number,
+  index: number,
+  entries: number,
+): number | null {
+  if (index <= 0) return null
+
+  for (let id = 1; id <= entries; id++) {
+    const entryOffset = tableOffset + 2 + (id - 1) * 2
+    if (entryOffset + 1 >= saveData.length) break
+    const value = readUint16LE(saveData, entryOffset)
+    if (value === index) return id
+  }
+
+  for (let id = 1; id <= entries; id++) {
+    const entryOffset = tableOffset + 2 + (id - 1) * 2
+    if (entryOffset + 1 >= saveData.length) break
+    const value = readUint16LE(saveData, entryOffset)
+    if (value !== 0) continue
+
+    writeUint16LE(saveData, entryOffset, index)
+    saveData[tableOffset] = Math.min(entries, saveData[tableOffset] + 1)
+    return id
   }
 
   return null
@@ -484,8 +515,6 @@ export function SaveView() {
   const [fileName, setFileName] = useState<string>('')
   const [saveBytes, setSaveBytes] = useState<Uint8Array | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [startOffsetInput, setStartOffsetInput] = useState<string>('0000')
-  const [selectedOffset, setSelectedOffset] = useState<number | null>(null)
   const [lookups, setLookups] = useState<SaveLookups | null>(null)
   const [lookupError, setLookupError] = useState<string | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
@@ -618,15 +647,19 @@ export function SaveView() {
                 MOVE_TABLE_ENTRIES,
                 MOVE_TABLE_MIN_RESERVED_INDEX,
               )
-        const moveKey = moveId === 0 ? '' : lookups?.moveKeysById[moveIndexValue] ?? ''
+        const moveKey =
+          moveId === 0 ? '' : (lookups?.moveKeysById[moveIndexValue] ?? '')
         moves.push({
           slot: moveIndex + 1,
           id: moveId,
           index: moveIndexValue,
           key: moveKey,
-          name: moveId === 0 ? 'None' : moveKey
-            ? displayConstant(moveKey)
-            : `Unknown Move ${moveIndexValue || moveId}`,
+          name:
+            moveId === 0
+              ? 'None'
+              : moveKey
+                ? displayConstant(moveKey)
+                : `Unknown Move ${moveIndexValue || moveId}`,
         })
       }
 
@@ -658,49 +691,6 @@ export function SaveView() {
     }
   }, [saveBytes, structuredPointers, activeSaveBlock, lookups])
 
-  const parsedStartOffset = parseHexOffset(startOffsetInput)
-  const startOffset = useMemo(() => {
-    if (!saveBytes || parsedStartOffset == null) return 0
-    const clamped = Math.min(
-      Math.max(parsedStartOffset, 0),
-      saveBytes.length - 1,
-    )
-    return clamped - (clamped % BYTES_PER_ROW)
-  }, [parsedStartOffset, saveBytes])
-
-  const pageRows = useMemo(() => {
-    if (!saveBytes) return [] as number[]
-    const rows: number[] = []
-    for (
-      let rowStart = startOffset;
-      rowStart < startOffset + PAGE_SIZE && rowStart < saveBytes.length;
-      rowStart += BYTES_PER_ROW
-    ) {
-      rows.push(rowStart)
-    }
-    return rows
-  }, [saveBytes, startOffset])
-
-  const selectedViews = useMemo(() => {
-    if (saveBytes == null || selectedOffset == null || selectedOffset < 0)
-      return null
-
-    const byte = saveBytes[selectedOffset]
-    const lo =
-      selectedOffset + 1 < saveBytes.length ? saveBytes[selectedOffset + 1] : 0
-    const b2 =
-      selectedOffset + 2 < saveBytes.length ? saveBytes[selectedOffset + 2] : 0
-    const b3 =
-      selectedOffset + 3 < saveBytes.length ? saveBytes[selectedOffset + 3] : 0
-
-    return {
-      byte,
-      u16le: byte | (lo << 8),
-      u24le: byte | (lo << 8) | (b2 << 16),
-      u32le: byte | (lo << 8) | (b2 << 16) | (b3 << 24),
-    }
-  }, [saveBytes, selectedOffset])
-
   const onUploadFile = async (file: File) => {
     try {
       const buffer = await file.arrayBuffer()
@@ -709,8 +699,6 @@ export function SaveView() {
       setSaveBytes(bytes)
       setError(null)
       setEditError(null)
-      setSelectedOffset(bytes.length > 0 ? 0 : null)
-      setStartOffsetInput('0000')
     } catch {
       setError('Could not read this file.')
     }
@@ -722,26 +710,17 @@ export function SaveView() {
     void onUploadFile(file)
   }
 
-  const updateByte = (offset: number, raw: string) => {
-    if (!saveBytes) return
-    const trimmed = raw.trim()
-    if (!trimmed) return
-    if (!/^[0-9a-fA-F]{1,2}$/.test(trimmed)) return
-
-    const value = Number.parseInt(trimmed, 16)
-    if (Number.isNaN(value) || value < 0 || value > 0xff) return
-
-    const next = new Uint8Array(saveBytes)
-    next[offset] = value
-    if (activeSaveBlock) writeSaveChecksum(next, activeSaveBlock)
-    setSaveBytes(next)
-  }
-
   const updateStructured = (updater: (next: Uint8Array) => void) => {
-    if (!saveBytes || !activeSaveBlock) return
+    if (!saveBytes) return
     const next = new Uint8Array(saveBytes)
     updater(next)
-    writeSaveChecksum(next, activeSaveBlock)
+    if (saveBlocks.length > 0) {
+      for (const block of saveBlocks) {
+        writeSaveChecksum(next, block)
+      }
+    } else if (activeSaveBlock) {
+      writeSaveChecksum(next, activeSaveBlock)
+    }
     setSaveBytes(next)
   }
 
@@ -801,38 +780,76 @@ export function SaveView() {
 
     const speciesIndex = findLookupIndex(lookups.speciesById, raw)
     if (speciesIndex < 1) {
-      setEditError(`Unknown species constant: ${normalizeConstantInput(raw) || raw.trim()}`)
+      setEditError(
+        `Unknown species constant: ${normalizeConstantInput(raw) || raw.trim()}`,
+      )
       return
     }
 
     let wrote = false
 
     updateStructured((next) => {
-      const saveData = next.subarray(
-        activeSaveBlock.saveDataStart,
-        activeSaveBlock.checksumOffset,
-      )
-      const speciesId = encodeConvertedId(
-        saveData,
-        decodedParty.pokemonTableOffset,
-        speciesIndex,
-        MON_TABLE_ENTRIES,
-        MON_TABLE_MIN_RESERVED_INDEX,
-      )
-      if (speciesId == null || speciesId < 1 || speciesId > 0xff) return
+      const tableOffsetRel = decodedParty.pokemonTableOffset
+      if (tableOffsetRel == null) return
 
-      const structBase =
-        activeSaveBlock.saveDataStart +
-        structuredPointers.partyOffset! +
-        PARTY_HEADER_LENGTH +
-        (slot - 1) * PARTYMON_STRUCT_LENGTH
-      if (structBase + PARTYMON_STRUCT_LENGTH > next.length) return
+      for (let blockIndex = 0; blockIndex < saveBlocks.length; blockIndex++) {
+        const block = saveBlocks[blockIndex]
+        const tableOffsetAbs = block.saveDataStart + tableOffsetRel
+        if (
+          tableOffsetAbs < 0 ||
+          tableOffsetAbs + MON_TABLE_TOTAL_BYTES > next.length
+        ) {
+          continue
+        }
+        if (
+          !isLikelyConversionTable(
+            next,
+            tableOffsetAbs,
+            MON_TABLE_ENTRIES,
+            MON_TABLE_SAVED_RECENT_INDEXES - 1,
+            Math.max((lookups.speciesById.length ?? 1) - 1, 251),
+          )
+        ) {
+          continue
+        }
 
-      const headerOffset =
-        activeSaveBlock.saveDataStart + structuredPointers.partyOffset! + slot
-      next[headerOffset] = speciesId
-      next[structBase + MON_SPECIES_OFFSET] = speciesId
-      wrote = true
+        const saveData = next.subarray(
+          block.saveDataStart,
+          block.checksumOffset,
+        )
+
+        let speciesId = encodeConvertedId(
+          saveData,
+          tableOffsetRel,
+          speciesIndex,
+          MON_TABLE_ENTRIES,
+          MON_TABLE_MIN_RESERVED_INDEX,
+        )
+
+        if (speciesId == null) {
+          speciesId = allocateConvertedId(
+            next,
+            tableOffsetAbs,
+            speciesIndex,
+            MON_TABLE_ENTRIES,
+          )
+        }
+
+        if (speciesId == null || speciesId < 1 || speciesId > 0xff) continue
+
+        const structBase =
+          block.saveDataStart +
+          structuredPointers.partyOffset! +
+          PARTY_HEADER_LENGTH +
+          (slot - 1) * PARTYMON_STRUCT_LENGTH
+        if (structBase + PARTYMON_STRUCT_LENGTH > next.length) continue
+
+        const headerOffset =
+          block.saveDataStart + structuredPointers.partyOffset! + slot
+        next[headerOffset] = speciesId
+        next[structBase + MON_SPECIES_OFFSET] = speciesId
+        wrote = true
+      }
     })
 
     if (wrote) setEditError(null)
@@ -855,34 +872,100 @@ export function SaveView() {
     const trimmed = raw.trim()
     const moveIndex = trimmed ? findLookupIndex(lookups.moveKeysById, raw) : 0
     if (trimmed && moveIndex < 1) {
-      setEditError(`Unknown move constant: ${normalizeConstantInput(raw) || trimmed}`)
+      setEditError(
+        `Unknown move constant: ${normalizeConstantInput(raw) || trimmed}`,
+      )
       return
     }
 
     let wrote = false
 
     updateStructured((next) => {
-      const moveId =
-        moveIndex === 0
-          ? 0
-          : encodeConvertedId(
-              next,
-              decodedParty.moveTableOffset,
-              moveIndex,
-              MOVE_TABLE_ENTRIES,
-              MOVE_TABLE_MIN_RESERVED_INDEX,
-            )
-      if (moveId == null || moveId < 0 || moveId > 0xff) return
+      const moveTableOffsets: number[] = []
+      const pushTableOffset = (offset: number | null) => {
+        if (offset == null) return
+        if (offset < 0 || offset + MOVE_TABLE_TOTAL_BYTES > next.length) return
+        if (
+          !isLikelyConversionTable(
+            next,
+            offset,
+            MOVE_TABLE_ENTRIES,
+            MOVE_TABLE_SAVED_RECENT_INDEXES - 1,
+            Math.max((lookups.moveKeysById.length ?? 1) - 1, 255),
+          )
+        ) {
+          return
+        }
+        if (!moveTableOffsets.includes(offset)) moveTableOffsets.push(offset)
+      }
 
-      const structBase =
-        activeSaveBlock.saveDataStart +
-        structuredPointers.partyOffset! +
-        PARTY_HEADER_LENGTH +
-        (slot - 1) * PARTYMON_STRUCT_LENGTH
-      if (structBase + PARTYMON_STRUCT_LENGTH > next.length) return
+      pushTableOffset(decodedParty.moveTableOffset)
+      pushTableOffset(
+        decodedParty.moveTableOffset == null
+          ? null
+          : decodedParty.moveTableOffset - MOVE_TABLE_TOTAL_BYTES,
+      )
+      pushTableOffset(
+        decodedParty.moveTableOffset == null
+          ? null
+          : decodedParty.moveTableOffset + MOVE_TABLE_TOTAL_BYTES,
+      )
 
-      next[structBase + MON_MOVES_OFFSET + moveSlot] = moveId
-      wrote = true
+      moveTableOffsets.sort((a, b) => a - b)
+
+      for (let blockIndex = 0; blockIndex < saveBlocks.length; blockIndex++) {
+        const block = saveBlocks[blockIndex]
+        const tableOffset =
+          moveTableOffsets[
+            Math.min(blockIndex, Math.max(moveTableOffsets.length - 1, 0))
+          ] ?? decodedParty.moveTableOffset
+
+        let moveId =
+          moveIndex === 0
+            ? 0
+            : encodeConvertedId(
+                next,
+                tableOffset,
+                moveIndex,
+                MOVE_TABLE_ENTRIES,
+                MOVE_TABLE_MIN_RESERVED_INDEX,
+              )
+
+        if (moveId == null && moveIndex > 0 && tableOffset != null) {
+          moveId = allocateConvertedId(
+            next,
+            tableOffset,
+            moveIndex,
+            MOVE_TABLE_ENTRIES,
+          )
+        }
+
+        if (moveId == null || moveId < 0 || moveId > 0xff) continue
+
+        const structBase =
+          block.saveDataStart +
+          structuredPointers.partyOffset! +
+          PARTY_HEADER_LENGTH +
+          (slot - 1) * PARTYMON_STRUCT_LENGTH
+        if (structBase + PARTYMON_STRUCT_LENGTH > next.length) continue
+
+        next[structBase + MON_MOVES_OFFSET + moveSlot] = moveId
+
+        if (
+          tableOffset != null &&
+          block.checksumOffset - 2 >= 0 &&
+          tableOffset + MOVE_TABLE_TOTAL_BYTES <= next.length
+        ) {
+          const tableChecksum = sumRange(
+            next,
+            tableOffset,
+            tableOffset + MOVE_TABLE_TOTAL_BYTES,
+          )
+          writeUint16LE(next, block.checksumOffset - 2, tableChecksum)
+        }
+
+        wrote = true
+      }
     })
 
     if (wrote) setEditError(null)
@@ -892,18 +975,17 @@ export function SaveView() {
     }
   }
 
-  const movePage = (direction: -1 | 1) => {
-    if (!saveBytes) return
-    const next = Math.min(
-      Math.max(startOffset + direction * PAGE_SIZE, 0),
-      Math.max(saveBytes.length - BYTES_PER_ROW, 0),
-    )
-    setStartOffsetInput(toHex(next, 4))
-  }
-
   const downloadEditedSave = () => {
     if (!saveBytes) return
-    const blob = new Blob([saveBytes], { type: 'application/octet-stream' })
+    const blob = new Blob(
+      [
+        saveBytes.buffer.slice(
+          saveBytes.byteOffset,
+          saveBytes.byteOffset + saveBytes.byteLength,
+        ) as ArrayBuffer,
+      ],
+      { type: 'application/octet-stream' },
+    )
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     const finalName = fileName.toLowerCase().endsWith('.sav')
@@ -920,8 +1002,8 @@ export function SaveView() {
       <div className="save-content">
         <h1 className="save-title">Save Editor</h1>
         <p className="save-description">
-          Load a .sav file, inspect raw values, edit bytes, and export an
-          updated save.
+          Load a .sav file, inspect structured values, and export an updated
+          save.
         </p>
 
         <section className="save-panel">
@@ -996,36 +1078,6 @@ export function SaveView() {
 
                 {decodedParty && (
                   <>
-                    <div className="save-meta-grid">
-                      <div className="save-meta-item">
-                        <span className="save-meta-key">Party count</span>
-                        <span className="save-meta-value">
-                          {decodedParty.count}
-                        </span>
-                      </div>
-                      <div className="save-meta-item">
-                        <span className="save-meta-key">Party offset</span>
-                        <span className="save-meta-value">
-                          0x{toHex(decodedParty.partyOffset, 4)}
-                        </span>
-                      </div>
-                      <div className="save-meta-item">
-                        <span className="save-meta-key">Pokemon table</span>
-                        <span className="save-meta-value">
-                          {decodedParty.pokemonTableOffset == null
-                            ? 'Not found'
-                            : `0x${toHex(decodedParty.pokemonTableOffset, 4)}`}
-                        </span>
-                      </div>
-                      <div className="save-meta-item">
-                        <span className="save-meta-key">Move table</span>
-                        <span className="save-meta-value">
-                          {decodedParty.moveTableOffset == null
-                            ? 'Not found'
-                            : `0x${toHex(decodedParty.moveTableOffset, 4)}`}
-                        </span>
-                      </div>
-                    </div>
                     <div className="save-party-table-wrap">
                       {lookups && (
                         <>
@@ -1034,7 +1086,10 @@ export function SaveView() {
                               .map((key, idx) => ({ key, idx }))
                               .filter((entry) => entry.idx > 0 && entry.key)
                               .map((entry) => (
-                                <option key={`species-${entry.idx}`} value={entry.key} />
+                                <option
+                                  key={`species-${entry.idx}`}
+                                  value={entry.key}
+                                />
                               ))}
                           </datalist>
                           <datalist id="save-move-options">
@@ -1042,7 +1097,10 @@ export function SaveView() {
                               .map((key, idx) => ({ key, idx }))
                               .filter((entry) => entry.idx > 0 && entry.key)
                               .map((entry) => (
-                                <option key={`move-${entry.idx}`} value={entry.key} />
+                                <option
+                                  key={`move-${entry.idx}`}
+                                  value={entry.key}
+                                />
                               ))}
                           </datalist>
                         </>
@@ -1242,128 +1300,6 @@ export function SaveView() {
                 )}
               </section>
             )}
-
-            <section className="save-panel">
-              <div className="save-controls">
-                <div className="save-control-group">
-                  <label htmlFor="save-start-offset">Start offset (hex)</label>
-                  <input
-                    id="save-start-offset"
-                    className="search"
-                    value={startOffsetInput}
-                    onChange={(event) =>
-                      setStartOffsetInput(event.target.value)
-                    }
-                  />
-                  {parsedStartOffset == null && (
-                    <p className="error">Enter a valid hexadecimal offset.</p>
-                  )}
-                </div>
-                <div className="save-button-row">
-                  <button className="save-btn" onClick={() => movePage(-1)}>
-                    Prev page
-                  </button>
-                  <button className="save-btn" onClick={() => movePage(1)}>
-                    Next page
-                  </button>
-                </div>
-              </div>
-
-              <div className="save-table-wrap">
-                <table className="save-table">
-                  <thead>
-                    <tr>
-                      <th>Offset</th>
-                      <th>Hex bytes</th>
-                      <th>ASCII</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pageRows.map((rowStart) => {
-                      const cells = []
-                      const asciiChars: string[] = []
-
-                      for (let i = 0; i < BYTES_PER_ROW; i++) {
-                        const offset = rowStart + i
-                        if (offset >= saveBytes.length) break
-                        const value = saveBytes[offset]
-                        asciiChars.push(toPrintableAscii(value))
-                        const isSelected = selectedOffset === offset
-
-                        cells.push(
-                          <input
-                            key={offset}
-                            className={
-                              isSelected
-                                ? 'save-byte-input selected'
-                                : 'save-byte-input'
-                            }
-                            value={toHex(value)}
-                            onFocus={() => setSelectedOffset(offset)}
-                            onChange={(event) =>
-                              updateByte(offset, event.target.value)
-                            }
-                            aria-label={`Byte at offset 0x${toHex(offset, 4)}`}
-                          />,
-                        )
-                      }
-
-                      return (
-                        <tr key={rowStart}>
-                          <td className="save-offset">
-                            0x{toHex(rowStart, 4)}
-                          </td>
-                          <td>
-                            <div className="save-byte-grid">{cells}</div>
-                          </td>
-                          <td className="save-ascii">{asciiChars.join('')}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section className="save-panel">
-              <h2 className="save-panel-title">Selected Byte Inspector</h2>
-              {selectedOffset == null || selectedViews == null ? (
-                <p className="muted">Select a byte to inspect it.</p>
-              ) : (
-                <div className="save-inspector-grid">
-                  <div className="save-meta-item">
-                    <span className="save-meta-key">Offset</span>
-                    <span className="save-meta-value">
-                      0x{toHex(selectedOffset, 4)} ({selectedOffset})
-                    </span>
-                  </div>
-                  <div className="save-meta-item">
-                    <span className="save-meta-key">u8</span>
-                    <span className="save-meta-value">
-                      {selectedViews.byte}
-                    </span>
-                  </div>
-                  <div className="save-meta-item">
-                    <span className="save-meta-key">u16 LE</span>
-                    <span className="save-meta-value">
-                      {selectedViews.u16le}
-                    </span>
-                  </div>
-                  <div className="save-meta-item">
-                    <span className="save-meta-key">u24 LE</span>
-                    <span className="save-meta-value">
-                      {selectedViews.u24le}
-                    </span>
-                  </div>
-                  <div className="save-meta-item">
-                    <span className="save-meta-key">u32 LE</span>
-                    <span className="save-meta-value">
-                      {selectedViews.u32le >>> 0}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </section>
           </>
         )}
       </div>
