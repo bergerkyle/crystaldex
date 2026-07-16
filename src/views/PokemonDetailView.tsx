@@ -126,6 +126,7 @@ function encounterGroupOrder(entry: {
 }): number {
   if (entry.method === 'grass') return 0
   if (entry.method === 'water') return 1
+  if (entry.method === 'fixed') return 6
   if (entry.method !== 'fishing') return 99
   if (entry.rod === 'old') return 2
   if (entry.rod === 'good') return 3

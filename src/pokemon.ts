@@ -89,7 +89,7 @@ export interface ShinyPalette {
   color2: string
 }
 
-export type EncounterMethod = 'grass' | 'water' | 'fishing'
+export type EncounterMethod = 'grass' | 'water' | 'fishing' | 'fixed'
 
 export type FishingRod = 'old' | 'good' | 'super'
 
@@ -239,6 +239,7 @@ export function formatLocation(raw: string): string {
 export function formatEncounterMethod(method: EncounterMethod): string {
   if (method === 'grass') return 'Grass'
   if (method === 'water') return 'Surf'
+  if (method === 'fixed') return 'Fixed'
   return 'Fishing'
 }
 
