@@ -104,7 +104,7 @@ export interface AbilityDef {
   description: string
 }
 
-export type EncounterMethod = 'grass' | 'water' | 'fishing'
+export type EncounterMethod = 'grass' | 'water' | 'fishing' | 'fixed'
 
 export type FishingRod = 'old' | 'good' | 'super'
 
@@ -153,7 +153,7 @@ export interface WildEncounterData {
   pokemon: Map<string, PokemonEncounter[]>
 }
 
-interface TreeNode {
+export interface TreeNode {
   path: string
   type: string
   sha: string
@@ -1109,7 +1109,9 @@ function rgbToHex(red: number, green: number, blue: number): string {
 // CrystalShire stores channels on a 0..32 scale, so we convert to 0..255.
 export function parseShinyPalette(source: string): ShinyPalette | null {
   const colors: string[] = []
-  for (const match of source.matchAll(/\bRGB\s+(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/g)) {
+  for (const match of source.matchAll(
+    /\bRGB\s+(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/g,
+  )) {
     const red = gbcChannelToRgb8(Number(match[1]))
     const green = gbcChannelToRgb8(Number(match[2]))
     const blue = gbcChannelToRgb8(Number(match[3]))
@@ -1186,6 +1188,71 @@ function parseAbilityMons(
     }
   }
   return result
+}
+
+// ---------------------------------------------------------------------------
+// Fixed (scripted) wild encounter parser
+// ---------------------------------------------------------------------------
+
+// loadwildmon lines look like: `loadwildmon BAGON, 1`
+const LOADWILDMON_RE = /^\s*loadwildmon\s+([A-Z][A-Z0-9_]*)\s*,\s*\d+/gm
+
+export interface FixedEncounterEntry {
+  region: string
+  route: string
+  pokemon_name: string
+  pokemon_region: string
+}
+
+// Scan every .asm file under the maps/ directory in the repo tree for
+// `loadwildmon` commands and return one entry per occurrence.
+export async function fetchFixedEncounters(
+  tree: TreeNode[],
+  entriesByKey: Map<string, PokemonEntry>,
+): Promise<FixedEncounterEntry[]> {
+  const mapBlobs = tree.filter(
+    (node) =>
+      node.type === 'blob' &&
+      node.path.startsWith('maps/') &&
+      node.path.endsWith('.asm'),
+  )
+
+  const results: FixedEncounterEntry[] = []
+  let idx = 0
+  const limit = 16
+  const workers = Array.from(
+    { length: Math.min(limit, mapBlobs.length) },
+    async () => {
+      while (idx < mapBlobs.length) {
+        const node = mapBlobs[idx++]
+        const source = await fetchRaw(node.path)
+        const matches = [...source.matchAll(LOADWILDMON_RE)]
+        if (matches.length === 0) continue
+
+        const segments = node.path.split('/')
+        // maps/<region>/[subdirs/]<MapName>.asm
+        const region = segments[1] ?? ''
+        const filename = (segments[segments.length - 1] ?? '').replace(
+          /\.asm$/,
+          '',
+        )
+        const route = mapNameToRouteToken(filename)
+
+        for (const m of matches) {
+          const pokemon = resolveEncounterPokemon(m[1], entriesByKey)
+          results.push({
+            region,
+            route,
+            pokemon_name: pokemon.name,
+            pokemon_region: pokemon.region,
+          })
+        }
+      }
+    },
+  )
+  await Promise.all(workers)
+
+  return results
 }
 
 export async function fetchAbilityCatalog(): Promise<{

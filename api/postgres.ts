@@ -4,6 +4,7 @@ import { execSync } from 'node:child_process'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
   type AbilityDef,
+  type FixedEncounterEntry,
   type PokemonEncounter,
   type RouteEncounter,
   type EvosAttacks,
@@ -11,10 +12,12 @@ import {
   type Move,
   type MoveDef,
   type PokemonEntry,
+  type TreeNode,
   ITEM_CONSTANTS_PATH,
   entriesFromTree,
   fetchAbilityCatalog,
   fetchEvosAttacks,
+  fetchFixedEncounters,
   fetchMoveCatalog,
   fetchWildEncounterData,
   resetWildEncounterCache,
@@ -141,7 +144,7 @@ interface PokemonRow {
 interface LocationEncounterRow {
   region: string
   route: string
-  method: 'grass' | 'water' | 'fishing'
+  method: 'grass' | 'water' | 'fishing' | 'fixed'
   rod: 'old' | 'good' | 'super' | null
   time: 'morn' | 'day' | 'nite' | null
   pokemon_name: string
@@ -231,7 +234,13 @@ export async function syncDatabase(): Promise<{
   )
 
   resetWildEncounterCache()
-  const encounterData = await fetchWildEncounterData()
+  const [encounterData, fixedEncounterEntries] = await Promise.all([
+    fetchWildEncounterData(),
+    fetchFixedEncounters(
+      tree,
+      new Map(entries.map((e) => [normalizeKey(e.name), e])),
+    ),
+  ])
   const encounterRows: LocationEncounterRow[] = []
   for (const route of encounterData.routes) {
     for (const grass of route.grass) {
@@ -275,8 +284,20 @@ export async function syncDatabase(): Promise<{
       }
     }
   }
+  for (const entry of fixedEncounterEntries) {
+    encounterRows.push({
+      region: entry.region,
+      route: entry.route,
+      method: 'fixed',
+      rod: null,
+      time: null,
+      pokemon_name: entry.pokemon_name,
+      pokemon_region: entry.pokemon_region,
+      rate: 100,
+    })
+  }
   console.log(
-    `[sync] parsed wild encounters: routes=${encounterData.routes.length}, rows=${encounterRows.length}`,
+    `[sync] parsed wild encounters: routes=${encounterData.routes.length}, rows=${encounterRows.length} (including ${fixedEncounterEntries.length} fixed)`,
   )
 
   // Build full write sets from source files.
@@ -526,7 +547,9 @@ export async function listPokemon(): Promise<PokemonListItem[]> {
   const supabase = getSupabase()
   const { data, error } = await supabase
     .from('pokemon')
-    .select('name, region, front_sprite, type_1, type_2, shiny_color_1, shiny_color_2')
+    .select(
+      'name, region, front_sprite, type_1, type_2, shiny_color_1, shiny_color_2',
+    )
     .order('name')
   if (error) throw new Error(error.message)
   return (data ?? []).map((row) => ({

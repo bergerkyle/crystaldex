@@ -100,7 +100,7 @@ alter table public.location_encounters
 
 alter table public.location_encounters
   add constraint location_encounters_method_check
-  check (method in ('grass', 'water', 'fishing'));
+  check (method in ('grass', 'water', 'fishing', 'fixed'));
 
 alter table public.location_encounters
   drop constraint if exists location_encounters_rod_check;
