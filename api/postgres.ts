@@ -656,7 +656,9 @@ export interface PokemonDetail {
   encounters: PokemonEncounter[]
 }
 
-export interface EncounterRoute extends RouteEncounter {}
+export interface EncounterRoute extends RouteEncounter {
+  connectedMaps: string[]
+}
 
 export async function getPokemon(name: string): Promise<PokemonDetail | null> {
   const supabase = getSupabase()
@@ -819,6 +821,12 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
     pokemon_name: string
     pokemon_region: string
   }[] = []
+  const connectionRows: {
+    region: string
+    route: string
+    connected_map: string
+    sort: number
+  }[] = []
 
   for (let page = 0; ; page += 1) {
     const from = page * pageSize
@@ -840,6 +848,31 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
     if (data.length < pageSize) break
   }
 
+  for (let page = 0; ; page += 1) {
+    const from = page * pageSize
+    const to = from + pageSize - 1
+    const { data, error } = await supabase
+      .from('location_connections')
+      .select('region, route, connected_map, sort')
+      .order('region')
+      .order('route')
+      .order('sort')
+      .order('id')
+      .range(from, to)
+    if (error) throw new Error(error.message)
+    if (!data || data.length === 0) break
+    connectionRows.push(...data)
+    if (data.length < pageSize) break
+  }
+
+  const connectionsByRoute = new Map<string, string[]>()
+  for (const row of connectionRows) {
+    const key = `${row.region}:${row.route}`
+    const existing = connectionsByRoute.get(key) ?? []
+    existing.push(row.connected_map)
+    connectionsByRoute.set(key, existing)
+  }
+
   const routesByKey = new Map<string, EncounterRoute>()
   for (const row of rows) {
     const key = `${row.region}:${row.route}`
@@ -850,6 +883,7 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
       water: [],
       fishing: [],
       fixed: [],
+      connectedMaps: connectionsByRoute.get(key) ?? [],
     }
 
     if (row.method === 'grass' && row.time) {
