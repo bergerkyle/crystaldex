@@ -236,6 +236,12 @@ export function LocationDetailView({
   onOpenLocation,
   onSelectPokemon,
 }: LocationDetailViewProps) {
+  const routeIndex = new Set(
+    allRoutes.map(
+      (entry) => `${entry.region.toLowerCase()}:${entry.route.toUpperCase()}`,
+    ),
+  )
+
   return (
     <div className="encounters-page">
       <div className="md:hidden">
@@ -257,6 +263,39 @@ export function LocationDetailView({
           <h1 className="moves-page-title location-detail-title">
             {formatLocation(routeDetail.route)}
           </h1>
+
+          <section className="move-type-section">
+            <h2 className="route-detail-table-title">Connected Maps</h2>
+            {routeDetail.connectedMaps.length === 0 ? (
+              <p className="muted">No map connections found.</p>
+            ) : (
+              <ul className="location-list">
+                {routeDetail.connectedMaps.map((mapName, index) => {
+                  const destinationRoute = mapName.toUpperCase()
+                  const destinationKey = `${routeDetail.region.toLowerCase()}:${destinationRoute}`
+                  const canOpen = routeIndex.has(destinationKey)
+                  return (
+                    <li key={`${mapName}-${index}`}>
+                      {canOpen ? (
+                        <button
+                          className="location-list-button"
+                          onClick={() =>
+                            onOpenLocation(routeDetail.region, destinationRoute)
+                          }
+                        >
+                          {formatLocation(mapName)}
+                        </button>
+                      ) : (
+                        <span className="location-list-button">
+                          {formatLocation(mapName)}
+                        </span>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
 
           <EncounterTable
             title="Land Locations"

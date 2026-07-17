@@ -5,6 +5,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
   type AbilityDef,
   type FixedEncounterEntry,
+  type MapConnectionEntry,
   type PokemonEncounter,
   type RouteEncounter,
   type EvosAttacks,
@@ -18,6 +19,7 @@ import {
   fetchAbilityCatalog,
   fetchEvosAttacks,
   fetchFixedEncounters,
+  fetchMapConnections,
   fetchMoveCatalog,
   fetchWildEncounterData,
   resetWildEncounterCache,
@@ -152,6 +154,13 @@ interface LocationEncounterRow {
   rate: number
 }
 
+interface LocationConnectionRow {
+  region: string
+  route: string
+  connected_map: string
+  sort: number
+}
+
 // ---------------------------------------------------------------------------
 // Sync
 // ---------------------------------------------------------------------------
@@ -234,13 +243,15 @@ export async function syncDatabase(): Promise<{
   )
 
   resetWildEncounterCache()
-  const [encounterData, fixedEncounterEntries] = await Promise.all([
-    fetchWildEncounterData(),
-    fetchFixedEncounters(
-      tree,
-      new Map(entries.map((e) => [normalizeKey(e.name), e])),
-    ),
-  ])
+  const [encounterData, fixedEncounterEntries, mapConnectionEntries] =
+    await Promise.all([
+      fetchWildEncounterData(),
+      fetchFixedEncounters(
+        tree,
+        new Map(entries.map((e) => [normalizeKey(e.name), e])),
+      ),
+      fetchMapConnections(tree),
+    ])
   const encounterRows: LocationEncounterRow[] = []
   for (const route of encounterData.routes) {
     for (const grass of route.grass) {
@@ -298,6 +309,17 @@ export async function syncDatabase(): Promise<{
   }
   console.log(
     `[sync] parsed wild encounters: routes=${encounterData.routes.length}, rows=${encounterRows.length} (including ${fixedEncounterEntries.length} fixed)`,
+  )
+  const mapConnectionRows: LocationConnectionRow[] = mapConnectionEntries.map(
+    (entry: MapConnectionEntry) => ({
+      region: entry.region,
+      route: entry.route,
+      connected_map: entry.connected_map,
+      sort: entry.sort,
+    }),
+  )
+  console.log(
+    `[sync] parsed map connections: rows=${mapConnectionRows.length}, source_maps=${new Set(mapConnectionRows.map((row) => `${row.region}:${row.route}`)).size}`,
   )
 
   // Build full write sets from source files.
@@ -414,6 +436,14 @@ export async function syncDatabase(): Promise<{
     throw new Error(
       `Clear location encounters failed: ${clearEncounters.error.message}`,
     )
+  const clearConnections = await supabase
+    .from('location_connections')
+    .delete()
+    .gt('id', 0)
+  if (clearConnections.error)
+    throw new Error(
+      `Clear location connections failed: ${clearConnections.error.message}`,
+    )
   console.log('[sync] clear complete')
 
   console.log('[sync] inserting move catalog')
@@ -524,6 +554,14 @@ export async function syncDatabase(): Promise<{
   console.log(
     `[sync] inserted location encounter rows: ${encounterRows.length}`,
   )
+  for (const batch of chunk(mapConnectionRows, 500)) {
+    const { error } = await supabase.from('location_connections').insert(batch)
+    if (error)
+      throw new Error(`Insert location connections failed: ${error.message}`)
+  }
+  console.log(
+    `[sync] inserted location connection rows: ${mapConnectionRows.length}`,
+  )
 
   const durationMs = Date.now() - syncStartedAt
   console.log(`[sync] complete in ${durationMs}ms`)
@@ -618,7 +656,9 @@ export interface PokemonDetail {
   encounters: PokemonEncounter[]
 }
 
-export interface EncounterRoute extends RouteEncounter {}
+export interface EncounterRoute extends RouteEncounter {
+  connectedMaps: string[]
+}
 
 export async function getPokemon(name: string): Promise<PokemonDetail | null> {
   const supabase = getSupabase()
@@ -781,6 +821,12 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
     pokemon_name: string
     pokemon_region: string
   }[] = []
+  const connectionRows: {
+    region: string
+    route: string
+    connected_map: string
+    sort: number
+  }[] = []
 
   for (let page = 0; ; page += 1) {
     const from = page * pageSize
@@ -802,6 +848,31 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
     if (data.length < pageSize) break
   }
 
+  for (let page = 0; ; page += 1) {
+    const from = page * pageSize
+    const to = from + pageSize - 1
+    const { data, error } = await supabase
+      .from('location_connections')
+      .select('region, route, connected_map, sort')
+      .order('region')
+      .order('route')
+      .order('sort')
+      .order('id')
+      .range(from, to)
+    if (error) throw new Error(error.message)
+    if (!data || data.length === 0) break
+    connectionRows.push(...data)
+    if (data.length < pageSize) break
+  }
+
+  const connectionsByRoute = new Map<string, string[]>()
+  for (const row of connectionRows) {
+    const key = `${row.region}:${row.route}`
+    const existing = connectionsByRoute.get(key) ?? []
+    existing.push(row.connected_map)
+    connectionsByRoute.set(key, existing)
+  }
+
   const routesByKey = new Map<string, EncounterRoute>()
   for (const row of rows) {
     const key = `${row.region}:${row.route}`
@@ -812,6 +883,7 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
       water: [],
       fishing: [],
       fixed: [],
+      connectedMaps: connectionsByRoute.get(key) ?? [],
     }
 
     if (row.method === 'grass' && row.time) {

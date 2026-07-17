@@ -1224,6 +1224,13 @@ export interface FixedEncounterEntry {
   pokemon_region: string
 }
 
+export interface MapConnectionEntry {
+  region: string
+  route: string
+  connected_map: string
+  sort: number
+}
+
 // Scan every .asm file under the maps/ directory in the repo tree for
 // `loadwildmon` commands and return one entry per occurrence.
 export async function fetchFixedEncounters(
@@ -1269,6 +1276,58 @@ export async function fetchFixedEncounters(
             route,
             pokemon_name: pokemon.name,
             pokemon_region: pokemon.region,
+          })
+        }
+      }
+    },
+  )
+  await Promise.all(workers)
+
+  return results
+}
+
+// warp_event lines look like: `warp_event  05, 07, FORTREE_POKECENTER, 2`
+const WARP_EVENT_RE =
+  /^\s*warp_event\s+\d+\s*,\s*\d+\s*,\s*([A-Z][A-Z0-9_]*)\s*,\s*\d+/gm
+
+// Scan every .asm file under maps/ and return one row per `warp_event`
+// destination to represent directed map connections from source map -> target.
+export async function fetchMapConnections(
+  tree: TreeNode[],
+): Promise<MapConnectionEntry[]> {
+  const mapBlobs = tree.filter(
+    (node) =>
+      node.type === 'blob' &&
+      node.path.startsWith('maps/') &&
+      node.path.endsWith('.asm'),
+  )
+
+  const results: MapConnectionEntry[] = []
+  let idx = 0
+  const limit = 16
+  const workers = Array.from(
+    { length: Math.min(limit, mapBlobs.length) },
+    async () => {
+      while (idx < mapBlobs.length) {
+        const node = mapBlobs[idx++]
+        const source = await fetchRaw(node.path)
+        const matches = [...source.matchAll(WARP_EVENT_RE)]
+        if (matches.length === 0) continue
+
+        const segments = node.path.split('/')
+        const filename = (segments[segments.length - 1] ?? '').replace(
+          /\.asm$/,
+          '',
+        )
+        const route = mapNameToRouteToken(filename)
+        const region = segments.length > 2 ? (segments[1] ?? '') : ''
+
+        for (let i = 0; i < matches.length; i++) {
+          results.push({
+            region,
+            route,
+            connected_map: matches[i][1],
+            sort: i,
           })
         }
       }

@@ -117,6 +117,7 @@ export interface RouteEncounter {
   water: EncounterRate[]
   fishing: RouteFishingEncounters[]
   fixed: EncounterRate[]
+  connectedMaps: string[]
 }
 
 export interface RouteFishingEncounters {
