@@ -92,6 +92,15 @@ create table if not exists public.location_encounters (
   rate           integer not null check (rate >= 0)
 );
 
+-- Directed map links parsed from map warp_event definitions.
+create table if not exists public.location_connections (
+  id             bigint generated always as identity primary key,
+  region         text not null,
+  route          text not null,
+  connected_map  text not null,
+  sort           integer not null default 0
+);
+
 alter table public.location_encounters
   add column if not exists rod text;
 
@@ -138,6 +147,8 @@ create index if not exists pokemon_tmhm_pokemon_name_idx on public.pokemon_tmhm 
 create index if not exists pokemon_tmhm_move_key_idx on public.pokemon_tmhm (move_key);
 create index if not exists location_encounters_region_route_idx on public.location_encounters (region, route);
 create index if not exists location_encounters_pokemon_name_idx on public.location_encounters (pokemon_name);
+create index if not exists location_connections_region_route_idx on public.location_connections (region, route);
+create index if not exists location_connections_connected_map_idx on public.location_connections (connected_map);
 create index if not exists pokemon_ability_id_idx on public.pokemon (ability_id);
 
 -- The API reads/writes with the service-role key, which bypasses RLS. Enabling
@@ -148,5 +159,6 @@ alter table public.moves enable row level security;
 alter table public.pokemon_moves enable row level security;
 alter table public.pokemon_tmhm enable row level security;
 alter table public.location_encounters enable row level security;
+alter table public.location_connections enable row level security;
 alter table public.abilities enable row level security;
 alter table public.sync_meta enable row level security;
