@@ -9,6 +9,8 @@ const MOVE_NAMES_PATH = 'data/moves/names.asm'
 const MOVE_CONSTANTS_PATH = 'constants/move_constants.asm'
 const MOVE_DESCRIPTIONS_PATH = 'data/moves/descriptions.asm'
 export const ITEM_CONSTANTS_PATH = 'constants/item_constants.asm'
+const ITEM_NAMES_PATH = 'data/items/names.asm'
+const ITEM_DESCRIPTIONS_PATH = 'data/items/descriptions.asm'
 const ABILITIES_ASM_PATH = 'data/abilities/abilities.asm'
 const ABILITIES_DESCRIPTIONS_PATH = 'data/abilities/descriptions.asm'
 const WILD_PROBABILITIES_PATH = 'data/wild/probabilities.asm'
@@ -102,6 +104,17 @@ export interface AbilityDef {
   key: string
   name: string
   description: string
+}
+
+export interface ItemDef {
+  key: string
+  name: string
+  description: string
+}
+
+export interface HeldItems {
+  item1: string | null
+  item2: string | null
 }
 
 export type EncounterMethod = 'grass' | 'water' | 'fishing' | 'fixed'
@@ -1315,4 +1328,154 @@ export async function fetchAbilityCatalog(): Promise<{
   }
 
   return { abilities, pokemonAbilityMap }
+}
+
+// ---------------------------------------------------------------------------
+// Item catalog parsers
+// ---------------------------------------------------------------------------
+
+// Fallback display name from an item constant (e.g. DRAGON_FANG -> "Dragon Fang")
+// used only when names.asm has no entry for the id.
+function itemKeyToName(key: string): string {
+  return key
+    .toLowerCase()
+    .split('_')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+// Ordered item-pocket constants from item_constants.asm. The index into the
+// returned array IS the item id (index 0 = NO_ITEM). Only the regular item
+// pocket is parsed (all held items and evolution stones live here); parsing
+// stops at NUM_ITEM_POCKET before key items / balls.
+export function parseItemConstants(source: string): string[] {
+  const keys: string[] = []
+  let started = false
+  for (const line of source.split('\n')) {
+    if (!started) {
+      if (/^\s*const_def\b/.test(line)) started = true
+      continue
+    }
+    if (/\bNUM_ITEM_POCKET\b/.test(line)) break
+    const m = line.match(/^\s*const\s+([A-Z0-9_]+)/)
+    if (m) keys.push(m[1])
+  }
+  return keys
+}
+
+// Item names from the ItemNames list in names.asm, indexed by item id. The list
+// is ordered by id starting at 1 (NO_ITEM has no name), so the returned array is
+// padded with an empty string at index 0 to keep index === id. The `; 00xx`
+// comments in the source are unreliable (some are transposed); position wins.
+export function parseItemNames(source: string): string[] {
+  const names: string[] = ['']
+  const block = source.match(/ItemNames::([\s\S]*?)assert_list_length/)
+  if (!block) return names
+  for (const line of block[1].split('\n')) {
+    const m = line.match(/^\s*li\s+"([^"]*)"/)
+    if (m) names.push(m[1])
+  }
+  return names
+}
+
+// Description labels from the ItemDescriptions1 table, indexed by item id
+// (index 0 padded empty, entries start at id 1). Each `dw XxxDesc` points at a
+// label whose text lives elsewhere in the file (see parseItemDescriptions).
+export function parseItemDescriptionLabels(source: string): string[] {
+  const labels: string[] = ['']
+  const block = source.match(/ItemDescriptions1:([\s\S]*?)\.IndirectEnd:/)
+  if (!block) return labels
+  for (const line of block[1].split('\n')) {
+    const m = line.match(/^\s*dw\s+([A-Za-z0-9_]+)/)
+    if (m) labels.push(m[1])
+  }
+  return labels
+}
+
+// Assemble the visible text of an item description from its db/next fragments.
+// Rules (per the source's line-wrapping conventions):
+//  - a fragment ending in "-" joins the next directly ("dragon-" + "type" ->
+//    "dragon-type"); otherwise a space is inserted between fragments.
+//  - the "@" string terminator is stripped.
+//  - "#mon" (and its hyphen-wrapped "#-\nMON" form) becomes "Pokémon".
+function assembleItemDescription(fragments: string[]): string {
+  let text = ''
+  for (const raw of fragments) {
+    const clean = raw.replace(/@/g, '')
+    if (!text) text = clean
+    else if (text.endsWith('-')) text += clean
+    else text += ` ${clean}`
+  }
+  return text.replace(/#-?mon/gi, 'Pokémon').trim()
+}
+
+// Map of description label (e.g. "DragonFangDesc") -> assembled visible text,
+// parsed from the XxxDesc: db/next blocks in descriptions.asm.
+export function parseItemDescriptions(source: string): Map<string, string> {
+  const result = new Map<string, string>()
+  let currentLabel: string | null = null
+  let fragments: string[] = []
+
+  const flush = () => {
+    if (currentLabel)
+      result.set(currentLabel, assembleItemDescription(fragments))
+  }
+
+  for (const line of source.split('\n')) {
+    const label = line.match(/^([A-Za-z0-9_]+Desc):/)
+    if (label) {
+      flush()
+      currentLabel = label[1]
+      fragments = []
+      continue
+    }
+    if (!currentLabel) continue
+    if (!/^\s*(db|next)\b/.test(line)) continue
+    for (const quoted of line.matchAll(/"([^"]*)"/g)) {
+      fragments.push(quoted[1])
+    }
+  }
+  flush()
+
+  return result
+}
+
+// Build the item catalog: one entry per regular-pocket item (excluding
+// NO_ITEM), keyed by its constant, with the display name and description.
+export async function fetchItemCatalog(): Promise<ItemDef[]> {
+  const [constSource, namesSource, descSource] = await Promise.all([
+    fetchRaw(ITEM_CONSTANTS_PATH),
+    fetchRaw(ITEM_NAMES_PATH),
+    fetchRaw(ITEM_DESCRIPTIONS_PATH),
+  ])
+
+  const keys = parseItemConstants(constSource)
+  const names = parseItemNames(namesSource)
+  const descLabels = parseItemDescriptionLabels(descSource)
+  const descTexts = parseItemDescriptions(descSource)
+
+  const items: ItemDef[] = []
+  for (let id = 1; id < keys.length; id++) {
+    const key = keys[id]
+    const name = names[id] || itemKeyToName(key)
+    const label = descLabels[id] ?? ''
+    items.push({
+      key,
+      name,
+      description: descTexts.get(label) ?? '',
+    })
+  }
+  return items
+}
+
+// The `dw <item a>, <item b> ; items` line of a base_stats file lists the two
+// wild held-item slots. NO_ITEM means the slot is empty and is returned as null.
+export function parseHeldItems(source: string): HeldItems {
+  const m = source.match(
+    /^\s*dw\s+([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)\s*;\s*items/m,
+  )
+  if (!m) return { item1: null, item2: null }
+  const norm = (value: string) => (value === 'NO_ITEM' ? null : value)
+  return { item1: norm(m[1]), item2: norm(m[2]) }
 }

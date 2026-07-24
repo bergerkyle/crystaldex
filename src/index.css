@@ -1129,6 +1129,73 @@ a:hover {
   color: rgba(255, 255, 255, 0.55);
 }
 
+.held-items {
+  max-width: 520px;
+}
+
+.held-items-title {
+  margin: 0 0 0.35rem;
+}
+
+.held-items-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.held-items-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.held-item-rate {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+
+/* Item name + hover/focus tooltip (held items and evolution triggers). */
+.item-tooltip-wrap {
+  position: relative;
+  display: inline-block;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  outline: none;
+}
+
+.item-tooltip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  z-index: 20;
+  width: max-content;
+  max-width: 260px;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.5;
+  text-decoration: none;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+
+.item-tooltip-wrap:hover .item-tooltip,
+.item-tooltip-wrap:focus .item-tooltip,
+.item-tooltip-wrap:focus-within .item-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
 .stats {
   display: flex;
   flex-direction: column;

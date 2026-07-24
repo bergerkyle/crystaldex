@@ -18,12 +18,14 @@ import {
   fetchAbilityCatalog,
   fetchEvosAttacks,
   fetchFixedEncounters,
+  fetchItemCatalog,
   fetchMoveCatalog,
   fetchWildEncounterData,
   resetWildEncounterCache,
   fetchRaw,
   fetchTree,
   normalizeKey,
+  parseHeldItems,
   parseStats,
   parseTmHm,
   parseTmHmLearnset,
@@ -139,6 +141,8 @@ interface PokemonRow {
   front_sha: string | null
   back_sha: string | null
   ability_id: number | null
+  held_item_1: string | null
+  held_item_2: string | null
 }
 
 interface LocationEncounterRow {
@@ -197,11 +201,19 @@ export async function syncDatabase(): Promise<{
     `[sync] indexed assets: sprites=${spriteShaByPath.size}, shiny_pals=${shinyPalByPath.size}, evo_files=${evosShaByRegion.size}`,
   )
 
-  const [catalog, { abilities: abilityCatalog, pokemonAbilityMap }] =
-    await Promise.all([fetchMoveCatalog(), fetchAbilityCatalog()])
+  const [
+    catalog,
+    { abilities: abilityCatalog, pokemonAbilityMap },
+    itemCatalog,
+  ] = await Promise.all([
+    fetchMoveCatalog(),
+    fetchAbilityCatalog(),
+    fetchItemCatalog(),
+  ])
   const validMoveKeys = new Set(catalog.map((c) => c.key))
+  const validItemKeys = new Set(itemCatalog.map((i) => i.key))
   console.log(
-    `[sync] parsed move catalog: ${catalog.length} moves, ability catalog: ${abilityCatalog.length} abilities`,
+    `[sync] parsed move catalog: ${catalog.length} moves, ability catalog: ${abilityCatalog.length} abilities, item catalog: ${itemCatalog.length} items`,
   )
 
   // Build the TM/HM label map (move constant -> TM##/HM## + display order).
@@ -333,6 +345,18 @@ export async function syncDatabase(): Promise<{
     const types = parseTypes(source)
     if (!types) throw new Error(`Could not parse types for ${entry.path}`)
 
+    // Wild held items; drop any key not present in the catalog to keep the FK
+    // to `items` valid.
+    const heldItems = parseHeldItems(source)
+    const heldItem1 =
+      heldItems.item1 && validItemKeys.has(heldItems.item1)
+        ? heldItems.item1
+        : null
+    const heldItem2 =
+      heldItems.item2 && validItemKeys.has(heldItems.item2)
+        ? heldItems.item2
+        : null
+
     const shinyPath = `gfx/pokemon/${entry.name}/shiny.pal`
     let shinyColor1: string | null = null
     let shinyColor2: string | null = null
@@ -365,6 +389,8 @@ export async function syncDatabase(): Promise<{
       front_sha: null,
       back_sha: null,
       ability_id: null, // resolved after abilities are inserted
+      held_item_1: heldItem1,
+      held_item_2: heldItem2,
     })
 
     const rows = parseTmHmLearnset(source)
@@ -406,6 +432,10 @@ export async function syncDatabase(): Promise<{
   const clearAbilities = await supabase.from('abilities').delete().gt('id', 0)
   if (clearAbilities.error)
     throw new Error(`Clear abilities failed: ${clearAbilities.error.message}`)
+  // Cleared after pokemon (which reference items) to satisfy the FK.
+  const clearItems = await supabase.from('items').delete().neq('key', '')
+  if (clearItems.error)
+    throw new Error(`Clear items failed: ${clearItems.error.message}`)
   const clearEncounters = await supabase
     .from('location_encounters')
     .delete()
@@ -454,6 +484,13 @@ export async function syncDatabase(): Promise<{
       ability_id: abilityKey ? (abilityIdByKey.get(abilityKey) ?? null) : null,
     }
   })
+
+  // Items must exist before pokemon rows reference them via held-item FKs.
+  console.log('[sync] inserting item catalog')
+  for (const batch of chunk(itemCatalog, 500)) {
+    const { error } = await supabase.from('items').insert(batch)
+    if (error) throw new Error(`Insert items catalog failed: ${error.message}`)
+  }
 
   console.log('[sync] inserting pokemon rows')
   for (const batch of chunk(pokemonInserts, 500)) {
@@ -580,6 +617,8 @@ export interface PokemonDetail {
     method: string
     level?: number
     item?: string
+    itemName?: string
+    itemDescription?: string
     condition?: string
     to: { name: string; region: string }
   }[]
@@ -587,6 +626,8 @@ export interface PokemonDetail {
     method: string
     level?: number
     item?: string
+    itemName?: string
+    itemDescription?: string
     condition?: string
     from: { name: string; region: string }
   }[]
@@ -615,6 +656,12 @@ export interface PokemonDetail {
   sprites: { front: string; back: string }
   shinyPalette: { color1: string; color2: string } | null
   ability: { name: string; description: string } | null
+  heldItems: {
+    key: string
+    name: string
+    description: string
+    rate: number
+  }[]
   encounters: PokemonEncounter[]
 }
 
@@ -676,6 +723,45 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
       sourceRegionsByName.set(row.name, row.region)
   }
 
+  // Resolve every item referenced by held-item slots or evolution triggers to
+  // its display name + description in one lookup.
+  const itemKeys = new Set<string>()
+  if (p.held_item_1) itemKeys.add(p.held_item_1)
+  if (p.held_item_2) itemKeys.add(p.held_item_2)
+  for (const row of evoRes.data ?? []) if (row.item) itemKeys.add(row.item)
+  for (const row of evoSourceRes.data ?? [])
+    if (row.item) itemKeys.add(row.item)
+
+  const itemsByKey = new Map<string, { name: string; description: string }>()
+  if (itemKeys.size > 0) {
+    const { data: items, error: itemsError } = await supabase
+      .from('items')
+      .select('key, name, description')
+      .in('key', [...itemKeys])
+    if (itemsError) throw new Error(itemsError.message)
+    for (const item of items ?? [])
+      itemsByKey.set(item.key, {
+        name: item.name,
+        description: item.description,
+      })
+  }
+
+  const heldItemSlots: { key: string | null; rate: number }[] = [
+    { key: p.held_item_1 ?? null, rate: 37.5 },
+    { key: p.held_item_2 ?? null, rate: 12.5 },
+  ]
+  const heldItems = heldItemSlots
+    .filter((slot): slot is { key: string; rate: number } => Boolean(slot.key))
+    .map((slot) => {
+      const info = itemsByKey.get(slot.key)
+      return {
+        key: slot.key,
+        name: info?.name ?? slot.key,
+        description: info?.description ?? '',
+        rate: slot.rate,
+      }
+    })
+
   const moveKeys = new Set<string>()
   for (const row of moveRes.data ?? []) moveKeys.add(row.move_key)
   for (const row of tmhmRes.data ?? []) moveKeys.add(row.move_key)
@@ -708,6 +794,12 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
       method: e.method,
       level: e.level ?? undefined,
       item: e.item ?? undefined,
+      itemName: e.item
+        ? (itemsByKey.get(e.item)?.name ?? undefined)
+        : undefined,
+      itemDescription: e.item
+        ? (itemsByKey.get(e.item)?.description ?? undefined)
+        : undefined,
       condition: e.condition ?? undefined,
       to: { name: e.to_name, region: e.to_region },
     })),
@@ -715,6 +807,12 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
       method: e.method,
       level: e.level ?? undefined,
       item: e.item ?? undefined,
+      itemName: e.item
+        ? (itemsByKey.get(e.item)?.name ?? undefined)
+        : undefined,
+      itemDescription: e.item
+        ? (itemsByKey.get(e.item)?.description ?? undefined)
+        : undefined,
       condition: e.condition ?? undefined,
       from: {
         name: e.pokemon_name,
@@ -757,6 +855,7 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
     ability: ability
       ? { name: ability.name, description: ability.description }
       : null,
+    heldItems,
     encounters: (encounterRes.data ?? []).map((row) => ({
       region: row.region,
       route: row.route,

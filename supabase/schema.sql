@@ -125,6 +125,22 @@ alter table public.pokemon
 alter table public.pokemon
   add column if not exists shiny_color_2 text;
 
+-- Item catalog: one row per (regular-pocket) item, referenced by Pokémon held
+-- item slots and evolution triggers.
+create table if not exists public.items (
+  key         text primary key,
+  name        text not null,
+  description text not null default ''
+);
+
+-- Wild held items: slot 1 is held 37.5% of the time, slot 2 is held 12.5% of
+-- the time. NO_ITEM slots are stored as null.
+alter table public.pokemon
+  add column if not exists held_item_1 text references public.items(key) on delete set null;
+
+alter table public.pokemon
+  add column if not exists held_item_2 text references public.items(key) on delete set null;
+
 -- Small key/value store for tracking source-file SHAs between syncs.
 create table if not exists public.sync_meta (
   key    text primary key,
@@ -139,6 +155,8 @@ create index if not exists pokemon_tmhm_move_key_idx on public.pokemon_tmhm (mov
 create index if not exists location_encounters_region_route_idx on public.location_encounters (region, route);
 create index if not exists location_encounters_pokemon_name_idx on public.location_encounters (pokemon_name);
 create index if not exists pokemon_ability_id_idx on public.pokemon (ability_id);
+create index if not exists pokemon_held_item_1_idx on public.pokemon (held_item_1);
+create index if not exists pokemon_held_item_2_idx on public.pokemon (held_item_2);
 
 -- The API reads/writes with the service-role key, which bypasses RLS. Enabling
 -- RLS with no public policies keeps the anon key from reading the tables.
@@ -149,4 +167,5 @@ alter table public.pokemon_moves enable row level security;
 alter table public.pokemon_tmhm enable row level security;
 alter table public.location_encounters enable row level security;
 alter table public.abilities enable row level security;
+alter table public.items enable row level security;
 alter table public.sync_meta enable row level security;

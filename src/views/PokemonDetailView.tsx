@@ -5,12 +5,15 @@ import {
   compareLocationOrder,
   STAT_DISPLAY,
   compareRegionOrder,
+  evolutionItemName,
   evolutionMethodText,
   evolutionSourceMethodText,
   formatFishingRod,
   formatEncounterMethod,
   formatEncounterTime,
   formatLocation,
+  type Evolution,
+  type EvolutionSource,
   type PokemonDetail,
   type PokemonListItem,
   formatName,
@@ -38,6 +41,50 @@ function DetailAccordionSection({
       <div className="detail-accordion-content">{children}</div>
     </details>
   )
+}
+
+// An item name that reveals its description in a tooltip on hover/focus. Falls
+// back to plain text when there is no description to show.
+function ItemTooltip({
+  name,
+  description,
+}: {
+  name: string
+  description: string
+}) {
+  if (!description) return <span className="item-name">{name}</span>
+  return (
+    <span className="item-tooltip-wrap" tabIndex={0}>
+      <span className="item-name">{name}</span>
+      <span className="item-tooltip" role="tooltip">
+        {description}
+      </span>
+    </span>
+  )
+}
+
+// Render an evolution trigger, wrapping the item name (if any) in a tooltip so
+// its description shows on hover. `text` is the full trigger phrase (e.g.
+// "with Water Stone"); the item name inside it becomes the tooltip trigger.
+function EvolutionTrigger({
+  evo,
+  text,
+}: {
+  evo: Evolution | EvolutionSource
+  text: string
+}) {
+  const itemName = evolutionItemName(evo)
+  if (itemName && evo.itemDescription && text.includes(itemName)) {
+    const [before, after] = text.split(itemName)
+    return (
+      <>
+        {before}
+        <ItemTooltip name={itemName} description={evo.itemDescription} />
+        {after}
+      </>
+    )
+  }
+  return <>{text}</>
 }
 
 interface PokemonDetailViewProps {
@@ -285,6 +332,24 @@ export function PokemonDetailView({
               <p className="ability-desc">{detail.ability.description}</p>
             )}
           </div>
+          {detail.heldItems.length > 0 && (
+            <div className="held-items mb-4">
+              <p className="held-items-title">
+                <strong>Held Items</strong>
+              </p>
+              <ul className="held-items-list">
+                {detail.heldItems.map((item) => (
+                  <li key={item.key}>
+                    <ItemTooltip
+                      name={item.name}
+                      description={item.description}
+                    />
+                    <span className="held-item-rate">{item.rate}%</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="block sm:flex gap-4">
             {detail.evolutionSources.length > 0 && (
               <ul className="evolutions">
@@ -299,7 +364,10 @@ export function PokemonDetailView({
                     >
                       {formatName(evo.from.name, evo.from.region, allNames)}
                     </button>{' '}
-                    {evolutionSourceMethodText(evo)}
+                    <EvolutionTrigger
+                      evo={evo}
+                      text={evolutionSourceMethodText(evo)}
+                    />
                   </li>
                 ))}
               </ul>
@@ -315,7 +383,10 @@ export function PokemonDetailView({
                     >
                       {formatName(evo.to.name, evo.to.region, allNames)}
                     </button>{' '}
-                    {evolutionMethodText(evo)}
+                    <EvolutionTrigger
+                      evo={evo}
+                      text={evolutionMethodText(evo)}
+                    />
                   </li>
                 ))}
               </ul>

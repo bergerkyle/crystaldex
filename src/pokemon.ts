@@ -27,6 +27,8 @@ export interface Evolution {
   method: 'level' | 'item' | 'trade' | 'happiness' | 'stat'
   level?: number
   item?: string
+  itemName?: string
+  itemDescription?: string
   condition?: string
   to: EvolutionTarget
 }
@@ -35,6 +37,8 @@ export interface EvolutionSource {
   method: Evolution['method']
   level?: number
   item?: string
+  itemName?: string
+  itemDescription?: string
   condition?: string
   from: EvolutionTarget
 }
@@ -82,6 +86,13 @@ export interface Sprites {
 export interface Ability {
   name: string
   description: string
+}
+
+export interface HeldItem {
+  key: string
+  name: string
+  description: string
+  rate: number
 }
 
 export interface ShinyPalette {
@@ -146,6 +157,7 @@ export interface PokemonDetail {
   sprites: Sprites
   shinyPalette: ShinyPalette | null
   ability: Ability | null
+  heldItems: HeldItem[]
   encounters: PokemonEncounter[]
 }
 
@@ -282,16 +294,23 @@ export function compareLocationOrder(left: string, right: string): number {
   })
 }
 
+// Display name for an evolution's item, preferring the resolved catalog name
+// (e.g. "Water Stone") and falling back to a formatted constant.
+export function evolutionItemName(evo: Evolution | EvolutionSource): string {
+  if (!evo.item) return ''
+  return evo.itemName ?? formatConstant(evo.item)
+}
+
 // Human-readable description of an evolution's trigger (without the target name).
 export function evolutionMethodText(evo: Evolution): string {
   switch (evo.method) {
     case 'level':
       return `at Lv. ${evo.level}`
     case 'item':
-      return `with ${evo.item ? formatConstant(evo.item) : 'an item'}`
+      return `with ${evo.item ? evolutionItemName(evo) : 'an item'}`
     case 'trade':
       return evo.item
-        ? `when traded holding ${formatConstant(evo.item)}`
+        ? `when traded holding ${evolutionItemName(evo)}`
         : 'when traded'
     case 'happiness':
       return 'with high friendship'
