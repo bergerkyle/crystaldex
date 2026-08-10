@@ -1214,6 +1214,9 @@ function parseAbilityMons(
 // loadwildmon lines look like: `loadwildmon BAGON, 1`
 const LOADWILDMON_RE = /^\s*loadwildmon\s+([A-Z][A-Z0-9_]*)\s*,\s*\d+/gm
 
+// givepoke lines look like: `givepoke MERCURY, 15, MYSTIC_WATER, ...`
+const GIVEPOKE_RE = /^\s*givepoke\s+([A-Z][A-Z0-9_]*)\s*,/gm
+
 // Maps that live directly under maps/ (no region subfolder) need an explicit
 // region assignment. Keys are the UPPER_SNAKE_CASE route token derived from the
 // filename (e.g. NationalPark -> NATIONAL_PARK).
@@ -1238,7 +1241,7 @@ export interface FixedEncounterEntry {
 }
 
 // Scan every .asm file under the maps/ directory in the repo tree for
-// `loadwildmon` commands and return one entry per occurrence.
+// `loadwildmon` and `givepoke` commands and return one entry per occurrence.
 export async function fetchFixedEncounters(
   tree: TreeNode[],
   entriesByKey: Map<string, PokemonEntry>,
@@ -1259,7 +1262,10 @@ export async function fetchFixedEncounters(
       while (idx < mapBlobs.length) {
         const node = mapBlobs[idx++]
         const source = await fetchRaw(node.path)
-        const matches = [...source.matchAll(LOADWILDMON_RE)]
+        const matches = [
+          ...source.matchAll(LOADWILDMON_RE),
+          ...source.matchAll(GIVEPOKE_RE),
+        ]
         if (matches.length === 0) continue
 
         const segments = node.path.split('/')
