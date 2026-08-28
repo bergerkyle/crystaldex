@@ -1801,10 +1801,15 @@ a:hover {
     display: none;
   }
 
+  .topnav-items-inline {
+    display: none;
+  }
+
   .topnav-about-row {
     display: flex;
     align-items: center;
     justify-content: flex-end;
+    gap: 0.35rem;
     padding: 0.35rem 1rem 0.45rem;
     border-bottom: 1px solid rgba(34, 41, 77, 0.95);
     background: #245f69;

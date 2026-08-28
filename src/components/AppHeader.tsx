@@ -37,8 +37,10 @@ export function AppHeader({
     { key: 'locations', label: 'Locations', onClick: onNavigateLocations },
     { key: 'about', label: 'About', onClick: onNavigateAbout },
   ]
+  const secondRowKeys = new Set<NavItem['key']>(['items', 'about'])
   const primaryNavItems = navItems.filter((item) => item.key !== 'about')
   const aboutNavItem = navItems.find((item) => item.key === 'about')
+  const secondRowItems = navItems.filter((item) => secondRowKeys.has(item.key))
 
   useLayoutEffect(() => {
     const root = document.documentElement
@@ -100,7 +102,12 @@ export function AppHeader({
           {primaryNavItems.map((item) => (
             <button
               key={item.key}
-              className={active === item.key ? 'active' : ''}
+              className={[
+                active === item.key ? 'active' : '',
+                item.key === 'items' ? 'topnav-items-inline' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
               onClick={item.onClick}
             >
               {item.label}
@@ -120,14 +127,17 @@ export function AppHeader({
           )}
         </nav>
       </div>
-      {aboutNavItem && (
-        <nav className="topnav-about-row" aria-label="About">
-          <button
-            className={active === aboutNavItem.key ? 'active' : ''}
-            onClick={aboutNavItem.onClick}
-          >
-            {aboutNavItem.label}
-          </button>
+      {secondRowItems.length > 0 && (
+        <nav className="topnav-about-row" aria-label="More">
+          {secondRowItems.map((item) => (
+            <button
+              key={item.key}
+              className={active === item.key ? 'active' : ''}
+              onClick={item.onClick}
+            >
+              {item.label}
+            </button>
+          ))}
         </nav>
       )}
     </header>
