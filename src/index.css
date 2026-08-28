@@ -1365,14 +1365,19 @@ a:hover {
   color: var(--text);
 }
 
+.moves-page:has(.item-table) {
+  max-width: none;
+}
+
 .item-table th:nth-child(1),
 .item-table td:nth-child(1) {
-  width: 24%;
+  width: 30%;
+  min-width: 8rem;
 }
 
 .item-table th:nth-child(2),
 .item-table td:nth-child(2) {
-  width: 22%;
+  width: 70%;
 }
 
 .item-location-section {
@@ -1586,6 +1591,28 @@ a:hover {
   .encounter-table th,
   .encounter-table td {
     font-size: 14px;
+  }
+
+  .item-table,
+  .item-table tbody,
+  .item-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .item-table thead {
+    display: none;
+  }
+
+  .item-table td {
+    display: block;
+    width: 100% !important;
+  }
+
+  .item-table .move-table-name-cell {
+    font-weight: 700;
+    border-bottom: none;
+    padding-bottom: 0;
   }
 
   .topbar {

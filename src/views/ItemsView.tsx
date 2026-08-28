@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { type ItemListItem } from '../pokemon'
 
 interface ItemsViewProps {
@@ -26,6 +26,9 @@ export function ItemsView({
   onCloseSidebar,
   children,
 }: ItemsViewProps) {
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 24
+
   const filteredItems = useMemo(() => {
     const query = itemFilter.trim().toLowerCase()
     if (!query) return itemList
@@ -36,6 +39,16 @@ export function ItemsView({
         item.description.toLowerCase().includes(query),
     )
   }, [itemList, itemFilter])
+
+  useEffect(() => {
+    setPage(1)
+  }, [itemFilter])
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE))
+  const paginatedItems = useMemo(
+    () => filteredItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredItems, page],
+  )
 
   const sidebarGroups = useMemo(() => {
     const grouped = new Map<string, ItemListItem[]>()
@@ -69,30 +82,53 @@ export function ItemsView({
           <p className="muted">No items found.</p>
         )}
         {!loadingItemList && !itemListError && filteredItems.length > 0 && (
-          <div className="move-table-wrap">
-            <table className="move-table item-table">
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Key</th>
-                  <th>Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((item) => (
-                  <tr
-                    key={item.key}
-                    className="move-table-row"
-                    onClick={() => onOpenItem(item.key)}
-                  >
-                    <td className="move-table-name-cell">{item.name}</td>
-                    <td className="mono">{item.key}</td>
-                    <td>{item.description || 'No description available.'}</td>
+          <>
+            <div className="move-table-wrap">
+              <table className="move-table item-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Description</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {paginatedItems.map((item) => (
+                    <tr
+                      key={item.key}
+                      className="move-table-row"
+                      onClick={() => onOpenItem(item.key)}
+                    >
+                      <td className="move-table-name-cell">{item.name}</td>
+                      <td>{item.description || 'No description available.'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button
+                  className="pagination-btn"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  aria-label="Previous page"
+                >
+                  ← Prev
+                </button>
+                <span className="pagination-info">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  className="pagination-btn"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  aria-label="Next page"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </>
         )}
       </>
     )
