@@ -521,6 +521,9 @@ a:hover {
   font: inherit;
   font-size: 0.9rem;
   text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.23rem 0.35rem;
   border-radius: 6px;
   cursor: pointer;
@@ -1413,9 +1416,15 @@ a:hover {
 }
 
 .item-icon-lg {
-  width: 40px;
-  height: 40px;
+  width: 144px;
+  height: 144px;
   margin-right: 0.5rem;
+  margin-bottom: 0.85rem;
+  padding: 6px;
+  border-radius: 8px;
+  background: #fff;
+  box-sizing: border-box;
+  object-fit: contain;
 }
 
 .items-sidebar-letter-heading {

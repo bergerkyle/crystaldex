@@ -45,6 +45,44 @@ export function isHiddenItem(item: ItemListItem): boolean {
   return /^teru-?sama$/i.test(item.name.trim())
 }
 
+// Local /public fallback icons for items PokemonDB doesn't provide a sprite for.
+const LOCAL_ICON_BY_KEY: Record<string, string> = {
+  POLKADOT_BOW: '/bow.png',
+  PINK_BOW: '/bow.png',
+  NORMAL_BOX: '/box.png',
+  GORGEOUS_BOX: '/box.png',
+  BRICK_PIECE: '/brick.png',
+  MARVEL_SCALE: '/scale.png',
+  PARLYZ_HEAL: '/heal.png',
+  X_SPECIAL: '/x-sp-atk.png',
+  X_DEFEND: '/x%20defend.png',
+  SILVER_LEAF: '/leaf.png',
+  GOLD_LEAF: '/leaf.png',
+  BERSERK_GENE: '/x-attack.png',
+  BLACKBELT_I: '/black-belt.png',
+  THUNDERSTONE: '/thunderstone.png',
+  KANTOITE_X: '/kantox.png',
+  KANTOITE_Y: '/kantoy.png',
+  JOHTOITE_X: '/johtox.png',
+  HOENNITE_X: '/hoennite.png',
+}
+
+// Resolve an item's icon. Explicit local overrides win, then the synced
+// PokemonDB sprite, then category-based local fallbacks.
+export function itemIconUrl(item: ItemListItem): string | null {
+  const key = item.key.toUpperCase()
+  if (LOCAL_ICON_BY_KEY[key]) return LOCAL_ICON_BY_KEY[key]
+  if (item.iconUrl) return item.iconUrl
+  if (item.name.toLowerCase().includes('box')) return '/box.png'
+
+  const category = categorizeItem(item)
+  if (category === 'fossil') return '/fossil.png'
+  if (category === 'mail') return '/mail.png'
+  if (category === 'berry') return '/berry.png'
+
+  return null
+}
+
 // Item-specific overrides where the generic rules don't fit.
 const FORCED_HOLD_KEYS = new Set(['LUCKY_PUNCH'])
 const FORCED_BATTLE_KEYS = new Set(['POKE_DOLL', 'BERSERK_GENE', 'BESERK_GENE'])

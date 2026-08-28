@@ -4,6 +4,7 @@ import {
   type ItemDetail,
   type ItemListItem,
 } from '../pokemon'
+import { itemIconUrl } from '../itemCategories'
 
 interface ItemDetailViewProps {
   itemDetail: ItemDetail | null
@@ -26,32 +27,15 @@ export function ItemDetailView({
 }: ItemDetailViewProps) {
   return (
     <main className="move-detail-page !pt-0">
-      <div className="block md:hidden">
-        <input
-          className="search"
-          type="search"
-          placeholder="Jump to item by name or key..."
-          onChange={(event) => {
-            const query = event.target.value.trim().toLowerCase()
-            if (!query) return
-            const match = itemList.find(
-              (item) =>
-                item.key.toLowerCase() === query ||
-                item.name.toLowerCase() === query,
-            )
-            if (match) onOpenItem(match.key)
-          }}
-        />
-      </div>
       {loadingItemDetail && <p className="muted">Loading...</p>}
       {itemDetailError && <p className="error">{itemDetailError}</p>}
       {itemDetail && (
         <article className="move-detail-content">
           <h2 className="move-detail-title">
-            {itemDetail.iconUrl && (
+            {itemIconUrl(itemDetail) && (
               <img
                 className="item-icon item-icon-lg"
-                src={itemDetail.iconUrl}
+                src={itemIconUrl(itemDetail)!}
                 alt=""
                 aria-hidden="true"
               />

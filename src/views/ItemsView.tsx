@@ -13,6 +13,7 @@ import {
   categoryLabel,
   categoryRank,
   isHiddenItem,
+  itemIconUrl,
 } from '../itemCategories'
 
 interface ItemsViewProps {
@@ -184,10 +185,10 @@ export function ItemsView({
                         >
                           <td className="move-table-name-cell">
                             <span className="item-name-with-icon">
-                              {item.iconUrl && (
+                              {itemIconUrl(item) && (
                                 <img
                                   className="item-icon"
-                                  src={item.iconUrl}
+                                  src={itemIconUrl(item)!}
                                   alt=""
                                   aria-hidden="true"
                                   loading="lazy"
@@ -309,10 +310,10 @@ export function ItemsView({
                             onCloseSidebar()
                           }}
                         >
-                          {item.iconUrl && (
+                          {itemIconUrl(item) && (
                             <img
                               className="item-icon"
-                              src={item.iconUrl}
+                              src={itemIconUrl(item)!}
                               alt=""
                               aria-hidden="true"
                               loading="lazy"
