@@ -1360,6 +1360,39 @@ a:hover {
   margin-bottom: 1rem;
 }
 
+.item-category-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.item-category-filter label {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.item-category-select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.item-category-row th {
+  background: rgba(108, 133, 205, 0.26);
+  color: var(--text);
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 0.4rem 0.55rem;
+}
+
 .items-sidebar-letter-heading {
   background: rgba(108, 133, 205, 0.26);
   color: var(--text);

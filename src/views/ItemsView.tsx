@@ -1,5 +1,19 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import {
+  Fragment,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { type ItemListItem } from '../pokemon'
+import {
+  ITEM_CATEGORIES,
+  type ItemCategoryId,
+  categorizeItem,
+  categoryLabel,
+  categoryRank,
+  isHiddenItem,
+} from '../itemCategories'
 
 interface ItemsViewProps {
   itemList: ItemListItem[]
@@ -27,45 +41,77 @@ export function ItemsView({
   children,
 }: ItemsViewProps) {
   const [page, setPage] = useState(1)
+  const [categoryFilter, setCategoryFilter] = useState<ItemCategoryId | 'all'>(
+    'all',
+  )
   const PAGE_SIZE = 24
+
+  const visibleItems = useMemo(
+    () => itemList.filter((item) => !isHiddenItem(item)),
+    [itemList],
+  )
 
   const filteredItems = useMemo(() => {
     const query = itemFilter.trim().toLowerCase()
-    if (!query) return itemList
-    return itemList.filter(
-      (item) =>
+    return visibleItems.filter((item) => {
+      if (
+        categoryFilter !== 'all' &&
+        categorizeItem(item) !== categoryFilter
+      )
+        return false
+      if (!query) return true
+      return (
         item.name.toLowerCase().includes(query) ||
         item.key.toLowerCase().includes(query) ||
-        item.description.toLowerCase().includes(query),
+        item.description.toLowerCase().includes(query)
+      )
+    })
+  }, [visibleItems, itemFilter, categoryFilter])
+
+  // Each visible item paired with its category, sorted by category then name.
+  const categorizedItems = useMemo(
+    () =>
+      filteredItems
+        .map((item) => ({ item, category: categorizeItem(item) }))
+        .sort((a, b) => {
+          const rank = categoryRank(a.category) - categoryRank(b.category)
+          return rank !== 0 ? rank : a.item.name.localeCompare(b.item.name)
+        }),
+    [filteredItems],
+  )
+
+  const availableCategories = useMemo(() => {
+    const present = new Set<ItemCategoryId>(
+      visibleItems.map((item) => categorizeItem(item)),
     )
-  }, [itemList, itemFilter])
+    return ITEM_CATEGORIES.filter((category) => present.has(category.id))
+  }, [visibleItems])
 
   useEffect(() => {
     setPage(1)
-  }, [itemFilter])
+  }, [itemFilter, categoryFilter])
 
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(categorizedItems.length / PAGE_SIZE))
   const paginatedItems = useMemo(
-    () => filteredItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-    [filteredItems, page],
+    () => categorizedItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [categorizedItems, page],
   )
 
   const sidebarGroups = useMemo(() => {
-    const grouped = new Map<string, ItemListItem[]>()
-    for (const item of filteredItems) {
-      const first = item.name.trim().charAt(0).toUpperCase()
-      const bucket = /^[A-Z]$/.test(first) ? first : '#'
-      if (!grouped.has(bucket)) grouped.set(bucket, [])
-      grouped.get(bucket)!.push(item)
+    const grouped = new Map<ItemCategoryId, ItemListItem[]>()
+    for (const { item, category } of categorizedItems) {
+      if (!grouped.has(category)) grouped.set(category, [])
+      grouped.get(category)!.push(item)
     }
 
-    return [...grouped.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([bucket, items]) => ({
-        bucket,
-        items: [...items].sort((a, b) => a.name.localeCompare(b.name)),
-      }))
-  }, [filteredItems])
+    return ITEM_CATEGORIES.filter((category) => grouped.has(category.id)).map(
+      (category) => ({
+        id: category.id,
+        label: category.label,
+        items: grouped.get(category.id)!,
+      }),
+    )
+  }, [categorizedItems])
 
   const renderMainContent = () => {
     if (children) return children
@@ -76,6 +122,24 @@ export function ItemsView({
         <p className="muted item-page-subtitle">
           Browse held items, key effects, and where each item can be found.
         </p>
+        <div className="item-category-filter">
+          <label htmlFor="item-category-select">Category</label>
+          <select
+            id="item-category-select"
+            className="item-category-select"
+            value={categoryFilter}
+            onChange={(e) =>
+              setCategoryFilter(e.target.value as ItemCategoryId | 'all')
+            }
+          >
+            <option value="all">All categories</option>
+            {availableCategories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.label}
+              </option>
+            ))}
+          </select>
+        </div>
         {loadingItemList && <p className="muted">Loading...</p>}
         {itemListError && <p className="error">{itemListError}</p>}
         {!loadingItemList && !itemListError && filteredItems.length === 0 && (
@@ -92,16 +156,31 @@ export function ItemsView({
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedItems.map((item) => (
-                    <tr
-                      key={item.key}
-                      className="move-table-row"
-                      onClick={() => onOpenItem(item.key)}
-                    >
-                      <td className="move-table-name-cell">{item.name}</td>
-                      <td>{item.description || 'No description available.'}</td>
-                    </tr>
-                  ))}
+                  {paginatedItems.map(({ item, category }, index) => {
+                    const showHeading =
+                      index === 0 ||
+                      paginatedItems[index - 1].category !== category
+                    return (
+                      <Fragment key={item.key}>
+                        {showHeading && (
+                          <tr className="item-category-row">
+                            <th colSpan={2} scope="colgroup">
+                              {categoryLabel(category)}
+                            </th>
+                          </tr>
+                        )}
+                        <tr
+                          className="move-table-row"
+                          onClick={() => onOpenItem(item.key)}
+                        >
+                          <td className="move-table-name-cell">{item.name}</td>
+                          <td>
+                            {item.description || 'No description available.'}
+                          </td>
+                        </tr>
+                      </Fragment>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -181,9 +260,9 @@ export function ItemsView({
         )}
         <div className="moves-sidebar-scroll">
           {sidebarGroups.map((group) => (
-            <section className="moves-sidebar-type" key={group.bucket}>
+            <section className="moves-sidebar-type" key={group.id}>
               <p className="moves-sidebar-type-heading items-sidebar-letter-heading">
-                {group.bucket}
+                {group.label}
               </p>
               <ul className="moves-sidebar-move-list">
                 {group.items.map((item) => (
