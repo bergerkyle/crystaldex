@@ -11,6 +11,7 @@ const MOVE_DESCRIPTIONS_PATH = 'data/moves/descriptions.asm'
 export const ITEM_CONSTANTS_PATH = 'constants/item_constants.asm'
 const ITEM_NAMES_PATH = 'data/items/names.asm'
 const ITEM_DESCRIPTIONS_PATH = 'data/items/descriptions.asm'
+const ITEM_MARTS_PATH = 'data/items/marts.asm'
 const ABILITIES_ASM_PATH = 'data/abilities/abilities.asm'
 const ABILITIES_DESCRIPTIONS_PATH = 'data/abilities/descriptions.asm'
 const WILD_PROBABILITIES_PATH = 'data/wild/probabilities.asm'
@@ -117,6 +118,11 @@ export interface HeldItems {
   item2: string | null
 }
 
+export interface ItemScriptLocationIndex {
+  mapsByItem: Map<string, string[]>
+  martsByItem: Map<string, string[]>
+}
+
 export type EncounterMethod = 'grass' | 'water' | 'fishing' | 'fixed'
 
 export type FishingRod = 'old' | 'good' | 'super'
@@ -174,9 +180,14 @@ export interface TreeNode {
 }
 
 let wildEncounterDataPromise: Promise<WildEncounterData> | null = null
+let itemScriptLocationPromise: Promise<ItemScriptLocationIndex> | null = null
 
 export function resetWildEncounterCache(): void {
   wildEncounterDataPromise = null
+}
+
+export function resetItemScriptLocationCache(): void {
+  itemScriptLocationPromise = null
 }
 
 // ---------------------------------------------------------------------------
@@ -1473,6 +1484,135 @@ export async function fetchItemCatalog(): Promise<ItemDef[]> {
     })
   }
   return items
+}
+
+function normalizeItemLocationLabel(raw: string): string {
+  return raw
+    .replace(/_/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Za-z])(\d)/g, '$1 $2')
+    .replace(/(\d)([A-Za-z])/g, '$1 $2')
+    .trim()
+}
+
+function addLocationEntry(
+  map: Map<string, Set<string>>,
+  itemKey: string,
+  location: string,
+): void {
+  const list = map.get(itemKey) ?? new Set<string>()
+  list.add(location)
+  map.set(itemKey, list)
+}
+
+function parseMartLabelOrder(source: string): string[] {
+  const tableStart = source.indexOf('Marts:')
+  if (tableStart === -1) return []
+  const tableBlock = source.slice(tableStart)
+  const rows: string[] = []
+  for (const line of tableBlock.split('\n')) {
+    if (/assert_table_length\s+NUM_MARTS/.test(line)) break
+    const m = line.match(/^\s*dw\s+([A-Za-z0-9_]+)/)
+    if (m) rows.push(m[1])
+  }
+  return rows
+}
+
+function parseMartItemLocations(source: string): Map<string, Set<string>> {
+  const martLabels = new Set(parseMartLabelOrder(source))
+  const byItem = new Map<string, Set<string>>()
+  let currentMart: string | null = null
+
+  for (const line of source.split('\n')) {
+    const label = line.match(/^([A-Za-z0-9_]+):\s*$/)
+    if (label) {
+      currentMart = martLabels.has(label[1])
+        ? normalizeItemLocationLabel(label[1])
+        : null
+      continue
+    }
+
+    if (!currentMart) continue
+    const item = line.match(/^\s*dw\s+([A-Z0-9_]+)\b/)
+    if (!item) continue
+    addLocationEntry(byItem, item[1], currentMart)
+  }
+
+  return byItem
+}
+
+function parseMapItemLocations(
+  mapFilePath: string,
+  source: string,
+): Map<string, Set<string>> {
+  const byItem = new Map<string, Set<string>>()
+  const mapName = normalizeItemLocationLabel(
+    mapFilePath.replace(/^maps\//, '').replace(/\.asm$/i, ''),
+  )
+
+  for (const line of source.split('\n')) {
+    const item = line.match(/^\s*giveitem\s+([A-Z0-9_]+)\b/i)
+    if (!item) continue
+    addLocationEntry(byItem, item[1].toUpperCase(), mapName)
+  }
+
+  return byItem
+}
+
+function sortedArrayByKey(map: Map<string, Set<string>>): Map<string, string[]> {
+  const result = new Map<string, string[]>()
+  for (const [key, values] of map) {
+    result.set(
+      key,
+      [...values].sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }),
+      ),
+    )
+  }
+  return result
+}
+
+export async function fetchItemScriptLocations(): Promise<ItemScriptLocationIndex> {
+  if (!itemScriptLocationPromise) {
+    itemScriptLocationPromise = (async () => {
+      const [tree, martsSource] = await Promise.all([
+        fetchTree(),
+        fetchRaw(ITEM_MARTS_PATH),
+      ])
+
+      const mapAsmPaths = tree
+        .filter(
+          (node) =>
+            node.type === 'blob' &&
+            node.path.startsWith('maps/') &&
+            node.path.endsWith('.asm'),
+        )
+        .map((node) => node.path)
+
+      const mapsByItemMutable = new Map<string, Set<string>>()
+      for (let i = 0; i < mapAsmPaths.length; i += 24) {
+        const batch = mapAsmPaths.slice(i, i + 24)
+        const sources = await Promise.all(
+          batch.map(async (path) => ({ path, source: await fetchRaw(path) })),
+        )
+        for (const { path, source } of sources) {
+          const parsed = parseMapItemLocations(path, source)
+          for (const [itemKey, locations] of parsed) {
+            for (const location of locations) {
+              addLocationEntry(mapsByItemMutable, itemKey, location)
+            }
+          }
+        }
+      }
+
+      return {
+        mapsByItem: sortedArrayByKey(mapsByItemMutable),
+        martsByItem: sortedArrayByKey(parseMartItemLocations(martsSource)),
+      }
+    })()
+  }
+
+  return itemScriptLocationPromise
 }
 
 // The `dw <item a>, <item b> ; items` line of a base_stats file lists the two

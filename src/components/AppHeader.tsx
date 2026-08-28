@@ -1,10 +1,11 @@
 import { useLayoutEffect, useRef } from 'react'
 
 interface AppHeaderProps {
-  active: 'pokedex' | 'moves' | 'locations' | 'about'
+  active: 'pokedex' | 'moves' | 'items' | 'locations' | 'about'
   onNavigateHome: () => void
   onNavigatePokedex: () => void
   onNavigateMoves: () => void
+  onNavigateItems: () => void
   onNavigateLocations: () => void
   onNavigateAbout: () => void
   mobileSidebarOpen?: boolean
@@ -12,7 +13,7 @@ interface AppHeaderProps {
 }
 
 interface NavItem {
-  key: 'pokedex' | 'moves' | 'locations' | 'about'
+  key: 'pokedex' | 'moves' | 'items' | 'locations' | 'about'
   label: string
   onClick: () => void
 }
@@ -22,6 +23,7 @@ export function AppHeader({
   onNavigateHome,
   onNavigatePokedex,
   onNavigateMoves,
+  onNavigateItems,
   onNavigateLocations,
   onNavigateAbout,
   mobileSidebarOpen,
@@ -31,6 +33,7 @@ export function AppHeader({
   const navItems: NavItem[] = [
     { key: 'pokedex', label: 'Pokédex', onClick: onNavigatePokedex },
     { key: 'moves', label: 'Moves', onClick: onNavigateMoves },
+    { key: 'items', label: 'Items', onClick: onNavigateItems },
     { key: 'locations', label: 'Locations', onClick: onNavigateLocations },
     { key: 'about', label: 'About', onClick: onNavigateAbout },
   ]
@@ -69,8 +72,8 @@ export function AppHeader({
             onClick={onToggleSidebar}
             aria-label={
               mobileSidebarOpen
-                ? `Close ${active === 'moves' ? 'moves' : 'Pokédex'} sidebar`
-                : `Open ${active === 'moves' ? 'moves' : 'Pokédex'} sidebar`
+                ? `Close ${active === 'moves' || active === 'items' ? active : 'Pokédex'} sidebar`
+                : `Open ${active === 'moves' || active === 'items' ? active : 'Pokédex'} sidebar`
             }
           >
             <span className="mobile-nav-launcher-icon" aria-hidden="true">

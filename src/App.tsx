@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AppHeader } from './components/AppHeader'
 import { AboutView } from './views/AboutView'
+import { ItemDetailView } from './views/ItemDetailView'
+import { ItemsView } from './views/ItemsView'
 import { LocationDetailView } from './views/LocationDetailView'
 import { LocationsLayout } from './views/LocationsLayout'
 import { LocationsView } from './views/LocationsView'
@@ -8,6 +10,8 @@ import { MoveDetailView } from './views/MoveDetailView'
 import { MovesView } from './views/MovesView'
 import { PokedexView } from './views/PokedexView'
 import {
+  type ItemDetail,
+  type ItemListItem,
   type MoveCatalogItem,
   type PokemonDetail,
   type PokemonListItem,
@@ -18,6 +22,8 @@ type Route =
   | { view: 'pokedex'; pokemon?: string }
   | { view: 'moves' }
   | { view: 'move'; key: string }
+  | { view: 'items' }
+  | { view: 'item'; key: string }
   | { view: 'locations' }
   | { view: 'location'; region: string; route: string }
   | { view: 'about' }
@@ -26,6 +32,7 @@ function parseRoute(pathname: string, search: string): Route {
   const params = new URLSearchParams(search)
   const pokemonFromQuery = params.get('pokemon')?.trim()
   const moveFromQuery = params.get('move')?.trim()
+  const itemFromQuery = params.get('item')?.trim()
 
   if (pathname.startsWith('/moves/')) {
     const key = decodeURIComponent(pathname.slice('/moves/'.length))
@@ -36,6 +43,16 @@ function parseRoute(pathname: string, search: string): Route {
   if (pathname === '/moves') {
     if (moveFromQuery) return { view: 'move', key: moveFromQuery.toUpperCase() }
     return { view: 'moves' }
+  }
+  if (pathname.startsWith('/items/')) {
+    const key = decodeURIComponent(pathname.slice('/items/'.length))
+      .trim()
+      .toUpperCase()
+    if (key) return { view: 'item', key }
+  }
+  if (pathname === '/items') {
+    if (itemFromQuery) return { view: 'item', key: itemFromQuery.toUpperCase() }
+    return { view: 'items' }
   }
   if (pathname.startsWith('/locations/')) {
     const parts = pathname
@@ -66,6 +83,7 @@ function parseRoute(pathname: string, search: string): Route {
   }
 
   if (moveFromQuery) return { view: 'move', key: moveFromQuery.toUpperCase() }
+  if (itemFromQuery) return { view: 'item', key: itemFromQuery.toUpperCase() }
   if (pokemonFromQuery)
     return { view: 'pokedex', pokemon: pokemonFromQuery.toLowerCase() }
 
@@ -81,6 +99,9 @@ function routePath(route: Route): string {
   if (route.view === 'moves') return '/moves'
   if (route.view === 'move')
     return `/moves/${encodeURIComponent(route.key.toUpperCase())}`
+  if (route.view === 'items') return '/items'
+  if (route.view === 'item')
+    return `/items/${encodeURIComponent(route.key.toUpperCase())}`
   if (route.pokemon)
     return `/pokedex/${encodeURIComponent(route.pokemon.toUpperCase())}`
   return '/pokedex'
@@ -111,6 +132,16 @@ export default function App() {
   const [moveDetail, setMoveDetail] = useState<MoveCatalogItem | null>(null)
   const [moveDetailError, setMoveDetailError] = useState<string | null>(null)
   const [loadingMoveDetail, setLoadingMoveDetail] = useState(false)
+
+  const [itemList, setItemList] = useState<ItemListItem[]>([])
+  const [itemListError, setItemListError] = useState<string | null>(null)
+  const [loadingItemList, setLoadingItemList] = useState(true)
+  const [itemFilter, setItemFilter] = useState('')
+  const [mobileItemsSidebarOpen, setMobileItemsSidebarOpen] = useState(false)
+
+  const [itemDetail, setItemDetail] = useState<ItemDetail | null>(null)
+  const [itemDetailError, setItemDetailError] = useState<string | null>(null)
+  const [loadingItemDetail, setLoadingItemDetail] = useState(false)
 
   const [lastSynced, setLastSynced] = useState<string | null>(null)
   const [aboutVersion, setAboutVersion] = useState<string>('0.0.0')
@@ -166,6 +197,19 @@ export default function App() {
       .finally(() => setLoadingMoveList(false))
   }, [])
 
+  useEffect(() => {
+    fetch('/api/items')
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load items (${res.status})`)
+        return res.json() as Promise<ItemListItem[]>
+      })
+      .then(setItemList)
+      .catch((err: unknown) =>
+        setItemListError(err instanceof Error ? err.message : 'Unknown error'),
+      )
+      .finally(() => setLoadingItemList(false))
+  }, [])
+
   const selected = route.view === 'pokedex' ? (route.pokemon ?? null) : null
 
   useEffect(() => {
@@ -177,6 +221,12 @@ export default function App() {
   useEffect(() => {
     if (route.view !== 'moves' && route.view !== 'move') {
       setMobileMovesSidebarOpen(false)
+    }
+  }, [route.view])
+
+  useEffect(() => {
+    if (route.view !== 'items' && route.view !== 'item') {
+      setMobileItemsSidebarOpen(false)
     }
   }, [route.view])
 
@@ -222,6 +272,26 @@ export default function App() {
         ),
       )
       .finally(() => setLoadingMoveDetail(false))
+  }, [route])
+
+  useEffect(() => {
+    if (route.view !== 'item') return
+    setLoadingItemDetail(true)
+    setItemDetailError(null)
+    setItemDetail(null)
+
+    fetch(`/api/items/${encodeURIComponent(route.key)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load item (${res.status})`)
+        return res.json() as Promise<ItemDetail>
+      })
+      .then(setItemDetail)
+      .catch((err: unknown) =>
+        setItemDetailError(
+          err instanceof Error ? err.message : 'Unknown error',
+        ),
+      )
+      .finally(() => setLoadingItemDetail(false))
   }, [route])
 
   useEffect(() => {
@@ -298,6 +368,8 @@ export default function App() {
             ? 'pokedex'
             : route.view === 'about'
               ? 'about'
+              : route.view === 'items' || route.view === 'item'
+                ? 'items'
               : route.view === 'locations' || route.view === 'location'
                 ? 'locations'
                 : 'moves'
@@ -305,6 +377,7 @@ export default function App() {
         onNavigateHome={() => navigate({ view: 'pokedex' })}
         onNavigatePokedex={() => navigate({ view: 'pokedex' })}
         onNavigateMoves={() => navigate({ view: 'moves' })}
+        onNavigateItems={() => navigate({ view: 'items' })}
         onNavigateLocations={() => navigate({ view: 'locations' })}
         onNavigateAbout={() => navigate({ view: 'about' })}
         mobileSidebarOpen={
@@ -312,6 +385,8 @@ export default function App() {
             ? mobilePokedexSidebarOpen
             : route.view === 'moves' || route.view === 'move'
               ? mobileMovesSidebarOpen
+              : route.view === 'items' || route.view === 'item'
+                ? mobileItemsSidebarOpen
               : route.view === 'locations' || route.view === 'location'
                 ? mobileLocationsSidebarOpen
                 : undefined
@@ -325,6 +400,10 @@ export default function App() {
               ? () => {
                   setMobileMovesSidebarOpen((isOpen) => !isOpen)
                 }
+              : route.view === 'items' || route.view === 'item'
+                ? () => {
+                    setMobileItemsSidebarOpen((isOpen) => !isOpen)
+                  }
               : route.view === 'locations' || route.view === 'location'
                 ? () => {
                     setMobileLocationsSidebarOpen((isOpen) => !isOpen)
@@ -350,6 +429,7 @@ export default function App() {
             navigate({ view: 'pokedex', pokemon: name })
           }
           onOpenMove={(key) => navigate({ view: 'move', key })}
+          onOpenItem={(key) => navigate({ view: 'item', key })}
           onOpenLocation={(region, routeName) =>
             navigate({ view: 'location', region, route: routeName })
           }
@@ -392,6 +472,43 @@ export default function App() {
             onOpenMove={(key) => navigate({ view: 'move', key })}
           />
         </MovesView>
+      )}
+      {route.view === 'items' && (
+        <ItemsView
+          itemList={itemList}
+          itemListError={itemListError}
+          loadingItemList={loadingItemList}
+          itemFilter={itemFilter}
+          onItemFilterChange={setItemFilter}
+          onNavigateItemsHome={() => navigate({ view: 'items' })}
+          onOpenItem={(key) => navigate({ view: 'item', key })}
+          mobileSidebarOpen={mobileItemsSidebarOpen}
+          onCloseSidebar={() => setMobileItemsSidebarOpen(false)}
+        />
+      )}
+
+      {route.view === 'item' && (
+        <ItemsView
+          itemList={itemList}
+          itemListError={itemListError}
+          loadingItemList={loadingItemList}
+          itemFilter={itemFilter}
+          onItemFilterChange={setItemFilter}
+          onNavigateItemsHome={() => navigate({ view: 'items' })}
+          onOpenItem={(key) => navigate({ view: 'item', key })}
+          mobileSidebarOpen={mobileItemsSidebarOpen}
+          onCloseSidebar={() => setMobileItemsSidebarOpen(false)}
+        >
+          <ItemDetailView
+            itemDetail={itemDetail}
+            itemDetailError={itemDetailError}
+            loadingItemDetail={loadingItemDetail}
+            itemList={itemList}
+            allNames={allNames}
+            onOpenItem={(key) => navigate({ view: 'item', key })}
+            onSelectPokemon={(name) => navigate({ view: 'pokedex', pokemon: name })}
+          />
+        </ItemsView>
       )}
       {route.view === 'about' && (
         <AboutView

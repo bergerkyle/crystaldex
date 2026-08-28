@@ -69,17 +69,23 @@ function ItemTooltip({
 function EvolutionTrigger({
   evo,
   text,
+  onOpenItem,
 }: {
   evo: Evolution | EvolutionSource
   text: string
+  onOpenItem: (key: string) => void
 }) {
   const itemName = evolutionItemName(evo)
-  if (itemName && evo.itemDescription && text.includes(itemName)) {
-    const [before, after] = text.split(itemName)
+  if (itemName && evo.item && text.includes(itemName)) {
+    const index = text.indexOf(itemName)
+    const before = text.slice(0, index)
+    const after = text.slice(index + itemName.length)
     return (
       <>
         {before}
-        <ItemTooltip name={itemName} description={evo.itemDescription} />
+        <button className="item-inline-link" onClick={() => onOpenItem(evo.item!)}>
+          <ItemTooltip name={itemName} description={evo.itemDescription ?? ''} />
+        </button>
         {after}
       </>
     )
@@ -96,6 +102,7 @@ interface PokemonDetailViewProps {
   list: PokemonListItem[]
   onSelectPokemon: (name: string) => void
   onOpenMove: (key: string) => void
+  onOpenItem: (key: string) => void
   onOpenLocation: (region: string, route: string) => void
 }
 
@@ -266,6 +273,7 @@ export function PokemonDetailView({
   list,
   onSelectPokemon,
   onOpenMove,
+  onOpenItem,
   onOpenLocation,
 }: PokemonDetailViewProps) {
   const [showShiny, setShowShiny] = useState(false)
@@ -340,10 +348,15 @@ export function PokemonDetailView({
               <ul className="held-items-list">
                 {detail.heldItems.map((item) => (
                   <li key={item.key}>
-                    <ItemTooltip
-                      name={item.name}
-                      description={item.description}
-                    />
+                    <button
+                      className="item-inline-link"
+                      onClick={() => onOpenItem(item.key)}
+                    >
+                      <ItemTooltip
+                        name={item.name}
+                        description={item.description}
+                      />
+                    </button>
                     <span className="held-item-rate">{item.rate}%</span>
                   </li>
                 ))}
@@ -367,6 +380,7 @@ export function PokemonDetailView({
                     <EvolutionTrigger
                       evo={evo}
                       text={evolutionSourceMethodText(evo)}
+                      onOpenItem={onOpenItem}
                     />
                   </li>
                 ))}
@@ -386,6 +400,7 @@ export function PokemonDetailView({
                     <EvolutionTrigger
                       evo={evo}
                       text={evolutionMethodText(evo)}
+                      onOpenItem={onOpenItem}
                     />
                   </li>
                 ))}

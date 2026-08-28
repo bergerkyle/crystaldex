@@ -1158,6 +1158,21 @@ a:hover {
   font-size: 0.85rem;
 }
 
+.item-inline-link {
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.item-inline-link:hover .item-name {
+  color: rgba(255, 255, 255, 0.55);
+}
+
 /* Item name + hover/focus tooltip (held items and evolution triggers). */
 .item-tooltip-wrap {
   position: relative;
@@ -1338,6 +1353,41 @@ a:hover {
 
 .move-detail-meta {
   margin-top: 0.8rem;
+}
+
+.item-page-subtitle {
+  margin-top: -0.2rem;
+  margin-bottom: 1rem;
+}
+
+.items-sidebar-letter-heading {
+  background: rgba(108, 133, 205, 0.26);
+  color: var(--text);
+}
+
+.item-table th:nth-child(1),
+.item-table td:nth-child(1) {
+  width: 24%;
+}
+
+.item-table th:nth-child(2),
+.item-table td:nth-child(2) {
+  width: 22%;
+}
+
+.item-location-section {
+  margin-top: 1.25rem;
+}
+
+.item-location-section .encounter-inline-list {
+  margin-top: 0.4rem;
+}
+
+.item-location-section .encounter-inline-list li {
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(108, 133, 205, 0.16);
 }
 
 .meta-chip {

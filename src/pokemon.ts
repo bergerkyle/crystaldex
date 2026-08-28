@@ -78,6 +78,24 @@ export interface MoveCatalogItem {
   pp: number
 }
 
+export interface ItemListItem {
+  key: string
+  name: string
+  description: string
+}
+
+export interface ItemWildHolder {
+  name: string
+  region: string
+  rate: number
+}
+
+export interface ItemDetail extends ItemListItem {
+  maps: string[]
+  marts: string[]
+  wildHolders: ItemWildHolder[]
+}
+
 export interface Sprites {
   front: string
   back: string
@@ -243,6 +261,26 @@ export function formatLocation(raw: string): string {
     .map((segment) => {
       if (/^\d+[a-z]$/i.test(segment)) return segment.toUpperCase()
       if (/^[A-Z]?[0-9]+[A-Z]$/i.test(segment)) return segment.toUpperCase()
+      const lower = segment.toLowerCase()
+      return lower.charAt(0).toUpperCase() + lower.slice(1)
+    })
+    .join(' ')
+}
+
+export function formatAsmIdentifier(raw: string): string {
+  const normalized = raw
+    .replace(/_/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Za-z])(\d)/g, '$1 $2')
+    .replace(/(\d)([A-Za-z])/g, '$1 $2')
+    .trim()
+
+  if (!normalized) return ''
+
+  return normalized
+    .split(/\s+/)
+    .map((segment) => {
+      if (/^[A-Z0-9]+$/.test(segment)) return segment
       const lower = segment.toLowerCase()
       return lower.charAt(0).toUpperCase() + lower.slice(1)
     })

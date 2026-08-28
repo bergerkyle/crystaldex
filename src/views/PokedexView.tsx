@@ -22,6 +22,7 @@ interface PokedexViewProps {
   onNavigatePokedexHome: () => void
   onSelectPokemon: (name: string) => void
   onOpenMove: (key: string) => void
+  onOpenItem: (key: string) => void
   onOpenLocation: (region: string, route: string) => void
   mobileSidebarOpen: boolean
   onCloseSidebar: () => void
@@ -41,6 +42,7 @@ export function PokedexView({
   onNavigatePokedexHome,
   onSelectPokemon,
   onOpenMove,
+  onOpenItem,
   onOpenLocation,
   mobileSidebarOpen,
   onCloseSidebar,
@@ -317,6 +319,7 @@ export function PokedexView({
             list={list}
             onSelectPokemon={onSelectPokemon}
             onOpenMove={onOpenMove}
+            onOpenItem={onOpenItem}
             onOpenLocation={onOpenLocation}
           />
         )}

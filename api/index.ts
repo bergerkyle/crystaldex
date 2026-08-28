@@ -1,8 +1,10 @@
 import express from 'express'
 import {
+  getItem,
   getAbout,
   getMove,
   getPokemon,
+  listItems,
   listEncounterRoutes,
   listMoves,
   listPokemon,
@@ -154,6 +156,60 @@ app.get('/api/moves/:key', async (req, res) => {
       .status(502)
       .json({
         error: err instanceof Error ? err.message : 'Failed to load move',
+      })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Item routes
+// ---------------------------------------------------------------------------
+
+app.get('/api/items', async (_req, res) => {
+  const startedAt = Date.now()
+  console.log('[items:list] request start')
+  try {
+    const items = await listItems()
+    console.log(
+      `[items:list] returning ${items.length} rows in ${Date.now() - startedAt}ms`,
+    )
+    res.json(items)
+  } catch (err) {
+    console.error(
+      `[items:list] failed after ${Date.now() - startedAt}ms:`,
+      err instanceof Error ? err.message : err,
+    )
+    res
+      .status(502)
+      .json({
+        error: err instanceof Error ? err.message : 'Failed to load items',
+      })
+  }
+})
+
+app.get('/api/items/:key', async (req, res) => {
+  const startedAt = Date.now()
+  const key = req.params.key.toUpperCase()
+  console.log(`[items:detail] request start for ${key}`)
+  try {
+    const item = await getItem(key)
+    if (!item) {
+      console.log(`[items:detail] not found: ${key}`)
+      res.status(404).json({ error: 'Item not found' })
+      return
+    }
+    console.log(
+      `[items:detail] success for ${key} in ${Date.now() - startedAt}ms`,
+    )
+    res.json(item)
+  } catch (err) {
+    console.error(
+      `[items:detail] failed after ${Date.now() - startedAt}ms:`,
+      err instanceof Error ? err.message : err,
+    )
+    res
+      .status(502)
+      .json({
+        error: err instanceof Error ? err.message : 'Failed to load item',
       })
   }
 })

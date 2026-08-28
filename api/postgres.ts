@@ -19,8 +19,10 @@ import {
   fetchEvosAttacks,
   fetchFixedEncounters,
   fetchItemCatalog,
+  fetchItemScriptLocations,
   fetchMoveCatalog,
   fetchWildEncounterData,
+  resetItemScriptLocationCache,
   resetWildEncounterCache,
   fetchRaw,
   fetchTree,
@@ -246,6 +248,7 @@ export async function syncDatabase(): Promise<{
   )
 
   resetWildEncounterCache()
+  resetItemScriptLocationCache()
   const [encounterData, fixedEncounterEntries] = await Promise.all([
     fetchWildEncounterData(),
     fetchFixedEncounters(
@@ -580,6 +583,24 @@ export interface PokemonListItem {
   types: string[]
 }
 
+export interface ItemListItem {
+  key: string
+  name: string
+  description: string
+}
+
+export interface ItemWildHolder {
+  name: string
+  region: string
+  rate: number
+}
+
+export interface ItemDetail extends ItemListItem {
+  maps: string[]
+  marts: string[]
+  wildHolders: ItemWildHolder[]
+}
+
 export async function listPokemon(): Promise<PokemonListItem[]> {
   const supabase = getSupabase()
   const { data, error } = await supabase
@@ -599,6 +620,66 @@ export async function listPokemon(): Promise<PokemonListItem[]> {
         : null,
     types: row.type_1 === row.type_2 ? [row.type_1] : [row.type_1, row.type_2],
   }))
+}
+
+export async function listItems(): Promise<ItemListItem[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('items')
+    .select('key, name, description')
+    .order('name')
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((row) => ({
+    key: row.key,
+    name: row.name,
+    description: row.description ?? '',
+  }))
+}
+
+export async function getItem(key: string): Promise<ItemDetail | null> {
+  const supabase = getSupabase()
+  const normalizedKey = key.toUpperCase()
+
+  const [{ data: item, error: itemError }, { mapsByItem, martsByItem }] =
+    await Promise.all([
+      supabase
+        .from('items')
+        .select('key, name, description')
+        .eq('key', normalizedKey)
+        .maybeSingle(),
+      fetchItemScriptLocations(),
+    ])
+
+  if (itemError) throw new Error(itemError.message)
+  if (!item) return null
+
+  const { data: holders, error: holdersError } = await supabase
+    .from('pokemon')
+    .select('name, region, held_item_1, held_item_2')
+    .or(`held_item_1.eq.${normalizedKey},held_item_2.eq.${normalizedKey}`)
+    .order('name')
+  if (holdersError) throw new Error(holdersError.message)
+
+  const wildHolders = (holders ?? []).map((pokemon) => {
+    let rate = 0
+    if (pokemon.held_item_1 === normalizedKey) rate += 37.5
+    if (pokemon.held_item_2 === normalizedKey) rate += 12.5
+    return {
+      name: pokemon.name,
+      region: pokemon.region,
+      rate,
+    }
+  })
+
+  return {
+    key: item.key,
+    name: item.name,
+    description: item.description ?? '',
+    maps: mapsByItem.get(normalizedKey) ?? [],
+    marts: martsByItem.get(normalizedKey) ?? [],
+    wildHolders,
+  }
 }
 
 export interface PokemonDetail {
