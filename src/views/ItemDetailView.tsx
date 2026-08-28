@@ -47,7 +47,17 @@ export function ItemDetailView({
       {itemDetailError && <p className="error">{itemDetailError}</p>}
       {itemDetail && (
         <article className="move-detail-content">
-          <h2 className="move-detail-title">{itemDetail.name}</h2>
+          <h2 className="move-detail-title">
+            {itemDetail.iconUrl && (
+              <img
+                className="item-icon item-icon-lg"
+                src={itemDetail.iconUrl}
+                alt=""
+                aria-hidden="true"
+              />
+            )}
+            {itemDetail.name}
+          </h2>
           <p className="move-key">{itemDetail.key}</p>
           <p className="move-description">
             {itemDetail.description || 'No description available.'}

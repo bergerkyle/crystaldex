@@ -82,6 +82,7 @@ export interface ItemListItem {
   key: string
   name: string
   description: string
+  iconUrl: string | null
 }
 
 export interface ItemWildHolder {

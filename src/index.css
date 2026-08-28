@@ -1393,9 +1393,44 @@ a:hover {
   padding: 0.4rem 0.55rem;
 }
 
+.item-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.item-name-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.moves-sidebar-move-btn .item-icon {
+  margin-right: 0.35rem;
+}
+
+.item-icon-lg {
+  width: 40px;
+  height: 40px;
+  margin-right: 0.5rem;
+}
+
 .items-sidebar-letter-heading {
   background: rgba(108, 133, 205, 0.26);
   color: var(--text);
+}
+
+.items-sidebar-category-toggle {
+  background: rgba(108, 133, 205, 0.26);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.items-sidebar-category-toggle:hover {
+  background: rgba(108, 133, 205, 0.36);
 }
 
 .moves-page:has(.item-table) {

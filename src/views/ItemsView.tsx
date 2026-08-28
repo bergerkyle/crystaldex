@@ -44,7 +44,16 @@ export function ItemsView({
   const [categoryFilter, setCategoryFilter] = useState<ItemCategoryId | 'all'>(
     'all',
   )
+  const [openCategorySections, setOpenCategorySections] = useState<
+    Record<string, boolean>
+  >({})
   const PAGE_SIZE = 24
+
+  const toggleCategorySection = (id: ItemCategoryId) => {
+    setOpenCategorySections((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  const isFilteringItems = itemFilter.trim().length > 0
 
   const visibleItems = useMemo(
     () => itemList.filter((item) => !isHiddenItem(item)),
@@ -173,7 +182,20 @@ export function ItemsView({
                           className="move-table-row"
                           onClick={() => onOpenItem(item.key)}
                         >
-                          <td className="move-table-name-cell">{item.name}</td>
+                          <td className="move-table-name-cell">
+                            <span className="item-name-with-icon">
+                              {item.iconUrl && (
+                                <img
+                                  className="item-icon"
+                                  src={item.iconUrl}
+                                  alt=""
+                                  aria-hidden="true"
+                                  loading="lazy"
+                                />
+                              )}
+                              {item.name}
+                            </span>
+                          </td>
                           <td>
                             {item.description || 'No description available.'}
                           </td>
@@ -259,28 +281,52 @@ export function ItemsView({
           <p className="muted">No items found.</p>
         )}
         <div className="moves-sidebar-scroll">
-          {sidebarGroups.map((group) => (
-            <section className="moves-sidebar-type" key={group.id}>
-              <p className="moves-sidebar-type-heading items-sidebar-letter-heading">
-                {group.label}
-              </p>
-              <ul className="moves-sidebar-move-list">
-                {group.items.map((item) => (
-                  <li key={`sidebar-item-${item.key}`}>
-                    <button
-                      className="moves-sidebar-move-btn"
-                      onClick={() => {
-                        onOpenItem(item.key)
-                        onCloseSidebar()
-                      }}
-                    >
-                      {item.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
+          {sidebarGroups.map((group) => {
+            const isOpen =
+              isFilteringItems || openCategorySections[group.id] === true
+            return (
+              <section className="moves-sidebar-type" key={group.id}>
+                <button
+                  className="moves-sidebar-type-toggle items-sidebar-category-toggle"
+                  onClick={() => toggleCategorySection(group.id)}
+                  aria-expanded={isOpen}
+                >
+                  <span className="moves-sidebar-type-label">
+                    {group.label}
+                  </span>
+                  <span className="moves-sidebar-caret" aria-hidden="true">
+                    {isOpen ? '▾' : '▸'}
+                  </span>
+                </button>
+                {isOpen && (
+                  <ul className="moves-sidebar-move-list">
+                    {group.items.map((item) => (
+                      <li key={`sidebar-item-${item.key}`}>
+                        <button
+                          className="moves-sidebar-move-btn"
+                          onClick={() => {
+                            onOpenItem(item.key)
+                            onCloseSidebar()
+                          }}
+                        >
+                          {item.iconUrl && (
+                            <img
+                              className="item-icon"
+                              src={item.iconUrl}
+                              alt=""
+                              aria-hidden="true"
+                              loading="lazy"
+                            />
+                          )}
+                          {item.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )
+          })}
         </div>
       </aside>
 

@@ -1459,12 +1459,21 @@ export function parseItemDescriptions(source: string): Map<string, string> {
 }
 
 // Build the item catalog: one entry per regular-pocket item (excluding
-// NO_ITEM), keyed by its constant, with the display name and description.
+// NO_ITEM), keyed by its constant, plus one entry per TM/HM (keyed by its
+// TM##/HM## label), with the display name and description.
 export async function fetchItemCatalog(): Promise<ItemDef[]> {
-  const [constSource, namesSource, descSource] = await Promise.all([
+  const [
+    constSource,
+    namesSource,
+    descSource,
+    moveConstSource,
+    moveNamesSource,
+  ] = await Promise.all([
     fetchRaw(ITEM_CONSTANTS_PATH),
     fetchRaw(ITEM_NAMES_PATH),
     fetchRaw(ITEM_DESCRIPTIONS_PATH),
+    fetchRaw(MOVE_CONSTANTS_PATH),
+    fetchRaw(MOVE_NAMES_PATH),
   ])
 
   const keys = parseItemConstants(constSource)
@@ -1483,6 +1492,24 @@ export async function fetchItemCatalog(): Promise<ItemDef[]> {
       description: descTexts.get(label) ?? '',
     })
   }
+
+  const moveKeys = parseMoveConstants(moveConstSource)
+  const moveNames = parseMoveNames(moveNamesSource)
+  const moveNameByKey = new Map<string, string>()
+  moveKeys.forEach((key, i) =>
+    moveNameByKey.set(key, moveNames[i] ?? itemKeyToName(key)),
+  )
+
+  for (const def of parseTmHm(constSource)) {
+    if (!def.label) continue
+    const moveName = moveNameByKey.get(def.move) ?? itemKeyToName(def.move)
+    items.push({
+      key: def.label,
+      name: `${def.label} ${moveName}`,
+      description: `Teaches ${moveName}.`,
+    })
+  }
+
   return items
 }
 
@@ -1518,7 +1545,10 @@ function parseMartLabelOrder(source: string): string[] {
   return rows
 }
 
-function parseMartItemLocations(source: string): Map<string, Set<string>> {
+function parseMartItemLocations(
+  source: string,
+  tmHmAlias: Map<string, string>,
+): Map<string, Set<string>> {
   const martLabels = new Set(parseMartLabelOrder(source))
   const byItem = new Map<string, Set<string>>()
   let currentMart: string | null = null
@@ -1535,7 +1565,8 @@ function parseMartItemLocations(source: string): Map<string, Set<string>> {
     if (!currentMart) continue
     const item = line.match(/^\s*dw\s+([A-Z0-9_]+)\b/)
     if (!item) continue
-    addLocationEntry(byItem, item[1], currentMart)
+    const key = tmHmAlias.get(item[1]) ?? item[1]
+    addLocationEntry(byItem, key, currentMart)
   }
 
   return byItem
@@ -1544,6 +1575,7 @@ function parseMartItemLocations(source: string): Map<string, Set<string>> {
 function parseMapItemLocations(
   mapFilePath: string,
   source: string,
+  tmHmAlias: Map<string, string>,
 ): Map<string, Set<string>> {
   const byItem = new Map<string, Set<string>>()
   const mapName = normalizeItemLocationLabel(
@@ -1553,10 +1585,24 @@ function parseMapItemLocations(
   for (const line of source.split('\n')) {
     const item = line.match(/^\s*giveitem\s+([A-Z0-9_]+)\b/i)
     if (!item) continue
-    addLocationEntry(byItem, item[1].toUpperCase(), mapName)
+    const token = item[1].toUpperCase()
+    const key = tmHmAlias.get(token) ?? token
+    addLocationEntry(byItem, key, mapName)
   }
 
   return byItem
+}
+
+// Scripts reference TM/HM items either by move constant (TM_DYNAMICPUNCH) or by
+// number (TM01). Map the move-constant form onto the canonical TM##/HM## label.
+function buildTmHmAliasMap(constSource: string): Map<string, string> {
+  const alias = new Map<string, string>()
+  for (const def of parseTmHm(constSource)) {
+    if (!def.label) continue
+    const prefix = def.label.startsWith('HM') ? 'HM_' : 'TM_'
+    alias.set(`${prefix}${def.move}`, def.label)
+  }
+  return alias
 }
 
 function sortedArrayByKey(map: Map<string, Set<string>>): Map<string, string[]> {
@@ -1575,10 +1621,13 @@ function sortedArrayByKey(map: Map<string, Set<string>>): Map<string, string[]> 
 export async function fetchItemScriptLocations(): Promise<ItemScriptLocationIndex> {
   if (!itemScriptLocationPromise) {
     itemScriptLocationPromise = (async () => {
-      const [tree, martsSource] = await Promise.all([
+      const [tree, martsSource, constSource] = await Promise.all([
         fetchTree(),
         fetchRaw(ITEM_MARTS_PATH),
+        fetchRaw(ITEM_CONSTANTS_PATH),
       ])
+
+      const tmHmAlias = buildTmHmAliasMap(constSource)
 
       const mapAsmPaths = tree
         .filter(
@@ -1596,7 +1645,7 @@ export async function fetchItemScriptLocations(): Promise<ItemScriptLocationInde
           batch.map(async (path) => ({ path, source: await fetchRaw(path) })),
         )
         for (const { path, source } of sources) {
-          const parsed = parseMapItemLocations(path, source)
+          const parsed = parseMapItemLocations(path, source, tmHmAlias)
           for (const [itemKey, locations] of parsed) {
             for (const location of locations) {
               addLocationEntry(mapsByItemMutable, itemKey, location)
@@ -1607,7 +1656,9 @@ export async function fetchItemScriptLocations(): Promise<ItemScriptLocationInde
 
       return {
         mapsByItem: sortedArrayByKey(mapsByItemMutable),
-        martsByItem: sortedArrayByKey(parseMartItemLocations(martsSource)),
+        martsByItem: sortedArrayByKey(
+          parseMartItemLocations(martsSource, tmHmAlias),
+        ),
       }
     })()
   }

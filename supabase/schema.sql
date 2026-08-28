@@ -133,6 +133,9 @@ create table if not exists public.items (
   description text not null default ''
 );
 
+alter table public.items
+  add column if not exists icon_url text;
+
 -- Wild held items: slot 1 is held 37.5% of the time, slot 2 is held 12.5% of
 -- the time. NO_ITEM slots are stored as null.
 alter table public.pokemon

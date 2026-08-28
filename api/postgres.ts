@@ -587,6 +587,7 @@ export interface ItemListItem {
   key: string
   name: string
   description: string
+  iconUrl: string | null
 }
 
 export interface ItemWildHolder {
@@ -626,7 +627,7 @@ export async function listItems(): Promise<ItemListItem[]> {
   const supabase = getSupabase()
   const { data, error } = await supabase
     .from('items')
-    .select('key, name, description')
+    .select('key, name, description, icon_url')
     .order('name')
   if (error) throw new Error(error.message)
 
@@ -634,6 +635,7 @@ export async function listItems(): Promise<ItemListItem[]> {
     key: row.key,
     name: row.name,
     description: row.description ?? '',
+    iconUrl: row.icon_url ?? null,
   }))
 }
 
@@ -645,7 +647,7 @@ export async function getItem(key: string): Promise<ItemDetail | null> {
     await Promise.all([
       supabase
         .from('items')
-        .select('key, name, description')
+        .select('key, name, description, icon_url')
         .eq('key', normalizedKey)
         .maybeSingle(),
       fetchItemScriptLocations(),
@@ -676,6 +678,7 @@ export async function getItem(key: string): Promise<ItemDetail | null> {
     key: item.key,
     name: item.name,
     description: item.description ?? '',
+    iconUrl: item.icon_url ?? null,
     maps: mapsByItem.get(normalizedKey) ?? [],
     marts: martsByItem.get(normalizedKey) ?? [],
     wildHolders,
