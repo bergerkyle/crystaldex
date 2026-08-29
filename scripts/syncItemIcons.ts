@@ -13,7 +13,7 @@ import {
   parseTmHm,
 } from '../api/parser.js'
 import { getSupabase } from '../api/postgres.js'
-import { itemIconSourceUrl } from '../api/itemIcons.js'
+import { FOSSIL_NO_POKEMONDB_IMAGE, itemIconSourceUrl } from '../api/itemIcons.js'
 
 const BUCKET = 'item-icons'
 
@@ -62,6 +62,7 @@ async function main(): Promise<void> {
 
   for (const item of items) {
     const tmType = tmTypeByLabel.get(item.key) ?? null
+    if (FOSSIL_NO_POKEMONDB_IMAGE.has(item.key)) continue
     const sourceUrl = itemIconSourceUrl(item.key, item.name, tmType)
     if (!sourceUrl) {
       missing.push(item.key)

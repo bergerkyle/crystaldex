@@ -1,5 +1,17 @@
 import { type ItemListItem } from './pokemon'
 
+const POKEMONDB_ITEMS = 'https://img.pokemondb.net/sprites/items'
+
+function slugifyItemName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[.'']/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 export type ItemCategoryId =
   | 'medicine'
   | 'vitamin'
@@ -47,6 +59,9 @@ export function isHiddenItem(item: ItemListItem): boolean {
 
 // Local /public fallback icons for items PokemonDB doesn't provide a sprite for.
 const LOCAL_ICON_BY_KEY: Record<string, string> = {
+  URSA_FOSSIL: '/fossil.png',
+  FIN_FOSSIL: '/fossil.png',
+  FANG_FOSSIL: '/fossil.png',
   POLKADOT_BOW: '/bow.png',
   PINK_BOW: '/bow.png',
   NORMAL_BOX: '/box.png',
@@ -76,7 +91,10 @@ export function itemIconUrl(item: ItemListItem): string | null {
   if (item.name.toLowerCase().includes('box')) return '/box.png'
 
   const category = categorizeItem(item)
-  if (category === 'fossil') return '/fossil.png'
+  if (category === 'fossil') {
+    const slug = slugifyItemName(item.name)
+    return `${POKEMONDB_ITEMS}/${slug}.png`
+  }
   if (category === 'mail') return '/mail.png'
   if (category === 'berry') return '/berry.png'
 

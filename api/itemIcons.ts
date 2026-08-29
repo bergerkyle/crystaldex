@@ -5,6 +5,14 @@
 
 const POKEMONDB_ITEMS = 'https://img.pokemondb.net/sprites/items'
 
+// Fossil item keys that have no PokemonDB sprite (custom fossils unique to this game).
+// These are skipped during icon sync so they fall back to the local /fossil.png icon.
+export const FOSSIL_NO_POKEMONDB_IMAGE = new Set([
+  'URSA_FOSSIL',
+  'FIN_FOSSIL',
+  'FANG_FOSSIL',
+])
+
 // Engine item names that don't slugify to the PokemonDB filename. Keyed by the
 // item constant. Extend this as the sync script reports unmatched (404) items.
 const SLUG_OVERRIDES: Record<string, string> = {
