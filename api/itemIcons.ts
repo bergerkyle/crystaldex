@@ -32,6 +32,17 @@ const SLUG_OVERRIDES: Record<string, string> = {
   REVIVALHERB: 'revival-herb',
   RAGECANDYBAR: 'rage-candy-bar',
   MOOMOO_MILK: 'moomoo-milk',
+  // Gen II berries mapped to their Gen III PokemonDB equivalents
+  BERRY: 'oran-berry',
+  GOLD_BERRY: 'sitrus-berry',
+  PRZCUREBERRY: 'cheri-berry',
+  MINT_BERRY: 'chesto-berry',
+  ICE_BERRY: 'aspear-berry',
+  BITTER_BERRY: 'persim-berry',
+  BURNT_BERRY: 'rawst-berry',
+  PSNCUREBERRY: 'pecha-berry',
+  MIRACLEBERRY: 'lum-berry',
+  MYSTERYBERRY: 'leppa-berry',
 }
 
 export const POKEMON_TYPES = [
