@@ -644,10 +644,7 @@ function wildRegionFromPath(path: string): string {
   return match?.[1] ?? ''
 }
 
-const EXCLUDED_ROUTE_TOKENS = new Set([
-  'PLAYERS_HOUSE_2F',
-  'PLAYERS_HOUSE_2_F',
-])
+const EXCLUDED_ROUTE_TOKENS = new Set(['PLAYERS_HOUSE_2F', 'PLAYERS_HOUSE_2_F'])
 
 function isExcludedRouteToken(route: string): boolean {
   return EXCLUDED_ROUTE_TOKENS.has(route.toUpperCase())
@@ -1627,7 +1624,9 @@ function buildTmHmAliasMap(constSource: string): Map<string, string> {
   return alias
 }
 
-function sortedArrayByKey(map: Map<string, Set<string>>): Map<string, string[]> {
+function sortedArrayByKey(
+  map: Map<string, Set<string>>,
+): Map<string, string[]> {
   const result = new Map<string, string[]>()
   for (const [key, values] of map) {
     result.set(

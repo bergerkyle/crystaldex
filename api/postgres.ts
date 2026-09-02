@@ -218,7 +218,10 @@ export async function syncDatabase(): Promise<{
     `[sync] parsed move catalog: ${catalog.length} moves, ability catalog: ${abilityCatalog.length} abilities, item catalog: ${itemCatalog.length} items`,
   )
   const { data: existingItemIconRows, error: existingItemIconRowsError } =
-    await supabase.from('items').select('key, icon_url').not('icon_url', 'is', null)
+    await supabase
+      .from('items')
+      .select('key, icon_url')
+      .not('icon_url', 'is', null)
   if (existingItemIconRowsError) {
     throw new Error(
       `Load existing item icons failed: ${existingItemIconRowsError.message}`,
