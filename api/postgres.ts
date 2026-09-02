@@ -217,6 +217,20 @@ export async function syncDatabase(): Promise<{
   console.log(
     `[sync] parsed move catalog: ${catalog.length} moves, ability catalog: ${abilityCatalog.length} abilities, item catalog: ${itemCatalog.length} items`,
   )
+  const { data: existingItemIconRows, error: existingItemIconRowsError } =
+    await supabase.from('items').select('key, icon_url').not('icon_url', 'is', null)
+  if (existingItemIconRowsError) {
+    throw new Error(
+      `Load existing item icons failed: ${existingItemIconRowsError.message}`,
+    )
+  }
+  const existingIconUrlByItemKey = new Map<string, string>()
+  for (const row of existingItemIconRows ?? []) {
+    if (row.icon_url) existingIconUrlByItemKey.set(row.key, row.icon_url)
+  }
+  console.log(
+    `[sync] loaded existing item icons: ${existingIconUrlByItemKey.size}`,
+  )
 
   // Build the TM/HM label map (move constant -> TM##/HM## + display order).
   const tmhmDefs = parseTmHm(await fetchRaw(ITEM_CONSTANTS_PATH))
@@ -490,7 +504,11 @@ export async function syncDatabase(): Promise<{
 
   // Items must exist before pokemon rows reference them via held-item FKs.
   console.log('[sync] inserting item catalog')
-  for (const batch of chunk(itemCatalog, 500)) {
+  const itemRows = itemCatalog.map((item) => ({
+    ...item,
+    icon_url: existingIconUrlByItemKey.get(item.key) ?? null,
+  }))
+  for (const batch of chunk(itemRows, 500)) {
     const { error } = await supabase.from('items').insert(batch)
     if (error) throw new Error(`Insert items catalog failed: ${error.message}`)
   }

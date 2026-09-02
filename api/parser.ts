@@ -644,6 +644,15 @@ function wildRegionFromPath(path: string): string {
   return match?.[1] ?? ''
 }
 
+const EXCLUDED_ROUTE_TOKENS = new Set([
+  'PLAYERS_HOUSE_2F',
+  'PLAYERS_HOUSE_2_F',
+])
+
+function isExcludedRouteToken(route: string): boolean {
+  return EXCLUDED_ROUTE_TOKENS.has(route.toUpperCase())
+}
+
 function parseGrassWildFile(
   sourceRegion: string,
   source: string,
@@ -655,6 +664,7 @@ function parseGrassWildFile(
     /def_grass_wildmons\s+([A-Z0-9_]+)([\s\S]*?)end_grass_wildmons/g,
   )) {
     const route = block[1]
+    if (isExcludedRouteToken(route)) continue
     const body = block[2]
     const slotsByTime: Record<EncounterTime, string[]> = {
       morn: [],
@@ -705,6 +715,7 @@ function parseWaterWildFile(
     /def_water_wildmons\s+([A-Z0-9_]+)([\s\S]*?)end_water_wildmons/g,
   )) {
     const route = block[1]
+    if (isExcludedRouteToken(route)) continue
     const species = [
       ...block[2].matchAll(/^\s*dbw\s+\d+\s*,\s*([A-Z0-9_]+)/gm),
     ].map((match) => match[1])
@@ -855,6 +866,7 @@ function parseMapFishingGroups(source: string): Map<string, string> {
     )
     if (!m) continue
     const route = mapNameToRouteToken(m[1])
+    if (isExcludedRouteToken(route)) continue
     result.set(route, m[2])
   }
   return result
@@ -1285,6 +1297,7 @@ export async function fetchFixedEncounters(
           '',
         )
         const route = mapNameToRouteToken(filename)
+        if (isExcludedRouteToken(route)) continue
         // maps/<region>/[subdirs/]<MapName>.asm — when depth > 2 the second
         // segment is the region folder; otherwise fall back to the override map.
         const region =
@@ -1578,12 +1591,21 @@ function parseMapItemLocations(
   tmHmAlias: Map<string, string>,
 ): Map<string, Set<string>> {
   const byItem = new Map<string, Set<string>>()
+  const mapFilename = mapFilePath
+    .replace(/^maps\//, '')
+    .replace(/\.asm$/i, '')
+    .split('/')
+    .at(-1)
+  if (mapFilename && isExcludedRouteToken(mapNameToRouteToken(mapFilename)))
+    return byItem
   const mapName = normalizeItemLocationLabel(
     mapFilePath.replace(/^maps\//, '').replace(/\.asm$/i, ''),
   )
 
   for (const line of source.split('\n')) {
-    const item = line.match(/^\s*giveitem\s+([A-Z0-9_]+)\b/i)
+    const item = line.match(
+      /^\s*(?:giveitem|verbosegiveitem|itemball)\s+([A-Z0-9_]+)\b/i,
+    )
     if (!item) continue
     const token = item[1].toUpperCase()
     const key = tmHmAlias.get(token) ?? token
