@@ -1052,11 +1052,13 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
         mergeRoute(route)
     }
 
-    const routeRegions = new Map<string, Set<string>>()
+    const routeRegionsWithWater = new Map<string, Set<string>>()
     for (const route of routesByKey.values()) {
-      const regions = routeRegions.get(route.route) ?? new Set<string>()
+      if (route.water.length === 0) continue
+      const regions =
+        routeRegionsWithWater.get(route.route) ?? new Set<string>()
       regions.add(route.region)
-      routeRegions.set(route.route, regions)
+      routeRegionsWithWater.set(route.route, regions)
     }
 
     const fishGroups = parseFishGroups(fishSource)
@@ -1065,7 +1067,7 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
 
     for (const [route, fishGroupRaw] of routeFishingGroups) {
       if (fishGroupRaw === 'NONE') continue
-      const regions = routeRegions.get(route)
+      const regions = routeRegionsWithWater.get(route)
       if (!regions || regions.size === 0) continue
 
       const fishGroup = fishGroups.get(normalizeToken(fishGroupRaw))
