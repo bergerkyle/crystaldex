@@ -15,6 +15,11 @@
   --brand-blue: #5aa2ff;
 }
 
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   font-family: system-ui, sans-serif;
   margin: 0;
@@ -25,7 +30,6 @@ body {
     var(--bg) 55%
   );
   color: var(--text);
-  overflow-x: hidden;
 }
 
 a {
@@ -1696,6 +1700,17 @@ a:hover {
 @media (min-width: 901px) {
   .move-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (hover: none), (max-width: 768px) {
+  .item-tooltip {
+    position: fixed;
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    width: auto;
+    max-width: none;
   }
 }
 
