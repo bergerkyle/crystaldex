@@ -124,7 +124,12 @@ export interface ShinyPalette {
   color2: string
 }
 
-export type EncounterMethod = 'grass' | 'water' | 'fishing' | 'fixed'
+export type EncounterMethod =
+  'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt'
+
+// Headbutt trees: common trees use a tree set's first table, rare trees its
+// second.
+export type HeadbuttTree = 'common' | 'rare'
 
 export type FishingRod = 'old' | 'good' | 'super'
 
@@ -152,6 +157,12 @@ export interface RouteEncounter {
   water: EncounterRate[]
   fishing: RouteFishingEncounters[]
   fixed: EncounterRate[]
+  headbutt: RouteHeadbuttEncounters[]
+}
+
+export interface RouteHeadbuttEncounters {
+  tree: HeadbuttTree
+  encounters: EncounterRate[]
 }
 
 export interface RouteFishingEncounters {
@@ -167,6 +178,7 @@ export interface PokemonEncounter {
   rate: number
   time?: EncounterTime
   rod?: FishingRod
+  tree?: HeadbuttTree
 }
 
 export interface PokemonDetail {
@@ -297,7 +309,14 @@ export function formatEncounterMethod(method: EncounterMethod): string {
   if (method === 'grass') return 'Grass'
   if (method === 'water') return 'Surf'
   if (method === 'fixed') return 'Fixed'
+  if (method === 'headbutt') return 'Headbutt'
   return 'Fishing'
+}
+
+export function formatHeadbuttTree(tree?: HeadbuttTree): string {
+  if (tree === 'rare') return 'Rare Tree'
+  if (tree === 'common') return 'Common Tree'
+  return 'Any Tree'
 }
 
 export function formatFishingRod(rod?: FishingRod): string {

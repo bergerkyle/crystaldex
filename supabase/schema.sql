@@ -108,7 +108,19 @@ alter table public.location_encounters
 
 alter table public.location_encounters
   add constraint location_encounters_method_check
-  check (method in ('grass', 'water', 'fishing', 'fixed'));
+  check (method in ('grass', 'water', 'fishing', 'fixed', 'headbutt'));
+
+-- Headbutt tree kind: common trees use a tree set's first table, rare trees
+-- its second. Only set for method = 'headbutt'.
+alter table public.location_encounters
+  add column if not exists tree text;
+
+alter table public.location_encounters
+  drop constraint if exists location_encounters_tree_check;
+
+alter table public.location_encounters
+  add constraint location_encounters_tree_check
+  check (tree is null or tree in ('common', 'rare'));
 
 alter table public.location_encounters
   drop constraint if exists location_encounters_rod_check;

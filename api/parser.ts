@@ -30,6 +30,8 @@ const WILD_WATER_PATHS = [
 ] as const
 const WILD_FISH_PATH = 'data/wild/fish.asm'
 const MAPS_PATH = 'data/maps/maps.asm'
+const TREEMONS_PATH = 'data/wild/treemons.asm'
+const TREEMON_MAPS_PATH = 'data/wild/treemon_maps.asm'
 
 export const SPRITE_BASE = `https://raw.githubusercontent.com/${REPO}/${REF}/gfx/pokemon`
 
@@ -145,7 +147,12 @@ export interface ItemScriptLocationIndex {
   martsByItem: Map<string, string[]>
 }
 
-export type EncounterMethod = 'grass' | 'water' | 'fishing' | 'fixed'
+export type EncounterMethod =
+  'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt'
+
+// Headbutt trees: common trees (score bad/good) use a set's first table, rare
+// trees use its second table.
+export type HeadbuttTree = 'common' | 'rare'
 
 export type FishingRod = 'old' | 'good' | 'super'
 
@@ -173,6 +180,12 @@ export interface RouteEncounter {
   water: EncounterRate[]
   fishing: RouteFishingEncounters[]
   fixed: EncounterRate[]
+  headbutt: RouteHeadbuttEncounters[]
+}
+
+export interface RouteHeadbuttEncounters {
+  tree: HeadbuttTree
+  encounters: EncounterRate[]
 }
 
 export interface RouteFishingEncounters {
@@ -188,6 +201,7 @@ export interface PokemonEncounter {
   rate: number
   time?: EncounterTime
   rod?: FishingRod
+  tree?: HeadbuttTree
 }
 
 export interface WildEncounterData {
@@ -743,6 +757,7 @@ function parseGrassWildFile(
       water: [],
       fishing: [],
       fixed: [],
+      headbutt: [],
     })
   }
   return routes
@@ -770,6 +785,7 @@ function parseWaterWildFile(
       water: mergeEncounterRates(species, waterRates, entriesByKey),
       fishing: [],
       fixed: [],
+      headbutt: [],
     })
   }
   return routes
@@ -986,6 +1002,90 @@ function expandFishRodEncounters(
   return merged
 }
 
+interface TreeMonEntry {
+  rate: number
+  level: number
+  species: string
+}
+
+// Parse TreeMonSet_* blocks from treemons.asm, keyed by TREEMON_SET_* suffix
+// (e.g. ROUTE). Each set has a common table then a rare table, each ending in
+// `db -1`; stacked labels (TreeMonSet_City: TreeMonSet_Canyon:) share data.
+function parseTreeMonSets(
+  source: string,
+): Map<string, { common: TreeMonEntry[]; rare: TreeMonEntry[] }> {
+  const result = new Map<
+    string,
+    { common: TreeMonEntry[]; rare: TreeMonEntry[] }
+  >()
+  let pendingLabels: string[] = []
+  let tables: TreeMonEntry[][] = []
+  let current: TreeMonEntry[] = []
+
+  const flush = () => {
+    if (pendingLabels.length > 0 && tables.length > 0) {
+      const sets = { common: tables[0] ?? [], rare: tables[1] ?? [] }
+      for (const label of pendingLabels) result.set(label, sets)
+    }
+    pendingLabels = []
+    tables = []
+  }
+
+  for (const line of source.split('\n')) {
+    const label = line.match(/^TreeMonSet_([A-Za-z0-9_]+):/)
+    if (label) {
+      if (tables.length > 0) flush()
+      pendingLabels.push(label[1].toUpperCase())
+      current = []
+      continue
+    }
+    if (pendingLabels.length === 0) continue
+    if (/^\s*db\s+-1\b/.test(line)) {
+      tables.push(current)
+      current = []
+      continue
+    }
+    const m = line.match(/^\s*dbbw\s+(\d+)\s*,\s*(\d+)\s*,\s*([A-Z][A-Z0-9_]*)/)
+    if (m) {
+      current.push({ rate: Number(m[1]), level: Number(m[2]), species: m[3] })
+    }
+  }
+  flush()
+  return result
+}
+
+// Parse the TreeMonMaps table (Headbutt) from treemon_maps.asm; RockMonMaps
+// (Rock Smash) is ignored. TREEMON_SET_CITY is skipped because the engine
+// treats set 0 as "no encounter" (GetTreeMons bails out on index 0).
+function parseTreeMonMaps(source: string): { route: string; set: string }[] {
+  const block = source.match(/^TreeMonMaps:([\s\S]*?)^\s*db\s+-1\b/m)
+  if (!block) return []
+  const result: { route: string; set: string }[] = []
+  for (const m of block[1].matchAll(
+    /^\s*treemon_map\s+([A-Z0-9_]+)\s*,\s*TREEMON_SET_([A-Z0-9_]+)/gm,
+  )) {
+    if (m[2] === 'CITY') continue
+    if (isExcludedRouteToken(m[1])) continue
+    result.push({ route: m[1], set: m[2] })
+  }
+  return result
+}
+
+// Map route token -> region folder for map scripts at maps/<region>/.../X.asm.
+function mapRegionsFromTree(tree: TreeNode[]): Map<string, string> {
+  const result = new Map<string, string>()
+  for (const node of tree) {
+    if (node.type !== 'blob') continue
+    if (!node.path.startsWith('maps/') || !node.path.endsWith('.asm')) continue
+    const segments = node.path.split('/')
+    if (segments.length <= 2) continue
+    const filename = segments[segments.length - 1].replace(/\.asm$/, '')
+    const route = mapNameToRouteToken(filename)
+    if (!result.has(route)) result.set(route, segments[1])
+  }
+  return result
+}
+
 function buildPokemonEncounterIndex(
   routes: RouteEncounter[],
 ): Map<string, PokemonEncounter[]> {
@@ -1032,6 +1132,17 @@ function buildPokemonEncounterIndex(
         })
       }
     }
+    for (const headbutt of route.headbutt) {
+      for (const encounter of headbutt.encounters) {
+        pushEncounter(encounter.pokemon, {
+          region: route.region,
+          route: route.route,
+          method: 'headbutt',
+          tree: headbutt.tree,
+          rate: encounter.rate,
+        })
+      }
+    }
   }
 
   return encountersByPokemon
@@ -1041,15 +1152,24 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
   if (wildEncounterDataPromise) return wildEncounterDataPromise
 
   wildEncounterDataPromise = (async () => {
-    const [tree, probabilitiesSource, fishSource, mapsSource, ...wildSources] =
-      await Promise.all([
-        fetchTree(),
-        fetchRaw(WILD_PROBABILITIES_PATH),
-        fetchRaw(WILD_FISH_PATH),
-        fetchRaw(MAPS_PATH),
-        ...WILD_GRASS_PATHS.map((path) => fetchRaw(path)),
-        ...WILD_WATER_PATHS.map((path) => fetchRaw(path)),
-      ])
+    const [
+      tree,
+      probabilitiesSource,
+      fishSource,
+      mapsSource,
+      treeMonsSource,
+      treeMonMapsSource,
+      ...wildSources
+    ] = await Promise.all([
+      fetchTree(),
+      fetchRaw(WILD_PROBABILITIES_PATH),
+      fetchRaw(WILD_FISH_PATH),
+      fetchRaw(MAPS_PATH),
+      fetchRaw(TREEMONS_PATH),
+      fetchRaw(TREEMON_MAPS_PATH),
+      ...WILD_GRASS_PATHS.map((path) => fetchRaw(path)),
+      ...WILD_WATER_PATHS.map((path) => fetchRaw(path)),
+    ])
 
     const entriesByKey = new Map(
       entriesFromTree(tree).map((entry) => [normalizeKey(entry.name), entry]),
@@ -1074,6 +1194,7 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
       if (route.grass.length > 0) existing.grass = route.grass
       if (route.water.length > 0) existing.water = route.water
       if (route.fishing.length > 0) existing.fishing = route.fishing
+      if (route.headbutt.length > 0) existing.headbutt = route.headbutt
     }
 
     for (const [index, source] of wildSources
@@ -1141,6 +1262,47 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
           water: [],
           fishing,
           fixed: [],
+          headbutt: [],
+        })
+      }
+    }
+
+    const treeMonSets = parseTreeMonSets(treeMonsSource)
+    const mapRegions = mapRegionsFromTree(tree)
+    for (const { route, set } of parseTreeMonMaps(treeMonMapsSource)) {
+      const tables = treeMonSets.get(set)
+      if (!tables) continue
+      const mapRegion = mapRegions.get(route)
+      const regions = mapRegion
+        ? new Set([mapRegion])
+        : (routeRegions.get(route) ?? new Set<string>())
+      if (regions.size === 0) continue
+
+      const trees: Array<{ tree: HeadbuttTree; rows: TreeMonEntry[] }> = [
+        { tree: 'common', rows: tables.common },
+        { tree: 'rare', rows: tables.rare },
+      ]
+      const headbutt = trees
+        .filter(({ rows }) => rows.length > 0)
+        .map(({ tree, rows }) => ({
+          tree,
+          encounters: mergeEncounterRates(
+            rows.map((row) => row.species),
+            rows.map((row) => row.rate),
+            entriesByKey,
+          ),
+        }))
+      if (headbutt.length === 0) continue
+
+      for (const region of regions) {
+        mergeRoute({
+          region,
+          route,
+          grass: [],
+          water: [],
+          fishing: [],
+          fixed: [],
+          headbutt,
         })
       }
     }

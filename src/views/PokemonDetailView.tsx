@@ -9,6 +9,7 @@ import {
   evolutionMethodText,
   evolutionSourceMethodText,
   formatFishingRod,
+  formatHeadbuttTree,
   formatEncounterMethod,
   formatEncounterTime,
   formatLocation,
@@ -20,6 +21,7 @@ import {
 } from '../pokemon'
 import { PokemonAutocomplete } from '../components/PokemonAutocomplete'
 import { CategoryMetaChip, TypeMetaChip } from './moveMeta'
+import { NORMAL_TM_ICON } from '../itemCategories'
 
 interface DetailAccordionSectionProps {
   title: string
@@ -111,6 +113,7 @@ interface DisplayEncounter {
   route: string
   method: PokemonDetail['encounters'][number]['method']
   rod?: PokemonDetail['encounters'][number]['rod']
+  tree?: PokemonDetail['encounters'][number]['tree']
   rate: number
   timeLabel: string
 }
@@ -120,15 +123,33 @@ const ENCOUNTER_METHOD_ICONS = {
   old: '/Bag_Old_Rod_III_Sprite.png',
   good: '/Bag_Good_Rod_III_Sprite.png',
   super: '/Bag_Super_Rod_III_Sprite.png',
+  headbutt: NORMAL_TM_ICON,
 } as const
 
 function EncounterMethodLabel({
   method,
   rod,
+  tree,
 }: {
   method: PokemonDetail['encounters'][number]['method']
   rod?: PokemonDetail['encounters'][number]['rod']
+  tree?: PokemonDetail['encounters'][number]['tree']
 }) {
+  if (method === 'headbutt') {
+    return (
+      <span className="encounter-method-label">
+        <img
+          className="encounter-method-icon"
+          src={ENCOUNTER_METHOD_ICONS.headbutt}
+          alt=""
+          width={14}
+          height={14}
+          aria-hidden="true"
+        />
+        {formatEncounterMethod(method)} ({formatHeadbuttTree(tree)})
+      </span>
+    )
+  }
   if (method === 'fishing') {
     const icon =
       rod === 'old'
@@ -177,10 +198,12 @@ function EncounterMethodLabel({
 function encounterGroupOrder(entry: {
   method: PokemonDetail['encounters'][number]['method']
   rod?: PokemonDetail['encounters'][number]['rod']
+  tree?: PokemonDetail['encounters'][number]['tree']
 }): number {
   if (entry.method === 'grass') return 0
   if (entry.method === 'water') return 1
-  if (entry.method === 'fixed') return 6
+  if (entry.method === 'headbutt') return entry.tree === 'rare' ? 7 : 6
+  if (entry.method === 'fixed') return 8
   if (entry.method !== 'fishing') return 99
   if (entry.rod === 'old') return 2
   if (entry.rod === 'good') return 3
@@ -199,6 +222,7 @@ function groupDisplayEncounters(
       route: string
       method: PokemonDetail['encounters'][number]['method']
       rod?: PokemonDetail['encounters'][number]['rod']
+      tree?: PokemonDetail['encounters'][number]['tree']
       rate: number
       times: Set<string>
     }
@@ -210,6 +234,7 @@ function groupDisplayEncounters(
       encounter.route,
       encounter.method,
       encounter.rod ?? '',
+      encounter.tree ?? '',
       encounter.rate,
     ].join('|')
     const existing = grouped.get(key)
@@ -223,6 +248,7 @@ function groupDisplayEncounters(
       route: encounter.route,
       method: encounter.method,
       rod: encounter.rod,
+      tree: encounter.tree,
       rate: encounter.rate,
       times: new Set(encounter.time ? [encounter.time] : []),
     })
@@ -258,6 +284,7 @@ function groupDisplayEncounters(
         route: entry.route,
         method: entry.method,
         rod: entry.rod,
+        tree: entry.tree,
         rate: entry.rate,
         timeLabel,
       }
@@ -535,7 +562,7 @@ export function PokemonDetailView({
                   <tbody>
                     {displayEncounters.map((encounter, index) => (
                       <tr
-                        key={`${encounter.route}-${encounter.method}-${encounter.timeLabel}-${index}`}
+                        key={`${encounter.route}-${encounter.method}-${encounter.tree ?? ''}-${encounter.timeLabel}-${index}`}
                       >
                         <td>
                           <button
@@ -552,6 +579,7 @@ export function PokemonDetailView({
                           <EncounterMethodLabel
                             method={encounter.method}
                             rod={encounter.rod}
+                            tree={encounter.tree}
                           />
                         </td>
                         <td>{encounter.timeLabel}</td>

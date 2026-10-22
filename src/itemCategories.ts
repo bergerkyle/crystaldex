@@ -2,6 +2,9 @@ import { type ItemListItem } from './pokemon'
 
 const POKEMONDB_ITEMS = 'https://img.pokemondb.net/sprites/items'
 
+// Normal-type TM disc (same icon as e.g. the Hyper Beam TM), used for Headbutt.
+export const NORMAL_TM_ICON = `${POKEMONDB_ITEMS}/tm-normal.png`
+
 function slugifyItemName(name: string): string {
   return name
     .toLowerCase()

@@ -152,9 +152,11 @@ interface PokemonRow {
 interface LocationEncounterRow {
   region: string
   route: string
-  method: 'grass' | 'water' | 'fishing' | 'fixed'
+  method: 'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt'
   rod: 'old' | 'good' | 'super' | null
   time: 'morn' | 'day' | 'nite' | null
+  // Headbutt tree kind; only set for method 'headbutt'.
+  tree?: 'common' | 'rare' | null
   pokemon_name: string
   pokemon_region: string
   rate: number
@@ -311,6 +313,21 @@ export async function syncDatabase(): Promise<{
           method: 'fishing',
           rod: fishing.rod,
           time: fishing.time ?? null,
+          pokemon_name: encounter.pokemon.name,
+          pokemon_region: encounter.pokemon.region,
+          rate: encounter.rate,
+        })
+      }
+    }
+    for (const headbutt of route.headbutt) {
+      for (const encounter of headbutt.encounters) {
+        encounterRows.push({
+          region: route.region,
+          route: route.route,
+          method: 'headbutt',
+          rod: null,
+          time: null,
+          tree: headbutt.tree,
           pokemon_name: encounter.pokemon.name,
           pokemon_region: encounter.pokemon.region,
           rate: encounter.rate,
@@ -812,7 +829,7 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
         .order('sort'),
       supabase
         .from('location_encounters')
-        .select('region, route, method, rod, time, rate')
+        .select('region, route, method, rod, time, tree, rate')
         .eq('pokemon_name', name)
         .order('region')
         .order('route'),
@@ -1009,6 +1026,7 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
       route: row.route,
       method: row.method,
       rod: row.rod ?? undefined,
+      tree: row.tree ?? undefined,
       rate: row.rate,
       time: row.time ?? undefined,
     })),
@@ -1021,9 +1039,10 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
   const rows: {
     region: string
     route: string
-    method: 'grass' | 'water' | 'fishing' | 'fixed'
+    method: 'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt'
     rod: 'old' | 'good' | 'super' | null
     time: 'morn' | 'day' | 'nite' | null
+    tree: 'common' | 'rare' | null
     rate: number
     pokemon_name: string
     pokemon_region: string
@@ -1035,7 +1054,7 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
     const { data, error } = await supabase
       .from('location_encounters')
       .select(
-        'region, route, method, rod, time, rate, pokemon_name, pokemon_region',
+        'region, route, method, rod, time, tree, rate, pokemon_name, pokemon_region',
       )
       .order('region')
       .order('route')
@@ -1059,6 +1078,7 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
       water: [],
       fishing: [],
       fixed: [],
+      headbutt: [],
     }
 
     if (row.method === 'grass' && row.time) {
@@ -1094,6 +1114,18 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
         existing.fishing.push(fishing)
       }
       fishing.encounters.push({
+        pokemon: { name: row.pokemon_name, region: row.pokemon_region },
+        rate: row.rate,
+      })
+    }
+
+    if (row.method === 'headbutt' && row.tree) {
+      let headbutt = existing.headbutt.find((entry) => entry.tree === row.tree)
+      if (!headbutt) {
+        headbutt = { tree: row.tree, encounters: [] }
+        existing.headbutt.push(headbutt)
+      }
+      headbutt.encounters.push({
         pokemon: { name: row.pokemon_name, region: row.pokemon_region },
         rate: row.rate,
       })
