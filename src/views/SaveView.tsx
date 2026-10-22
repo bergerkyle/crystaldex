@@ -9,6 +9,17 @@ const PARTY_SIZE = 6
 const PARTY_HEADER_LENGTH = 8
 const PARTYMON_STRUCT_LENGTH = 48
 
+// LevelScaling layout.link / ram/sram.asm: after the primary check value,
+// skip box metadata, link battle records, Hall of Fame, and the GS Ball flag.
+const CRYSTAL_DATA_AFTER_CHECK_VALUE_2 = 1 + 0x4de + 0x60 + 0xc4e + 1
+const PLAYER_CHARACTERS = [
+  { id: 1, name: 'Chris', gender: 0 },
+  { id: 2, name: 'Kris', gender: 1 },
+  { id: 3, name: 'Brendan', gender: 0 },
+  { id: 4, name: 'May', gender: 1 },
+  { id: 5, name: 'Green', gender: 1 },
+] as const
+
 const MON_SPECIES_OFFSET = 0
 const MON_MOVES_OFFSET = 2
 const MON_LEVEL_OFFSET = 31
@@ -556,6 +567,23 @@ export function SaveView() {
     return decodeName(saveBytes, structuredPointers.nameOffset)
   }, [saveBytes, structuredPointers])
 
+  const characterData = useMemo(() => {
+    if (!saveBytes) return null
+    const primaryBlock = saveBlocks.find(
+      (block) =>
+        block.checkValue1Offset >= 0x2000 && block.checkValue2Offset < 0x4000,
+    )
+    if (!primaryBlock) return null
+    const genderOffset =
+      primaryBlock.checkValue2Offset + CRYSTAL_DATA_AFTER_CHECK_VALUE_2
+    const characterOffset = genderOffset + 1
+    if (characterOffset >= Math.min(saveBytes.length, 0x4000)) return null
+    const storedId = saveBytes[characterOffset]
+    // Zero predates character selection; the engine falls back to gender.
+    const id = storedId === 0 ? (saveBytes[genderOffset] & 1) + 1 : storedId
+    return { genderOffset, characterOffset, id }
+  }, [saveBytes, saveBlocks])
+
   const decodedParty = useMemo(() => {
     if (
       !saveBytes ||
@@ -1028,6 +1056,52 @@ export function SaveView() {
               >
                 Download edited .sav
               </button>
+            </div>
+            <div className="save-control-group">
+              <label htmlFor="save-player-character">Character</label>
+              <select
+                id="save-player-character"
+                className="search"
+                aria-describedby="save-player-character-help"
+                disabled={!characterData}
+                value={characterData?.id ?? ''}
+                onChange={(event) => {
+                  const character = PLAYER_CHARACTERS.find(
+                    ({ id }) => id === Number(event.target.value),
+                  )
+                  if (!characterData || !character) return
+                  updateStructured((next) => {
+                    next[characterData.characterOffset] = character.id
+                    next[characterData.genderOffset] =
+                      (next[characterData.genderOffset] & 0xfe) |
+                      character.gender
+                  })
+                }}
+              >
+                {!characterData && (
+                  <option value="">Unavailable for this save</option>
+                )}
+                {characterData &&
+                  !PLAYER_CHARACTERS.some(
+                    ({ id }) => id === characterData.id,
+                  ) && (
+                    <option value={characterData.id} disabled>
+                      Unknown character ({characterData.id})
+                    </option>
+                  )}
+                {PLAYER_CHARACTERS.map(({ id, name }) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <span
+                id="save-player-character-help"
+                className="save-party-subtext"
+              >
+                Requires a game version with character selection. Updates
+                appearance and the character's gender.
+              </span>
             </div>
           </div>
           {error && <p className="error">{error}</p>}
