@@ -152,7 +152,7 @@ interface PokemonRow {
 interface LocationEncounterRow {
   region: string
   route: string
-  method: 'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt'
+  method: 'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt' | 'rocksmash'
   rod: 'old' | 'good' | 'super' | null
   time: 'morn' | 'day' | 'nite' | null
   // Headbutt tree kind; only set for method 'headbutt'.
@@ -333,6 +333,18 @@ export async function syncDatabase(): Promise<{
           rate: encounter.rate,
         })
       }
+    }
+    for (const encounter of route.rockSmash) {
+      encounterRows.push({
+        region: route.region,
+        route: route.route,
+        method: 'rocksmash',
+        rod: null,
+        time: null,
+        pokemon_name: encounter.pokemon.name,
+        pokemon_region: encounter.pokemon.region,
+        rate: encounter.rate,
+      })
     }
   }
   for (const entry of fixedEncounterEntries) {
@@ -1039,7 +1051,7 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
   const rows: {
     region: string
     route: string
-    method: 'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt'
+    method: 'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt' | 'rocksmash'
     rod: 'old' | 'good' | 'super' | null
     time: 'morn' | 'day' | 'nite' | null
     tree: 'common' | 'rare' | null
@@ -1079,6 +1091,7 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
       fishing: [],
       fixed: [],
       headbutt: [],
+      rockSmash: [],
     }
 
     if (row.method === 'grass' && row.time) {
@@ -1126,6 +1139,13 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
         existing.headbutt.push(headbutt)
       }
       headbutt.encounters.push({
+        pokemon: { name: row.pokemon_name, region: row.pokemon_region },
+        rate: row.rate,
+      })
+    }
+
+    if (row.method === 'rocksmash') {
+      existing.rockSmash.push({
         pokemon: { name: row.pokemon_name, region: row.pokemon_region },
         rate: row.rate,
       })

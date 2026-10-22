@@ -148,7 +148,7 @@ export interface ItemScriptLocationIndex {
 }
 
 export type EncounterMethod =
-  'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt'
+  'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt' | 'rocksmash'
 
 // Headbutt trees: common trees (score bad/good) use a set's first table, rare
 // trees use its second table.
@@ -181,6 +181,7 @@ export interface RouteEncounter {
   fishing: RouteFishingEncounters[]
   fixed: EncounterRate[]
   headbutt: RouteHeadbuttEncounters[]
+  rockSmash: EncounterRate[]
 }
 
 export interface RouteHeadbuttEncounters {
@@ -758,6 +759,7 @@ function parseGrassWildFile(
       fishing: [],
       fixed: [],
       headbutt: [],
+      rockSmash: [],
     })
   }
   return routes
@@ -786,6 +788,7 @@ function parseWaterWildFile(
       fishing: [],
       fixed: [],
       headbutt: [],
+      rockSmash: [],
     })
   }
   return routes
@@ -1054,11 +1057,16 @@ function parseTreeMonSets(
   return result
 }
 
-// Parse the TreeMonMaps table (Headbutt) from treemon_maps.asm; RockMonMaps
-// (Rock Smash) is ignored. TREEMON_SET_CITY is skipped because the engine
+// Parse a map table from treemon_maps.asm: TreeMonMaps (Headbutt) or
+// RockMonMaps (Rock Smash). TREEMON_SET_CITY is skipped because the engine
 // treats set 0 as "no encounter" (GetTreeMons bails out on index 0).
-function parseTreeMonMaps(source: string): { route: string; set: string }[] {
-  const block = source.match(/^TreeMonMaps:([\s\S]*?)^\s*db\s+-1\b/m)
+function parseTreeMonMaps(
+  source: string,
+  label: 'TreeMonMaps' | 'RockMonMaps',
+): { route: string; set: string }[] {
+  const block = source.match(
+    new RegExp(`^${label}:([\\s\\S]*?)^\\s*db\\s+-1\\b`, 'm'),
+  )
   if (!block) return []
   const result: { route: string; set: string }[] = []
   for (const m of block[1].matchAll(
@@ -1143,6 +1151,14 @@ function buildPokemonEncounterIndex(
         })
       }
     }
+    for (const encounter of route.rockSmash) {
+      pushEncounter(encounter.pokemon, {
+        region: route.region,
+        route: route.route,
+        method: 'rocksmash',
+        rate: encounter.rate,
+      })
+    }
   }
 
   return encountersByPokemon
@@ -1195,6 +1211,7 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
       if (route.water.length > 0) existing.water = route.water
       if (route.fishing.length > 0) existing.fishing = route.fishing
       if (route.headbutt.length > 0) existing.headbutt = route.headbutt
+      if (route.rockSmash.length > 0) existing.rockSmash = route.rockSmash
     }
 
     for (const [index, source] of wildSources
@@ -1263,19 +1280,26 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
           fishing,
           fixed: [],
           headbutt: [],
+          rockSmash: [],
         })
       }
     }
 
     const treeMonSets = parseTreeMonSets(treeMonsSource)
     const mapRegions = mapRegionsFromTree(tree)
-    for (const { route, set } of parseTreeMonMaps(treeMonMapsSource)) {
-      const tables = treeMonSets.get(set)
-      if (!tables) continue
+    const regionsForMap = (route: string): Set<string> => {
       const mapRegion = mapRegions.get(route)
-      const regions = mapRegion
+      return mapRegion
         ? new Set([mapRegion])
         : (routeRegions.get(route) ?? new Set<string>())
+    }
+    for (const { route, set } of parseTreeMonMaps(
+      treeMonMapsSource,
+      'TreeMonMaps',
+    )) {
+      const tables = treeMonSets.get(set)
+      if (!tables) continue
+      const regions = regionsForMap(route)
       if (regions.size === 0) continue
 
       const trees: Array<{ tree: HeadbuttTree; rows: TreeMonEntry[] }> = [
@@ -1303,6 +1327,36 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
           fishing: [],
           fixed: [],
           headbutt,
+          rockSmash: [],
+        })
+      }
+    }
+
+    // Rock Smash uses a set's single (first) table; the engine rolls a 40%
+    // encounter chance per rock before picking from it.
+    for (const { route, set } of parseTreeMonMaps(
+      treeMonMapsSource,
+      'RockMonMaps',
+    )) {
+      const rows = treeMonSets.get(set)?.common ?? []
+      if (rows.length === 0) continue
+      const regions = regionsForMap(route)
+      if (regions.size === 0) continue
+      const rockSmash = mergeEncounterRates(
+        rows.map((row) => row.species),
+        rows.map((row) => row.rate),
+        entriesByKey,
+      )
+      for (const region of regions) {
+        mergeRoute({
+          region,
+          route,
+          grass: [],
+          water: [],
+          fishing: [],
+          fixed: [],
+          headbutt: [],
+          rockSmash,
         })
       }
     }

@@ -108,7 +108,7 @@ alter table public.location_encounters
 
 alter table public.location_encounters
   add constraint location_encounters_method_check
-  check (method in ('grass', 'water', 'fishing', 'fixed', 'headbutt'));
+  check (method in ('grass', 'water', 'fishing', 'fixed', 'headbutt', 'rocksmash'));
 
 -- Headbutt tree kind: common trees use a tree set's first table, rare trees
 -- its second. Only set for method = 'headbutt'.

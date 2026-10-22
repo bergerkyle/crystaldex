@@ -10,7 +10,7 @@ import {
   type RouteEncounter,
 } from '../pokemon'
 import { LocationAutocomplete } from '../components/LocationAutocomplete'
-import { NORMAL_TM_ICON } from '../itemCategories'
+import { FIGHTING_TM_ICON, NORMAL_TM_ICON } from '../itemCategories'
 
 interface LocationDetailViewProps {
   routeDetail: RouteEncounter | null
@@ -37,6 +37,7 @@ const ENCOUNTER_METHOD_ICONS = {
   good: '/Bag_Good_Rod_III_Sprite.png',
   super: '/Bag_Super_Rod_III_Sprite.png',
   headbutt: NORMAL_TM_ICON,
+  rocksmash: FIGHTING_TM_ICON,
 } as const
 
 function RodLabel({ rod }: { rod?: FishingRod }) {
@@ -78,6 +79,22 @@ function HeadbuttTreeLabel({ tree }: { tree?: HeadbuttTree }) {
         aria-hidden="true"
       />
       {formatHeadbuttTree(tree)}
+    </span>
+  )
+}
+
+function RockSmashLabel() {
+  return (
+    <span className="encounter-method-label">
+      <img
+        className="encounter-method-icon"
+        src={ENCOUNTER_METHOD_ICONS.rocksmash}
+        alt=""
+        width={14}
+        height={14}
+        aria-hidden="true"
+      />
+      Rock Smash
     </span>
   )
 }
@@ -258,7 +275,15 @@ function EncounterTable({
                     </td>
                   )}
                   {showTime && (
-                    <td>{row.time === 'Surf' ? <SurfLabel /> : row.time}</td>
+                    <td>
+                      {row.time === 'Surf' ? (
+                        <SurfLabel />
+                      ) : row.time === 'Rock Smash' ? (
+                        <RockSmashLabel />
+                      ) : (
+                        row.time
+                      )}
+                    </td>
                   )}
                   <td>{row.rate}%</td>
                 </tr>
@@ -337,6 +362,19 @@ export function LocationDetailView({
               onSelectPokemon={onSelectPokemon}
               showTree
               showTime={false}
+            />
+          )}
+
+          {routeDetail.rockSmash.length > 0 && (
+            <EncounterTable
+              title="Rock Smash"
+              rows={routeDetail.rockSmash.map((entry) => ({
+                pokemon: entry.pokemon,
+                time: 'Rock Smash',
+                rate: entry.rate,
+              }))}
+              allNames={allNames}
+              onSelectPokemon={onSelectPokemon}
             />
           )}
 

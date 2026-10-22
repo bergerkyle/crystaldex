@@ -125,7 +125,7 @@ export interface ShinyPalette {
 }
 
 export type EncounterMethod =
-  'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt'
+  'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt' | 'rocksmash'
 
 // Headbutt trees: common trees use a tree set's first table, rare trees its
 // second.
@@ -158,6 +158,7 @@ export interface RouteEncounter {
   fishing: RouteFishingEncounters[]
   fixed: EncounterRate[]
   headbutt: RouteHeadbuttEncounters[]
+  rockSmash: EncounterRate[]
 }
 
 export interface RouteHeadbuttEncounters {
@@ -310,6 +311,7 @@ export function formatEncounterMethod(method: EncounterMethod): string {
   if (method === 'water') return 'Surf'
   if (method === 'fixed') return 'Fixed'
   if (method === 'headbutt') return 'Headbutt'
+  if (method === 'rocksmash') return 'Rock Smash'
   return 'Fishing'
 }
 

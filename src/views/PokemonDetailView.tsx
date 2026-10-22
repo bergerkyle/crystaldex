@@ -21,7 +21,7 @@ import {
 } from '../pokemon'
 import { PokemonAutocomplete } from '../components/PokemonAutocomplete'
 import { CategoryMetaChip, TypeMetaChip } from './moveMeta'
-import { NORMAL_TM_ICON } from '../itemCategories'
+import { FIGHTING_TM_ICON, NORMAL_TM_ICON } from '../itemCategories'
 
 interface DetailAccordionSectionProps {
   title: string
@@ -124,6 +124,7 @@ const ENCOUNTER_METHOD_ICONS = {
   good: '/Bag_Good_Rod_III_Sprite.png',
   super: '/Bag_Super_Rod_III_Sprite.png',
   headbutt: NORMAL_TM_ICON,
+  rocksmash: FIGHTING_TM_ICON,
 } as const
 
 function EncounterMethodLabel({
@@ -147,6 +148,21 @@ function EncounterMethodLabel({
           aria-hidden="true"
         />
         {formatEncounterMethod(method)} ({formatHeadbuttTree(tree)})
+      </span>
+    )
+  }
+  if (method === 'rocksmash') {
+    return (
+      <span className="encounter-method-label">
+        <img
+          className="encounter-method-icon"
+          src={ENCOUNTER_METHOD_ICONS.rocksmash}
+          alt=""
+          width={14}
+          height={14}
+          aria-hidden="true"
+        />
+        {formatEncounterMethod(method)}
       </span>
     )
   }
@@ -203,7 +219,8 @@ function encounterGroupOrder(entry: {
   if (entry.method === 'grass') return 0
   if (entry.method === 'water') return 1
   if (entry.method === 'headbutt') return entry.tree === 'rare' ? 7 : 6
-  if (entry.method === 'fixed') return 8
+  if (entry.method === 'rocksmash') return 8
+  if (entry.method === 'fixed') return 9
   if (entry.method !== 'fishing') return 99
   if (entry.rod === 'old') return 2
   if (entry.rod === 'good') return 3
