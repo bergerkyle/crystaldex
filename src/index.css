@@ -15,6 +15,11 @@
   --brand-blue: #5aa2ff;
 }
 
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   font-family: system-ui, sans-serif;
   margin: 0;
@@ -25,7 +30,6 @@ body {
     var(--bg) 55%
   );
   color: var(--text);
-  overflow-x: hidden;
 }
 
 a {
@@ -299,7 +303,9 @@ a:hover {
 }
 
 .detail {
+  min-width: 0;
   padding: 2rem;
+  overflow-wrap: anywhere;
 }
 
 .pokemon-grid-page {
@@ -1089,6 +1095,7 @@ a:hover {
 
 .sprites {
   display: flex;
+  flex-wrap: wrap;
   gap: 1.5rem;
   align-items: flex-end;
   margin: 0 0 1.5rem;
@@ -1169,6 +1176,7 @@ a:hover {
 
 .held-items-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 0.5rem;
 }
@@ -1328,7 +1336,7 @@ a:hover {
 
 .move-list li {
   display: grid;
-  grid-template-columns: 60px 1fr;
+  grid-template-columns: 60px minmax(0, 1fr);
   grid-template-areas:
     'level name'
     'level meta';
@@ -1695,7 +1703,32 @@ a:hover {
   }
 }
 
+@media (hover: none), (max-width: 768px) {
+  .item-tooltip {
+    position: fixed;
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    width: auto;
+    max-width: none;
+  }
+}
+
 @media (max-width: 768px) {
+  .detail-accordion .encounter-table {
+    table-layout: fixed;
+  }
+
+  .detail-accordion .encounter-table th,
+  .detail-accordion .encounter-table td {
+    padding: 0.5rem 0.25rem;
+  }
+
+  .detail-accordion .encounter-method-label {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
   .move-table th,
   .move-table td,
   .encounter-table th,

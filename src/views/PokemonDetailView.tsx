@@ -9,7 +9,6 @@ import {
   evolutionMethodText,
   evolutionSourceMethodText,
   formatFishingRod,
-  formatHeadbuttTree,
   formatEncounterMethod,
   formatEncounterTime,
   formatLocation,
@@ -130,11 +129,9 @@ const ENCOUNTER_METHOD_ICONS = {
 function EncounterMethodLabel({
   method,
   rod,
-  tree,
 }: {
   method: PokemonDetail['encounters'][number]['method']
   rod?: PokemonDetail['encounters'][number]['rod']
-  tree?: PokemonDetail['encounters'][number]['tree']
 }) {
   if (method === 'headbutt') {
     return (
@@ -147,7 +144,7 @@ function EncounterMethodLabel({
           height={14}
           aria-hidden="true"
         />
-        {formatEncounterMethod(method)} ({formatHeadbuttTree(tree)})
+        {formatEncounterMethod(method)}
       </span>
     )
   }
@@ -596,7 +593,6 @@ export function PokemonDetailView({
                           <EncounterMethodLabel
                             method={encounter.method}
                             rod={encounter.rod}
-                            tree={encounter.tree}
                           />
                         </td>
                         <td>{encounter.timeLabel}</td>
