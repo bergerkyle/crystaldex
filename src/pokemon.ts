@@ -76,6 +76,10 @@ export interface MoveCatalogItem {
   category: string
   accuracy: number
   pp: number
+  // Lowercased MOVE_TARGET_* suffix, e.g. 'selected', 'both_foes'.
+  target: string
+  // Lowercased MOVEFLAG_* suffixes, e.g. ['contact', 'punch'].
+  flags: string[]
 }
 
 export interface ItemListItem {
@@ -105,6 +109,7 @@ export interface Sprites {
 export interface Ability {
   name: string
   description: string
+  hidden: boolean
 }
 
 export interface HeldItem {
@@ -119,7 +124,12 @@ export interface ShinyPalette {
   color2: string
 }
 
-export type EncounterMethod = 'grass' | 'water' | 'fishing' | 'fixed'
+export type EncounterMethod =
+  'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt' | 'rocksmash'
+
+// Headbutt trees: common trees use a tree set's first table, rare trees its
+// second.
+export type HeadbuttTree = 'common' | 'rare'
 
 export type FishingRod = 'old' | 'good' | 'super'
 
@@ -147,6 +157,13 @@ export interface RouteEncounter {
   water: EncounterRate[]
   fishing: RouteFishingEncounters[]
   fixed: EncounterRate[]
+  headbutt: RouteHeadbuttEncounters[]
+  rockSmash: EncounterRate[]
+}
+
+export interface RouteHeadbuttEncounters {
+  tree: HeadbuttTree
+  encounters: EncounterRate[]
 }
 
 export interface RouteFishingEncounters {
@@ -162,6 +179,7 @@ export interface PokemonEncounter {
   rate: number
   time?: EncounterTime
   rod?: FishingRod
+  tree?: HeadbuttTree
 }
 
 export interface PokemonDetail {
@@ -175,7 +193,7 @@ export interface PokemonDetail {
   tmMoves: TmMove[]
   sprites: Sprites
   shinyPalette: ShinyPalette | null
-  ability: Ability | null
+  abilities: Ability[]
   heldItems: HeldItem[]
   encounters: PokemonEncounter[]
 }
@@ -292,7 +310,15 @@ export function formatEncounterMethod(method: EncounterMethod): string {
   if (method === 'grass') return 'Grass'
   if (method === 'water') return 'Surf'
   if (method === 'fixed') return 'Fixed'
+  if (method === 'headbutt') return 'Headbutt'
+  if (method === 'rocksmash') return 'Rock Smash'
   return 'Fishing'
+}
+
+export function formatHeadbuttTree(tree?: HeadbuttTree): string {
+  if (tree === 'rare') return 'Rare Tree'
+  if (tree === 'common') return 'Common Tree'
+  return 'Any Tree'
 }
 
 export function formatFishingRod(rod?: FishingRod): string {

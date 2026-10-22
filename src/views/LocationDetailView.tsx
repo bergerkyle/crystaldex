@@ -1,13 +1,16 @@
 import {
   formatFishingRod,
   formatEncounterTime,
+  formatHeadbuttTree,
   formatLocation,
   formatName,
   type FishingRod,
+  type HeadbuttTree,
   type EncounterRate,
   type RouteEncounter,
 } from '../pokemon'
 import { LocationAutocomplete } from '../components/LocationAutocomplete'
+import { FIGHTING_TM_ICON, NORMAL_TM_ICON } from '../itemCategories'
 
 interface LocationDetailViewProps {
   routeDetail: RouteEncounter | null
@@ -25,6 +28,7 @@ interface EncounterTableRow {
   time: string
   rate: number
   rod?: FishingRod
+  tree?: HeadbuttTree
 }
 
 const ENCOUNTER_METHOD_ICONS = {
@@ -32,6 +36,8 @@ const ENCOUNTER_METHOD_ICONS = {
   old: '/Bag_Old_Rod_III_Sprite.png',
   good: '/Bag_Good_Rod_III_Sprite.png',
   super: '/Bag_Super_Rod_III_Sprite.png',
+  headbutt: NORMAL_TM_ICON,
+  rocksmash: FIGHTING_TM_ICON,
 } as const
 
 function RodLabel({ rod }: { rod?: FishingRod }) {
@@ -57,6 +63,38 @@ function RodLabel({ rod }: { rod?: FishingRod }) {
         />
       )}
       {formatFishingRod(rod)}
+    </span>
+  )
+}
+
+function HeadbuttTreeLabel({ tree }: { tree?: HeadbuttTree }) {
+  return (
+    <span className="encounter-method-label">
+      <img
+        className="encounter-method-icon"
+        src={ENCOUNTER_METHOD_ICONS.headbutt}
+        alt=""
+        width={14}
+        height={14}
+        aria-hidden="true"
+      />
+      {formatHeadbuttTree(tree)}
+    </span>
+  )
+}
+
+function RockSmashLabel() {
+  return (
+    <span className="encounter-method-label">
+      <img
+        className="encounter-method-icon"
+        src={ENCOUNTER_METHOD_ICONS.rocksmash}
+        alt=""
+        width={14}
+        height={14}
+        aria-hidden="true"
+      />
+      Rock Smash
     </span>
   )
 }
@@ -159,12 +197,29 @@ function buildFishingEncounterRows(
   })
 }
 
+function buildHeadbuttEncounterRows(
+  headbutt: RouteEncounter['headbutt'],
+): EncounterTableRow[] {
+  const treeOrder = (tree?: HeadbuttTree) => (tree === 'rare' ? 1 : 0)
+  return headbutt
+    .flatMap((group) =>
+      group.encounters.map((entry) => ({
+        pokemon: entry.pokemon,
+        tree: group.tree,
+        time: '',
+        rate: entry.rate,
+      })),
+    )
+    .sort((a, b) => treeOrder(a.tree) - treeOrder(b.tree) || b.rate - a.rate)
+}
+
 function EncounterTable({
   title,
   rows,
   allNames,
   onSelectPokemon,
   showRod = false,
+  showTree = false,
   showTime = true,
 }: {
   title: string
@@ -172,6 +227,7 @@ function EncounterTable({
   allNames: Set<string>
   onSelectPokemon: (name: string) => void
   showRod?: boolean
+  showTree?: boolean
   showTime?: boolean
 }) {
   return (
@@ -186,6 +242,7 @@ function EncounterTable({
               <tr>
                 <th>Pokemon</th>
                 {showRod && <th>Rod</th>}
+                {showTree && <th>Tree</th>}
                 {showTime && <th>Time</th>}
                 <th>Chance</th>
               </tr>
@@ -193,7 +250,7 @@ function EncounterTable({
             <tbody>
               {rows.map((row) => (
                 <tr
-                  key={`${row.time}-${row.pokemon.region}/${row.pokemon.name}-${row.rate}`}
+                  key={`${row.rod ?? ''}-${row.tree ?? ''}-${row.time}-${row.pokemon.region}/${row.pokemon.name}-${row.rate}`}
                 >
                   <td>
                     <button
@@ -212,8 +269,21 @@ function EncounterTable({
                       <RodLabel rod={row.rod} />
                     </td>
                   )}
+                  {showTree && (
+                    <td>
+                      <HeadbuttTreeLabel tree={row.tree} />
+                    </td>
+                  )}
                   {showTime && (
-                    <td>{row.time === 'Surf' ? <SurfLabel /> : row.time}</td>
+                    <td>
+                      {row.time === 'Surf' ? (
+                        <SurfLabel />
+                      ) : row.time === 'Rock Smash' ? (
+                        <RockSmashLabel />
+                      ) : (
+                        row.time
+                      )}
+                    </td>
                   )}
                   <td>{row.rate}%</td>
                 </tr>
@@ -283,6 +353,30 @@ export function LocationDetailView({
             onSelectPokemon={onSelectPokemon}
             showRod
           />
+
+          {routeDetail.headbutt.length > 0 && (
+            <EncounterTable
+              title="Headbutt Trees"
+              rows={buildHeadbuttEncounterRows(routeDetail.headbutt)}
+              allNames={allNames}
+              onSelectPokemon={onSelectPokemon}
+              showTree
+              showTime={false}
+            />
+          )}
+
+          {routeDetail.rockSmash.length > 0 && (
+            <EncounterTable
+              title="Rock Smash"
+              rows={routeDetail.rockSmash.map((entry) => ({
+                pokemon: entry.pokemon,
+                time: 'Rock Smash',
+                rate: entry.rate,
+              }))}
+              allNames={allNames}
+              onSelectPokemon={onSelectPokemon}
+            />
+          )}
 
           {routeDetail.fixed.length > 0 && (
             <EncounterTable

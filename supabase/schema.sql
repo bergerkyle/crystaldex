@@ -55,6 +55,14 @@ create table if not exists public.moves (
 alter table public.moves
   add column if not exists description text not null default '';
 
+-- Move targeting (lowercased MOVE_TARGET_* suffix, e.g. selected, both_foes,
+-- all_others) and flags (lowercased MOVEFLAG_* suffixes, e.g. contact, punch).
+alter table public.moves
+  add column if not exists target text not null default 'selected';
+
+alter table public.moves
+  add column if not exists flags text[] not null default '{}';
+
 alter table public.pokemon
   add column if not exists type_1 text not null default '';
 
@@ -100,7 +108,19 @@ alter table public.location_encounters
 
 alter table public.location_encounters
   add constraint location_encounters_method_check
-  check (method in ('grass', 'water', 'fishing', 'fixed'));
+  check (method in ('grass', 'water', 'fishing', 'fixed', 'headbutt', 'rocksmash'));
+
+-- Headbutt tree kind: common trees use a tree set's first table, rare trees
+-- its second. Only set for method = 'headbutt'.
+alter table public.location_encounters
+  add column if not exists tree text;
+
+alter table public.location_encounters
+  drop constraint if exists location_encounters_tree_check;
+
+alter table public.location_encounters
+  add constraint location_encounters_tree_check
+  check (tree is null or tree in ('common', 'rare'));
 
 alter table public.location_encounters
   drop constraint if exists location_encounters_rod_check;
@@ -116,8 +136,16 @@ create table if not exists public.abilities (
   description text not null default ''
 );
 
+-- Species ability slots: ability_id is ability 1, ability_2_id is ability 2,
+-- hidden_ability_id is the Hidden ability. Empty slots are null.
 alter table public.pokemon
   add column if not exists ability_id bigint references public.abilities(id) on delete set null;
+
+alter table public.pokemon
+  add column if not exists ability_2_id bigint references public.abilities(id) on delete set null;
+
+alter table public.pokemon
+  add column if not exists hidden_ability_id bigint references public.abilities(id) on delete set null;
 
 alter table public.pokemon
   add column if not exists shiny_color_1 text;
@@ -158,6 +186,8 @@ create index if not exists pokemon_tmhm_move_key_idx on public.pokemon_tmhm (mov
 create index if not exists location_encounters_region_route_idx on public.location_encounters (region, route);
 create index if not exists location_encounters_pokemon_name_idx on public.location_encounters (pokemon_name);
 create index if not exists pokemon_ability_id_idx on public.pokemon (ability_id);
+create index if not exists pokemon_ability_2_id_idx on public.pokemon (ability_2_id);
+create index if not exists pokemon_hidden_ability_id_idx on public.pokemon (hidden_ability_id);
 create index if not exists pokemon_held_item_1_idx on public.pokemon (held_item_1);
 create index if not exists pokemon_held_item_2_idx on public.pokemon (held_item_2);
 

@@ -8,11 +8,14 @@ const MOVES_ASM_PATH = 'data/moves/moves.asm'
 const MOVE_NAMES_PATH = 'data/moves/names.asm'
 const MOVE_CONSTANTS_PATH = 'constants/move_constants.asm'
 const MOVE_DESCRIPTIONS_PATH = 'data/moves/descriptions.asm'
+const MOVE_ATTRIBUTES_PATH = 'data/moves/move_attributes.asm'
 export const ITEM_CONSTANTS_PATH = 'constants/item_constants.asm'
 const ITEM_NAMES_PATH = 'data/items/names.asm'
 const ITEM_DESCRIPTIONS_PATH = 'data/items/descriptions.asm'
 const ITEM_MARTS_PATH = 'data/items/marts.asm'
-const ABILITIES_ASM_PATH = 'data/abilities/abilities.asm'
+const ABILITY_CONSTANTS_PATH = 'constants/ability_constants.asm'
+const ABILITY_NAMES_PATH = 'data/abilities/names.asm'
+const SPECIES_ABILITIES_PATH = 'data/abilities/species_abilities.asm'
 const ABILITIES_DESCRIPTIONS_PATH = 'data/abilities/descriptions.asm'
 const WILD_PROBABILITIES_PATH = 'data/wild/probabilities.asm'
 const WILD_GRASS_PATHS = [
@@ -27,6 +30,8 @@ const WILD_WATER_PATHS = [
 ] as const
 const WILD_FISH_PATH = 'data/wild/fish.asm'
 const MAPS_PATH = 'data/maps/maps.asm'
+const TREEMONS_PATH = 'data/wild/treemons.asm'
+const TREEMON_MAPS_PATH = 'data/wild/treemon_maps.asm'
 
 export const SPRITE_BASE = `https://raw.githubusercontent.com/${REPO}/${REF}/gfx/pokemon`
 
@@ -91,9 +96,21 @@ export interface MoveDef {
   category: 'physical' | 'special' | 'status'
   accuracy: number
   pp: number
+  // Lowercased MOVE_TARGET_* suffix, e.g. 'selected', 'both_foes'.
+  target: string
+  // Lowercased MOVEFLAG_* suffixes, e.g. ['contact', 'punch'].
+  flags: string[]
 }
 
-export type MoveStats = Omit<MoveDef, 'name' | 'key' | 'description'>
+export type MoveStats = Omit<
+  MoveDef,
+  'name' | 'key' | 'description' | 'target' | 'flags'
+>
+
+export interface MoveAttributes {
+  target: string
+  flags: string[]
+}
 
 export interface TmHmDef {
   move: string
@@ -105,6 +122,13 @@ export interface AbilityDef {
   key: string
   name: string
   description: string
+}
+
+// A species' ability slots (ABILITY_* constants); null when NO_ABILITY.
+export interface SpeciesAbilities {
+  ability1: string | null
+  ability2: string | null
+  hidden: string | null
 }
 
 export interface ItemDef {
@@ -123,7 +147,12 @@ export interface ItemScriptLocationIndex {
   martsByItem: Map<string, string[]>
 }
 
-export type EncounterMethod = 'grass' | 'water' | 'fishing' | 'fixed'
+export type EncounterMethod =
+  'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt' | 'rocksmash'
+
+// Headbutt trees: common trees (score bad/good) use a set's first table, rare
+// trees use its second table.
+export type HeadbuttTree = 'common' | 'rare'
 
 export type FishingRod = 'old' | 'good' | 'super'
 
@@ -151,6 +180,13 @@ export interface RouteEncounter {
   water: EncounterRate[]
   fishing: RouteFishingEncounters[]
   fixed: EncounterRate[]
+  headbutt: RouteHeadbuttEncounters[]
+  rockSmash: EncounterRate[]
+}
+
+export interface RouteHeadbuttEncounters {
+  tree: HeadbuttTree
+  encounters: EncounterRate[]
 }
 
 export interface RouteFishingEncounters {
@@ -166,6 +202,7 @@ export interface PokemonEncounter {
   rate: number
   time?: EncounterTime
   rod?: FishingRod
+  tree?: HeadbuttTree
 }
 
 export interface WildEncounterData {
@@ -510,28 +547,51 @@ function parseMoveDescriptions(source: string): string[] {
   return labels.map((label) => textByLabel.get(label) ?? '')
 }
 
-// Move constants, stats (moves.asm), names (names.asm), and descriptions
-// (descriptions.asm) are parallel ordered lists.
+// Each line looks like: `move_attr SELECTED, CONTACT, PUNCH ; FIRE_PUNCH`.
+// Entries are index-aligned with move_constants.asm (no NO_MOVE entry).
+function parseMoveAttributes(source: string): MoveAttributes[] {
+  const attributes: MoveAttributes[] = []
+  for (const line of source.split('\n')) {
+    const m = line.match(/^\s*move_attr\s+([^;]*)/)
+    if (!m) continue
+    const [target, ...flags] = m[1]
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+    if (!target) continue
+    attributes.push({
+      target: target.toLowerCase(),
+      flags: flags.map((flag) => flag.toLowerCase()),
+    })
+  }
+  return attributes
+}
+
+// Move constants, stats (moves.asm), names (names.asm), descriptions
+// (descriptions.asm), and attributes (move_attributes.asm) are parallel
+// ordered lists.
 export async function fetchMoveCatalog(): Promise<MoveDef[]> {
-  const [constSource, statsSource, namesSource, descSource] = await Promise.all(
-    [
+  const [constSource, statsSource, namesSource, descSource, attrSource] =
+    await Promise.all([
       fetchRaw(MOVE_CONSTANTS_PATH),
       fetchRaw(MOVES_ASM_PATH),
       fetchRaw(MOVE_NAMES_PATH),
       fetchRaw(MOVE_DESCRIPTIONS_PATH),
-    ],
-  )
+      fetchRaw(MOVE_ATTRIBUTES_PATH),
+    ])
   const keys = parseMoveConstants(constSource)
   const stats = parseMoveStats(statsSource)
   const names = parseMoveNames(namesSource)
   const descriptions = parseMoveDescriptions(descSource)
+  const attributes = parseMoveAttributes(attrSource)
   if (
     keys.length !== stats.length ||
     stats.length !== names.length ||
-    names.length !== descriptions.length
+    names.length !== descriptions.length ||
+    descriptions.length !== attributes.length
   ) {
     console.warn(
-      `Move data length mismatch: constants=${keys.length}, stats=${stats.length}, names=${names.length}, descriptions=${descriptions.length}`,
+      `Move data length mismatch: constants=${keys.length}, stats=${stats.length}, names=${names.length}, descriptions=${descriptions.length}, attributes=${attributes.length}`,
     )
   }
   const count = Math.min(
@@ -547,6 +607,8 @@ export async function fetchMoveCatalog(): Promise<MoveDef[]> {
       name: names[i] ?? keys[i],
       description: descriptions[i] ?? '',
       ...stats[i],
+      target: attributes[i]?.target ?? 'selected',
+      flags: attributes[i]?.flags ?? [],
     })
   }
   return catalog
@@ -696,6 +758,8 @@ function parseGrassWildFile(
       water: [],
       fishing: [],
       fixed: [],
+      headbutt: [],
+      rockSmash: [],
     })
   }
   return routes
@@ -723,6 +787,8 @@ function parseWaterWildFile(
       water: mergeEncounterRates(species, waterRates, entriesByKey),
       fishing: [],
       fixed: [],
+      headbutt: [],
+      rockSmash: [],
     })
   }
   return routes
@@ -939,6 +1005,95 @@ function expandFishRodEncounters(
   return merged
 }
 
+interface TreeMonEntry {
+  rate: number
+  level: number
+  species: string
+}
+
+// Parse TreeMonSet_* blocks from treemons.asm, keyed by TREEMON_SET_* suffix
+// (e.g. ROUTE). Each set has a common table then a rare table, each ending in
+// `db -1`; stacked labels (TreeMonSet_City: TreeMonSet_Canyon:) share data.
+function parseTreeMonSets(
+  source: string,
+): Map<string, { common: TreeMonEntry[]; rare: TreeMonEntry[] }> {
+  const result = new Map<
+    string,
+    { common: TreeMonEntry[]; rare: TreeMonEntry[] }
+  >()
+  let pendingLabels: string[] = []
+  let tables: TreeMonEntry[][] = []
+  let current: TreeMonEntry[] = []
+
+  const flush = () => {
+    if (pendingLabels.length > 0 && tables.length > 0) {
+      const sets = { common: tables[0] ?? [], rare: tables[1] ?? [] }
+      for (const label of pendingLabels) result.set(label, sets)
+    }
+    pendingLabels = []
+    tables = []
+  }
+
+  for (const line of source.split('\n')) {
+    const label = line.match(/^TreeMonSet_([A-Za-z0-9_]+):/)
+    if (label) {
+      if (tables.length > 0) flush()
+      pendingLabels.push(label[1].toUpperCase())
+      current = []
+      continue
+    }
+    if (pendingLabels.length === 0) continue
+    if (/^\s*db\s+-1\b/.test(line)) {
+      tables.push(current)
+      current = []
+      continue
+    }
+    const m = line.match(/^\s*dbbw\s+(\d+)\s*,\s*(\d+)\s*,\s*([A-Z][A-Z0-9_]*)/)
+    if (m) {
+      current.push({ rate: Number(m[1]), level: Number(m[2]), species: m[3] })
+    }
+  }
+  flush()
+  return result
+}
+
+// Parse a map table from treemon_maps.asm: TreeMonMaps (Headbutt) or
+// RockMonMaps (Rock Smash). TREEMON_SET_CITY is skipped because the engine
+// treats set 0 as "no encounter" (GetTreeMons bails out on index 0).
+function parseTreeMonMaps(
+  source: string,
+  label: 'TreeMonMaps' | 'RockMonMaps',
+): { route: string; set: string }[] {
+  const block = source.match(
+    new RegExp(`^${label}:([\\s\\S]*?)^\\s*db\\s+-1\\b`, 'm'),
+  )
+  if (!block) return []
+  const result: { route: string; set: string }[] = []
+  for (const m of block[1].matchAll(
+    /^\s*treemon_map\s+([A-Z0-9_]+)\s*,\s*TREEMON_SET_([A-Z0-9_]+)/gm,
+  )) {
+    if (m[2] === 'CITY') continue
+    if (isExcludedRouteToken(m[1])) continue
+    result.push({ route: m[1], set: m[2] })
+  }
+  return result
+}
+
+// Map route token -> region folder for map scripts at maps/<region>/.../X.asm.
+function mapRegionsFromTree(tree: TreeNode[]): Map<string, string> {
+  const result = new Map<string, string>()
+  for (const node of tree) {
+    if (node.type !== 'blob') continue
+    if (!node.path.startsWith('maps/') || !node.path.endsWith('.asm')) continue
+    const segments = node.path.split('/')
+    if (segments.length <= 2) continue
+    const filename = segments[segments.length - 1].replace(/\.asm$/, '')
+    const route = mapNameToRouteToken(filename)
+    if (!result.has(route)) result.set(route, segments[1])
+  }
+  return result
+}
+
 function buildPokemonEncounterIndex(
   routes: RouteEncounter[],
 ): Map<string, PokemonEncounter[]> {
@@ -985,6 +1140,25 @@ function buildPokemonEncounterIndex(
         })
       }
     }
+    for (const headbutt of route.headbutt) {
+      for (const encounter of headbutt.encounters) {
+        pushEncounter(encounter.pokemon, {
+          region: route.region,
+          route: route.route,
+          method: 'headbutt',
+          tree: headbutt.tree,
+          rate: encounter.rate,
+        })
+      }
+    }
+    for (const encounter of route.rockSmash) {
+      pushEncounter(encounter.pokemon, {
+        region: route.region,
+        route: route.route,
+        method: 'rocksmash',
+        rate: encounter.rate,
+      })
+    }
   }
 
   return encountersByPokemon
@@ -994,15 +1168,24 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
   if (wildEncounterDataPromise) return wildEncounterDataPromise
 
   wildEncounterDataPromise = (async () => {
-    const [tree, probabilitiesSource, fishSource, mapsSource, ...wildSources] =
-      await Promise.all([
-        fetchTree(),
-        fetchRaw(WILD_PROBABILITIES_PATH),
-        fetchRaw(WILD_FISH_PATH),
-        fetchRaw(MAPS_PATH),
-        ...WILD_GRASS_PATHS.map((path) => fetchRaw(path)),
-        ...WILD_WATER_PATHS.map((path) => fetchRaw(path)),
-      ])
+    const [
+      tree,
+      probabilitiesSource,
+      fishSource,
+      mapsSource,
+      treeMonsSource,
+      treeMonMapsSource,
+      ...wildSources
+    ] = await Promise.all([
+      fetchTree(),
+      fetchRaw(WILD_PROBABILITIES_PATH),
+      fetchRaw(WILD_FISH_PATH),
+      fetchRaw(MAPS_PATH),
+      fetchRaw(TREEMONS_PATH),
+      fetchRaw(TREEMON_MAPS_PATH),
+      ...WILD_GRASS_PATHS.map((path) => fetchRaw(path)),
+      ...WILD_WATER_PATHS.map((path) => fetchRaw(path)),
+    ])
 
     const entriesByKey = new Map(
       entriesFromTree(tree).map((entry) => [normalizeKey(entry.name), entry]),
@@ -1027,6 +1210,8 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
       if (route.grass.length > 0) existing.grass = route.grass
       if (route.water.length > 0) existing.water = route.water
       if (route.fishing.length > 0) existing.fishing = route.fishing
+      if (route.headbutt.length > 0) existing.headbutt = route.headbutt
+      if (route.rockSmash.length > 0) existing.rockSmash = route.rockSmash
     }
 
     for (const [index, source] of wildSources
@@ -1094,6 +1279,84 @@ export async function fetchWildEncounterData(): Promise<WildEncounterData> {
           water: [],
           fishing,
           fixed: [],
+          headbutt: [],
+          rockSmash: [],
+        })
+      }
+    }
+
+    const treeMonSets = parseTreeMonSets(treeMonsSource)
+    const mapRegions = mapRegionsFromTree(tree)
+    const regionsForMap = (route: string): Set<string> => {
+      const mapRegion = mapRegions.get(route)
+      return mapRegion
+        ? new Set([mapRegion])
+        : (routeRegions.get(route) ?? new Set<string>())
+    }
+    for (const { route, set } of parseTreeMonMaps(
+      treeMonMapsSource,
+      'TreeMonMaps',
+    )) {
+      const tables = treeMonSets.get(set)
+      if (!tables) continue
+      const regions = regionsForMap(route)
+      if (regions.size === 0) continue
+
+      const trees: Array<{ tree: HeadbuttTree; rows: TreeMonEntry[] }> = [
+        { tree: 'common', rows: tables.common },
+        { tree: 'rare', rows: tables.rare },
+      ]
+      const headbutt = trees
+        .filter(({ rows }) => rows.length > 0)
+        .map(({ tree, rows }) => ({
+          tree,
+          encounters: mergeEncounterRates(
+            rows.map((row) => row.species),
+            rows.map((row) => row.rate),
+            entriesByKey,
+          ),
+        }))
+      if (headbutt.length === 0) continue
+
+      for (const region of regions) {
+        mergeRoute({
+          region,
+          route,
+          grass: [],
+          water: [],
+          fishing: [],
+          fixed: [],
+          headbutt,
+          rockSmash: [],
+        })
+      }
+    }
+
+    // Rock Smash uses a set's single (first) table; the engine rolls a 40%
+    // encounter chance per rock before picking from it.
+    for (const { route, set } of parseTreeMonMaps(
+      treeMonMapsSource,
+      'RockMonMaps',
+    )) {
+      const rows = treeMonSets.get(set)?.common ?? []
+      if (rows.length === 0) continue
+      const regions = regionsForMap(route)
+      if (regions.size === 0) continue
+      const rockSmash = mergeEncounterRates(
+        rows.map((row) => row.species),
+        rows.map((row) => row.rate),
+        entriesByKey,
+      )
+      for (const region of regions) {
+        mergeRoute({
+          region,
+          route,
+          grass: [],
+          water: [],
+          fishing: [],
+          fixed: [],
+          headbutt: [],
+          rockSmash,
         })
       }
     }
@@ -1197,32 +1460,65 @@ function parseAbilityDescriptions(source: string): Map<string, string> {
   return result
 }
 
-// Parse XxxMons:: dw POKEMON ... dw -1 blocks from abilities.asm.
-// Returns [{abilityKey, mons[]}] in file order (pokemon names are lowercased).
-function parseAbilityMons(
-  source: string,
-): { abilityKey: string; mons: string[] }[] {
-  const result: { abilityKey: string; mons: string[] }[] = []
-  let current: { abilityKey: string; mons: string[] } | null = null
-
+// Ordered ABILITY_* constants from ability_constants.asm (index = ability id,
+// index 0 = NO_ABILITY). Stops at NUM_ABILITIES so the slot constants that
+// follow are not included.
+function parseAbilityConstants(source: string): string[] {
+  const keys: string[] = []
+  let started = false
   for (const line of source.split('\n')) {
-    // Upstream files are inconsistent: some labels end with `Mons::`, others
-    // with `Mons:`. Accept both to avoid assigning mons to the previous block.
-    const label = line.match(/^([A-Za-z0-9_]+)Mons:{1,2}\s*$/)
+    if (!started) {
+      if (/^\s*const_def\b/.test(line)) started = true
+      continue
+    }
+    if (/\bNUM_ABILITIES\b/.test(line)) break
+    const m = line.match(/^\s*const\s+([A-Z0-9_]+)/)
+    if (m) keys.push(m[1])
+  }
+  return keys
+}
+
+// Ordered `dw <Label><suffix>` entries of an id-indexed pointer table, with the
+// suffix stripped (e.g. `dw ThickFatDesc` -> `ThickFat`).
+function parsePointerTableLabels(source: string, suffix: string): string[] {
+  const re = new RegExp(`^\\s*dw\\s+([A-Za-z0-9_]+)${suffix}\\b`, 'gm')
+  return [...source.matchAll(re)].map((m) => m[1])
+}
+
+// Parse XxxNameString: db "Name@" blocks from data/abilities/names.asm.
+function parseAbilityNameStrings(source: string): Map<string, string> {
+  const result = new Map<string, string>()
+  let currentKey: string | null = null
+  for (const line of source.split('\n')) {
+    const label = line.match(/^([A-Za-z0-9_]+)NameString:/)
     if (label) {
-      current = { abilityKey: label[1], mons: [] }
-      result.push(current)
+      currentKey = label[1]
       continue
     }
-    if (!current) continue
-    if (/^\s*dw\s+-1\b/.test(line)) {
-      current = null
-      continue
+    if (!currentKey) continue
+    const db = line.match(/^\s*db\s+"([^"]*)"/)
+    if (db) {
+      result.set(currentKey, db[1].replace(/@/g, '').trim())
+      currentKey = null
     }
-    const dw = line.match(/^\s*dw\s+([A-Z][A-Z0-9_]*)/)
-    if (dw) {
-      current.mons.push(dw[1].toLowerCase())
-    }
+  }
+  return result
+}
+
+// Parse `abilities SPECIES, ABILITY_1, ABILITY_2, HIDDEN_ABILITY` lines from
+// species_abilities.asm. Keys are normalized species names.
+function parseSpeciesAbilities(source: string): Map<string, SpeciesAbilities> {
+  const result = new Map<string, SpeciesAbilities>()
+  const slot = (value: string): string | null =>
+    value === 'NO_ABILITY' ? null : value
+  for (const m of source.matchAll(
+    /^\s*abilities\s+([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/gm,
+  )) {
+    result.set(normalizeKey(m[1]), {
+      ability1: slot(m[2]),
+      ability2: slot(m[3]),
+      hidden: slot(m[4]),
+    })
   }
   return result
 }
@@ -1319,42 +1615,49 @@ export async function fetchFixedEncounters(
   return results
 }
 
+// Ability constants, names (names.asm), and descriptions (descriptions.asm)
+// are id-indexed tables. Species slots come from species_abilities.asm.
 export async function fetchAbilityCatalog(): Promise<{
   abilities: AbilityDef[]
-  pokemonAbilityMap: Map<string, string>
+  speciesAbilities: Map<string, SpeciesAbilities>
 }> {
-  const [abilitiesSource, descriptionsSource] = await Promise.all([
-    fetchRaw(ABILITIES_ASM_PATH),
-    fetchRaw(ABILITIES_DESCRIPTIONS_PATH),
-  ])
+  const [constSource, namesSource, descriptionsSource, speciesSource] =
+    await Promise.all([
+      fetchRaw(ABILITY_CONSTANTS_PATH),
+      fetchRaw(ABILITY_NAMES_PATH),
+      fetchRaw(ABILITIES_DESCRIPTIONS_PATH),
+      fetchRaw(SPECIES_ABILITIES_PATH),
+    ])
 
+  const keys = parseAbilityConstants(constSource)
+  const nameLabels = parsePointerTableLabels(namesSource, 'NameString')
+  const descLabels = parsePointerTableLabels(descriptionsSource, 'Desc')
+  const names = parseAbilityNameStrings(namesSource)
   const descriptions = parseAbilityDescriptions(descriptionsSource)
-  const abilityMons = parseAbilityMons(abilitiesSource)
+  if (
+    keys.length !== nameLabels.length ||
+    nameLabels.length !== descLabels.length
+  ) {
+    console.warn(
+      `Ability data length mismatch: constants=${keys.length}, names=${nameLabels.length}, descriptions=${descLabels.length}`,
+    )
+  }
 
-  // Build deduplicated ability catalog preserving file order.
-  const seen = new Set<string>()
   const abilities: AbilityDef[] = []
-  for (const { abilityKey } of abilityMons) {
-    if (seen.has(abilityKey)) continue
-    seen.add(abilityKey)
+  keys.forEach((key, i) => {
+    if (key === 'NO_ABILITY') return
+    const nameLabel = nameLabels[i]
+    const descLabel = descLabels[i]
     abilities.push({
-      key: abilityKey,
-      name: abilityKeyToName(abilityKey),
-      description: descriptions.get(abilityKey) ?? '',
+      key,
+      name:
+        (nameLabel ? names.get(nameLabel) : undefined) ||
+        abilityKeyToName(nameLabel ?? descLabel ?? key),
+      description: (descLabel ? descriptions.get(descLabel) : undefined) ?? '',
     })
-  }
+  })
 
-  // Build pokemon -> ability map; first ability encountered in file order wins.
-  const pokemonAbilityMap = new Map<string, string>()
-  for (const { abilityKey, mons } of abilityMons) {
-    for (const mon of mons) {
-      if (!pokemonAbilityMap.has(mon)) {
-        pokemonAbilityMap.set(mon, abilityKey)
-      }
-    }
-  }
-
-  return { abilities, pokemonAbilityMap }
+  return { abilities, speciesAbilities: parseSpeciesAbilities(speciesSource) }
 }
 
 // ---------------------------------------------------------------------------

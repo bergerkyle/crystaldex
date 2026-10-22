@@ -143,6 +143,8 @@ interface PokemonRow {
   front_sha: string | null
   back_sha: string | null
   ability_id: number | null
+  ability_2_id: number | null
+  hidden_ability_id: number | null
   held_item_1: string | null
   held_item_2: string | null
 }
@@ -150,9 +152,11 @@ interface PokemonRow {
 interface LocationEncounterRow {
   region: string
   route: string
-  method: 'grass' | 'water' | 'fishing' | 'fixed'
+  method: 'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt' | 'rocksmash'
   rod: 'old' | 'good' | 'super' | null
   time: 'morn' | 'day' | 'nite' | null
+  // Headbutt tree kind; only set for method 'headbutt'.
+  tree?: 'common' | 'rare' | null
   pokemon_name: string
   pokemon_region: string
   rate: number
@@ -205,7 +209,7 @@ export async function syncDatabase(): Promise<{
 
   const [
     catalog,
-    { abilities: abilityCatalog, pokemonAbilityMap },
+    { abilities: abilityCatalog, speciesAbilities },
     itemCatalog,
   ] = await Promise.all([
     fetchMoveCatalog(),
@@ -315,6 +319,33 @@ export async function syncDatabase(): Promise<{
         })
       }
     }
+    for (const headbutt of route.headbutt) {
+      for (const encounter of headbutt.encounters) {
+        encounterRows.push({
+          region: route.region,
+          route: route.route,
+          method: 'headbutt',
+          rod: null,
+          time: null,
+          tree: headbutt.tree,
+          pokemon_name: encounter.pokemon.name,
+          pokemon_region: encounter.pokemon.region,
+          rate: encounter.rate,
+        })
+      }
+    }
+    for (const encounter of route.rockSmash) {
+      encounterRows.push({
+        region: route.region,
+        route: route.route,
+        method: 'rocksmash',
+        rod: null,
+        time: null,
+        pokemon_name: encounter.pokemon.name,
+        pokemon_region: encounter.pokemon.region,
+        rate: encounter.rate,
+      })
+    }
   }
   for (const entry of fixedEncounterEntries) {
     encounterRows.push({
@@ -408,7 +439,10 @@ export async function syncDatabase(): Promise<{
       evos_sha: null,
       front_sha: null,
       back_sha: null,
-      ability_id: null, // resolved after abilities are inserted
+      // Ability slots are resolved after abilities are inserted.
+      ability_id: null,
+      ability_2_id: null,
+      hidden_ability_id: null,
       held_item_1: heldItem1,
       held_item_2: heldItem2,
     })
@@ -496,12 +530,16 @@ export async function syncDatabase(): Promise<{
   }
   console.log(`[sync] inserted abilities: ${insertedAbilities?.length ?? 0}`)
 
-  // Resolve ability_id for each pokemon upsert row.
+  // Resolve the ability slot ids for each pokemon upsert row.
+  const abilityId = (key: string | null | undefined): number | null =>
+    key ? (abilityIdByKey.get(key) ?? null) : null
   const pokemonInserts = upserts.map((row) => {
-    const abilityKey = pokemonAbilityMap.get(row.name)
+    const slots = speciesAbilities.get(normalizeKey(row.name))
     return {
       ...row,
-      ability_id: abilityKey ? (abilityIdByKey.get(abilityKey) ?? null) : null,
+      ability_id: abilityId(slots?.ability1),
+      ability_2_id: abilityId(slots?.ability2),
+      hidden_ability_id: abilityId(slots?.hidden),
     }
   })
 
@@ -760,7 +798,7 @@ export interface PokemonDetail {
   }[]
   sprites: { front: string; back: string }
   shinyPalette: { color1: string; color2: string } | null
-  ability: { name: string; description: string } | null
+  abilities: { name: string; description: string; hidden: boolean }[]
   heldItems: {
     key: string
     name: string
@@ -777,7 +815,7 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
 
   const { data: p, error } = await supabase
     .from('pokemon')
-    .select('*, abilities(name, description)')
+    .select('*')
     .eq('name', name)
     .maybeSingle()
   if (error) throw new Error(error.message)
@@ -803,7 +841,7 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
         .order('sort'),
       supabase
         .from('location_encounters')
-        .select('region, route, method, rod, time, rate')
+        .select('region, route, method, rod, time, tree, rate')
         .eq('pokemon_name', name)
         .order('region')
         .order('route'),
@@ -881,7 +919,43 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
     for (const def of defs ?? []) moveDefsByKey.set(def.key, def as MoveDef)
   }
 
-  const ability = p.abilities as { name: string; description: string } | null
+  // Ability slots in display order: ability 1, ability 2, then hidden.
+  const abilitySlots: { id: number | null; hidden: boolean }[] = [
+    { id: p.ability_id ?? null, hidden: false },
+    { id: p.ability_2_id ?? null, hidden: false },
+    { id: p.hidden_ability_id ?? null, hidden: true },
+  ]
+  const abilityIds = [
+    ...new Set(
+      abilitySlots
+        .map((slot) => slot.id)
+        .filter((id): id is number => id !== null),
+    ),
+  ]
+  const abilitiesById = new Map<number, { name: string; description: string }>()
+  if (abilityIds.length > 0) {
+    const { data: abilityRows, error: abilityError } = await supabase
+      .from('abilities')
+      .select('id, name, description')
+      .in('id', abilityIds)
+    if (abilityError) throw new Error(abilityError.message)
+    for (const row of abilityRows ?? [])
+      abilitiesById.set(row.id, {
+        name: row.name,
+        description: row.description,
+      })
+  }
+  // Drop empty slots and repeat entries (e.g. ability 2 equal to ability 1).
+  const seenAbilities = new Set<string>()
+  const abilities: { name: string; description: string; hidden: boolean }[] = []
+  for (const slot of abilitySlots) {
+    const info = slot.id !== null ? abilitiesById.get(slot.id) : undefined
+    if (!info) continue
+    const dedupeKey = `${info.name}|${slot.hidden}`
+    if (seenAbilities.has(dedupeKey)) continue
+    seenAbilities.add(dedupeKey)
+    abilities.push({ ...info, hidden: slot.hidden })
+  }
 
   return {
     name: p.name,
@@ -957,15 +1031,14 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
       p.shiny_color_1 && p.shiny_color_2
         ? { color1: p.shiny_color_1, color2: p.shiny_color_2 }
         : null,
-    ability: ability
-      ? { name: ability.name, description: ability.description }
-      : null,
+    abilities,
     heldItems,
     encounters: (encounterRes.data ?? []).map((row) => ({
       region: row.region,
       route: row.route,
       method: row.method,
       rod: row.rod ?? undefined,
+      tree: row.tree ?? undefined,
       rate: row.rate,
       time: row.time ?? undefined,
     })),
@@ -978,9 +1051,10 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
   const rows: {
     region: string
     route: string
-    method: 'grass' | 'water' | 'fishing' | 'fixed'
+    method: 'grass' | 'water' | 'fishing' | 'fixed' | 'headbutt' | 'rocksmash'
     rod: 'old' | 'good' | 'super' | null
     time: 'morn' | 'day' | 'nite' | null
+    tree: 'common' | 'rare' | null
     rate: number
     pokemon_name: string
     pokemon_region: string
@@ -992,7 +1066,7 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
     const { data, error } = await supabase
       .from('location_encounters')
       .select(
-        'region, route, method, rod, time, rate, pokemon_name, pokemon_region',
+        'region, route, method, rod, time, tree, rate, pokemon_name, pokemon_region',
       )
       .order('region')
       .order('route')
@@ -1016,6 +1090,8 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
       water: [],
       fishing: [],
       fixed: [],
+      headbutt: [],
+      rockSmash: [],
     }
 
     if (row.method === 'grass' && row.time) {
@@ -1056,6 +1132,25 @@ export async function listEncounterRoutes(): Promise<EncounterRoute[]> {
       })
     }
 
+    if (row.method === 'headbutt' && row.tree) {
+      let headbutt = existing.headbutt.find((entry) => entry.tree === row.tree)
+      if (!headbutt) {
+        headbutt = { tree: row.tree, encounters: [] }
+        existing.headbutt.push(headbutt)
+      }
+      headbutt.encounters.push({
+        pokemon: { name: row.pokemon_name, region: row.pokemon_region },
+        rate: row.rate,
+      })
+    }
+
+    if (row.method === 'rocksmash') {
+      existing.rockSmash.push({
+        pokemon: { name: row.pokemon_name, region: row.pokemon_region },
+        rate: row.rate,
+      })
+    }
+
     if (row.method === 'fixed') {
       existing.fixed.push({
         pokemon: { name: row.pokemon_name, region: row.pokemon_region },
@@ -1073,7 +1168,9 @@ export async function listMoves(): Promise<MoveDef[]> {
   const supabase = getSupabase()
   const { data, error } = await supabase
     .from('moves')
-    .select('key, name, description, power, type, category, accuracy, pp')
+    .select(
+      'key, name, description, power, type, category, accuracy, pp, target, flags',
+    )
     .order('name')
   if (error) throw new Error(error.message)
   return (data ?? []) as MoveDef[]
@@ -1083,7 +1180,9 @@ export async function getMove(key: string): Promise<MoveDef | null> {
   const supabase = getSupabase()
   const { data, error } = await supabase
     .from('moves')
-    .select('key, name, description, power, type, category, accuracy, pp')
+    .select(
+      'key, name, description, power, type, category, accuracy, pp, target, flags',
+    )
     .eq('key', key)
     .maybeSingle()
   if (error) throw new Error(error.message)
