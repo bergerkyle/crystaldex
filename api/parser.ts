@@ -8,11 +8,14 @@ const MOVES_ASM_PATH = 'data/moves/moves.asm'
 const MOVE_NAMES_PATH = 'data/moves/names.asm'
 const MOVE_CONSTANTS_PATH = 'constants/move_constants.asm'
 const MOVE_DESCRIPTIONS_PATH = 'data/moves/descriptions.asm'
+const MOVE_ATTRIBUTES_PATH = 'data/moves/move_attributes.asm'
 export const ITEM_CONSTANTS_PATH = 'constants/item_constants.asm'
 const ITEM_NAMES_PATH = 'data/items/names.asm'
 const ITEM_DESCRIPTIONS_PATH = 'data/items/descriptions.asm'
 const ITEM_MARTS_PATH = 'data/items/marts.asm'
-const ABILITIES_ASM_PATH = 'data/abilities/abilities.asm'
+const ABILITY_CONSTANTS_PATH = 'constants/ability_constants.asm'
+const ABILITY_NAMES_PATH = 'data/abilities/names.asm'
+const SPECIES_ABILITIES_PATH = 'data/abilities/species_abilities.asm'
 const ABILITIES_DESCRIPTIONS_PATH = 'data/abilities/descriptions.asm'
 const WILD_PROBABILITIES_PATH = 'data/wild/probabilities.asm'
 const WILD_GRASS_PATHS = [
@@ -91,9 +94,21 @@ export interface MoveDef {
   category: 'physical' | 'special' | 'status'
   accuracy: number
   pp: number
+  // Lowercased MOVE_TARGET_* suffix, e.g. 'selected', 'both_foes'.
+  target: string
+  // Lowercased MOVEFLAG_* suffixes, e.g. ['contact', 'punch'].
+  flags: string[]
 }
 
-export type MoveStats = Omit<MoveDef, 'name' | 'key' | 'description'>
+export type MoveStats = Omit<
+  MoveDef,
+  'name' | 'key' | 'description' | 'target' | 'flags'
+>
+
+export interface MoveAttributes {
+  target: string
+  flags: string[]
+}
 
 export interface TmHmDef {
   move: string
@@ -105,6 +120,13 @@ export interface AbilityDef {
   key: string
   name: string
   description: string
+}
+
+// A species' ability slots (ABILITY_* constants); null when NO_ABILITY.
+export interface SpeciesAbilities {
+  ability1: string | null
+  ability2: string | null
+  hidden: string | null
 }
 
 export interface ItemDef {
@@ -510,28 +532,51 @@ function parseMoveDescriptions(source: string): string[] {
   return labels.map((label) => textByLabel.get(label) ?? '')
 }
 
-// Move constants, stats (moves.asm), names (names.asm), and descriptions
-// (descriptions.asm) are parallel ordered lists.
+// Each line looks like: `move_attr SELECTED, CONTACT, PUNCH ; FIRE_PUNCH`.
+// Entries are index-aligned with move_constants.asm (no NO_MOVE entry).
+function parseMoveAttributes(source: string): MoveAttributes[] {
+  const attributes: MoveAttributes[] = []
+  for (const line of source.split('\n')) {
+    const m = line.match(/^\s*move_attr\s+([^;]*)/)
+    if (!m) continue
+    const [target, ...flags] = m[1]
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+    if (!target) continue
+    attributes.push({
+      target: target.toLowerCase(),
+      flags: flags.map((flag) => flag.toLowerCase()),
+    })
+  }
+  return attributes
+}
+
+// Move constants, stats (moves.asm), names (names.asm), descriptions
+// (descriptions.asm), and attributes (move_attributes.asm) are parallel
+// ordered lists.
 export async function fetchMoveCatalog(): Promise<MoveDef[]> {
-  const [constSource, statsSource, namesSource, descSource] = await Promise.all(
-    [
+  const [constSource, statsSource, namesSource, descSource, attrSource] =
+    await Promise.all([
       fetchRaw(MOVE_CONSTANTS_PATH),
       fetchRaw(MOVES_ASM_PATH),
       fetchRaw(MOVE_NAMES_PATH),
       fetchRaw(MOVE_DESCRIPTIONS_PATH),
-    ],
-  )
+      fetchRaw(MOVE_ATTRIBUTES_PATH),
+    ])
   const keys = parseMoveConstants(constSource)
   const stats = parseMoveStats(statsSource)
   const names = parseMoveNames(namesSource)
   const descriptions = parseMoveDescriptions(descSource)
+  const attributes = parseMoveAttributes(attrSource)
   if (
     keys.length !== stats.length ||
     stats.length !== names.length ||
-    names.length !== descriptions.length
+    names.length !== descriptions.length ||
+    descriptions.length !== attributes.length
   ) {
     console.warn(
-      `Move data length mismatch: constants=${keys.length}, stats=${stats.length}, names=${names.length}, descriptions=${descriptions.length}`,
+      `Move data length mismatch: constants=${keys.length}, stats=${stats.length}, names=${names.length}, descriptions=${descriptions.length}, attributes=${attributes.length}`,
     )
   }
   const count = Math.min(
@@ -547,6 +592,8 @@ export async function fetchMoveCatalog(): Promise<MoveDef[]> {
       name: names[i] ?? keys[i],
       description: descriptions[i] ?? '',
       ...stats[i],
+      target: attributes[i]?.target ?? 'selected',
+      flags: attributes[i]?.flags ?? [],
     })
   }
   return catalog
@@ -1197,32 +1244,65 @@ function parseAbilityDescriptions(source: string): Map<string, string> {
   return result
 }
 
-// Parse XxxMons:: dw POKEMON ... dw -1 blocks from abilities.asm.
-// Returns [{abilityKey, mons[]}] in file order (pokemon names are lowercased).
-function parseAbilityMons(
-  source: string,
-): { abilityKey: string; mons: string[] }[] {
-  const result: { abilityKey: string; mons: string[] }[] = []
-  let current: { abilityKey: string; mons: string[] } | null = null
-
+// Ordered ABILITY_* constants from ability_constants.asm (index = ability id,
+// index 0 = NO_ABILITY). Stops at NUM_ABILITIES so the slot constants that
+// follow are not included.
+function parseAbilityConstants(source: string): string[] {
+  const keys: string[] = []
+  let started = false
   for (const line of source.split('\n')) {
-    // Upstream files are inconsistent: some labels end with `Mons::`, others
-    // with `Mons:`. Accept both to avoid assigning mons to the previous block.
-    const label = line.match(/^([A-Za-z0-9_]+)Mons:{1,2}\s*$/)
+    if (!started) {
+      if (/^\s*const_def\b/.test(line)) started = true
+      continue
+    }
+    if (/\bNUM_ABILITIES\b/.test(line)) break
+    const m = line.match(/^\s*const\s+([A-Z0-9_]+)/)
+    if (m) keys.push(m[1])
+  }
+  return keys
+}
+
+// Ordered `dw <Label><suffix>` entries of an id-indexed pointer table, with the
+// suffix stripped (e.g. `dw ThickFatDesc` -> `ThickFat`).
+function parsePointerTableLabels(source: string, suffix: string): string[] {
+  const re = new RegExp(`^\\s*dw\\s+([A-Za-z0-9_]+)${suffix}\\b`, 'gm')
+  return [...source.matchAll(re)].map((m) => m[1])
+}
+
+// Parse XxxNameString: db "Name@" blocks from data/abilities/names.asm.
+function parseAbilityNameStrings(source: string): Map<string, string> {
+  const result = new Map<string, string>()
+  let currentKey: string | null = null
+  for (const line of source.split('\n')) {
+    const label = line.match(/^([A-Za-z0-9_]+)NameString:/)
     if (label) {
-      current = { abilityKey: label[1], mons: [] }
-      result.push(current)
+      currentKey = label[1]
       continue
     }
-    if (!current) continue
-    if (/^\s*dw\s+-1\b/.test(line)) {
-      current = null
-      continue
+    if (!currentKey) continue
+    const db = line.match(/^\s*db\s+"([^"]*)"/)
+    if (db) {
+      result.set(currentKey, db[1].replace(/@/g, '').trim())
+      currentKey = null
     }
-    const dw = line.match(/^\s*dw\s+([A-Z][A-Z0-9_]*)/)
-    if (dw) {
-      current.mons.push(dw[1].toLowerCase())
-    }
+  }
+  return result
+}
+
+// Parse `abilities SPECIES, ABILITY_1, ABILITY_2, HIDDEN_ABILITY` lines from
+// species_abilities.asm. Keys are normalized species names.
+function parseSpeciesAbilities(source: string): Map<string, SpeciesAbilities> {
+  const result = new Map<string, SpeciesAbilities>()
+  const slot = (value: string): string | null =>
+    value === 'NO_ABILITY' ? null : value
+  for (const m of source.matchAll(
+    /^\s*abilities\s+([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/gm,
+  )) {
+    result.set(normalizeKey(m[1]), {
+      ability1: slot(m[2]),
+      ability2: slot(m[3]),
+      hidden: slot(m[4]),
+    })
   }
   return result
 }
@@ -1319,42 +1399,49 @@ export async function fetchFixedEncounters(
   return results
 }
 
+// Ability constants, names (names.asm), and descriptions (descriptions.asm)
+// are id-indexed tables. Species slots come from species_abilities.asm.
 export async function fetchAbilityCatalog(): Promise<{
   abilities: AbilityDef[]
-  pokemonAbilityMap: Map<string, string>
+  speciesAbilities: Map<string, SpeciesAbilities>
 }> {
-  const [abilitiesSource, descriptionsSource] = await Promise.all([
-    fetchRaw(ABILITIES_ASM_PATH),
-    fetchRaw(ABILITIES_DESCRIPTIONS_PATH),
-  ])
+  const [constSource, namesSource, descriptionsSource, speciesSource] =
+    await Promise.all([
+      fetchRaw(ABILITY_CONSTANTS_PATH),
+      fetchRaw(ABILITY_NAMES_PATH),
+      fetchRaw(ABILITIES_DESCRIPTIONS_PATH),
+      fetchRaw(SPECIES_ABILITIES_PATH),
+    ])
 
+  const keys = parseAbilityConstants(constSource)
+  const nameLabels = parsePointerTableLabels(namesSource, 'NameString')
+  const descLabels = parsePointerTableLabels(descriptionsSource, 'Desc')
+  const names = parseAbilityNameStrings(namesSource)
   const descriptions = parseAbilityDescriptions(descriptionsSource)
-  const abilityMons = parseAbilityMons(abilitiesSource)
+  if (
+    keys.length !== nameLabels.length ||
+    nameLabels.length !== descLabels.length
+  ) {
+    console.warn(
+      `Ability data length mismatch: constants=${keys.length}, names=${nameLabels.length}, descriptions=${descLabels.length}`,
+    )
+  }
 
-  // Build deduplicated ability catalog preserving file order.
-  const seen = new Set<string>()
   const abilities: AbilityDef[] = []
-  for (const { abilityKey } of abilityMons) {
-    if (seen.has(abilityKey)) continue
-    seen.add(abilityKey)
+  keys.forEach((key, i) => {
+    if (key === 'NO_ABILITY') return
+    const nameLabel = nameLabels[i]
+    const descLabel = descLabels[i]
     abilities.push({
-      key: abilityKey,
-      name: abilityKeyToName(abilityKey),
-      description: descriptions.get(abilityKey) ?? '',
+      key,
+      name:
+        (nameLabel ? names.get(nameLabel) : undefined) ||
+        abilityKeyToName(nameLabel ?? descLabel ?? key),
+      description: (descLabel ? descriptions.get(descLabel) : undefined) ?? '',
     })
-  }
+  })
 
-  // Build pokemon -> ability map; first ability encountered in file order wins.
-  const pokemonAbilityMap = new Map<string, string>()
-  for (const { abilityKey, mons } of abilityMons) {
-    for (const mon of mons) {
-      if (!pokemonAbilityMap.has(mon)) {
-        pokemonAbilityMap.set(mon, abilityKey)
-      }
-    }
-  }
-
-  return { abilities, pokemonAbilityMap }
+  return { abilities, speciesAbilities: parseSpeciesAbilities(speciesSource) }
 }
 
 // ---------------------------------------------------------------------------

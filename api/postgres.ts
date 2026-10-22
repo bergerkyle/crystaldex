@@ -143,6 +143,8 @@ interface PokemonRow {
   front_sha: string | null
   back_sha: string | null
   ability_id: number | null
+  ability_2_id: number | null
+  hidden_ability_id: number | null
   held_item_1: string | null
   held_item_2: string | null
 }
@@ -205,7 +207,7 @@ export async function syncDatabase(): Promise<{
 
   const [
     catalog,
-    { abilities: abilityCatalog, pokemonAbilityMap },
+    { abilities: abilityCatalog, speciesAbilities },
     itemCatalog,
   ] = await Promise.all([
     fetchMoveCatalog(),
@@ -408,7 +410,10 @@ export async function syncDatabase(): Promise<{
       evos_sha: null,
       front_sha: null,
       back_sha: null,
-      ability_id: null, // resolved after abilities are inserted
+      // Ability slots are resolved after abilities are inserted.
+      ability_id: null,
+      ability_2_id: null,
+      hidden_ability_id: null,
       held_item_1: heldItem1,
       held_item_2: heldItem2,
     })
@@ -496,12 +501,16 @@ export async function syncDatabase(): Promise<{
   }
   console.log(`[sync] inserted abilities: ${insertedAbilities?.length ?? 0}`)
 
-  // Resolve ability_id for each pokemon upsert row.
+  // Resolve the ability slot ids for each pokemon upsert row.
+  const abilityId = (key: string | null | undefined): number | null =>
+    key ? (abilityIdByKey.get(key) ?? null) : null
   const pokemonInserts = upserts.map((row) => {
-    const abilityKey = pokemonAbilityMap.get(row.name)
+    const slots = speciesAbilities.get(normalizeKey(row.name))
     return {
       ...row,
-      ability_id: abilityKey ? (abilityIdByKey.get(abilityKey) ?? null) : null,
+      ability_id: abilityId(slots?.ability1),
+      ability_2_id: abilityId(slots?.ability2),
+      hidden_ability_id: abilityId(slots?.hidden),
     }
   })
 
@@ -760,7 +769,7 @@ export interface PokemonDetail {
   }[]
   sprites: { front: string; back: string }
   shinyPalette: { color1: string; color2: string } | null
-  ability: { name: string; description: string } | null
+  abilities: { name: string; description: string; hidden: boolean }[]
   heldItems: {
     key: string
     name: string
@@ -777,7 +786,7 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
 
   const { data: p, error } = await supabase
     .from('pokemon')
-    .select('*, abilities(name, description)')
+    .select('*')
     .eq('name', name)
     .maybeSingle()
   if (error) throw new Error(error.message)
@@ -881,7 +890,43 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
     for (const def of defs ?? []) moveDefsByKey.set(def.key, def as MoveDef)
   }
 
-  const ability = p.abilities as { name: string; description: string } | null
+  // Ability slots in display order: ability 1, ability 2, then hidden.
+  const abilitySlots: { id: number | null; hidden: boolean }[] = [
+    { id: p.ability_id ?? null, hidden: false },
+    { id: p.ability_2_id ?? null, hidden: false },
+    { id: p.hidden_ability_id ?? null, hidden: true },
+  ]
+  const abilityIds = [
+    ...new Set(
+      abilitySlots
+        .map((slot) => slot.id)
+        .filter((id): id is number => id !== null),
+    ),
+  ]
+  const abilitiesById = new Map<number, { name: string; description: string }>()
+  if (abilityIds.length > 0) {
+    const { data: abilityRows, error: abilityError } = await supabase
+      .from('abilities')
+      .select('id, name, description')
+      .in('id', abilityIds)
+    if (abilityError) throw new Error(abilityError.message)
+    for (const row of abilityRows ?? [])
+      abilitiesById.set(row.id, {
+        name: row.name,
+        description: row.description,
+      })
+  }
+  // Drop empty slots and repeat entries (e.g. ability 2 equal to ability 1).
+  const seenAbilities = new Set<string>()
+  const abilities: { name: string; description: string; hidden: boolean }[] = []
+  for (const slot of abilitySlots) {
+    const info = slot.id !== null ? abilitiesById.get(slot.id) : undefined
+    if (!info) continue
+    const dedupeKey = `${info.name}|${slot.hidden}`
+    if (seenAbilities.has(dedupeKey)) continue
+    seenAbilities.add(dedupeKey)
+    abilities.push({ ...info, hidden: slot.hidden })
+  }
 
   return {
     name: p.name,
@@ -957,9 +1002,7 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
       p.shiny_color_1 && p.shiny_color_2
         ? { color1: p.shiny_color_1, color2: p.shiny_color_2 }
         : null,
-    ability: ability
-      ? { name: ability.name, description: ability.description }
-      : null,
+    abilities,
     heldItems,
     encounters: (encounterRes.data ?? []).map((row) => ({
       region: row.region,
@@ -1073,7 +1116,9 @@ export async function listMoves(): Promise<MoveDef[]> {
   const supabase = getSupabase()
   const { data, error } = await supabase
     .from('moves')
-    .select('key, name, description, power, type, category, accuracy, pp')
+    .select(
+      'key, name, description, power, type, category, accuracy, pp, target, flags',
+    )
     .order('name')
   if (error) throw new Error(error.message)
   return (data ?? []) as MoveDef[]
@@ -1083,7 +1128,9 @@ export async function getMove(key: string): Promise<MoveDef | null> {
   const supabase = getSupabase()
   const { data, error } = await supabase
     .from('moves')
-    .select('key, name, description, power, type, category, accuracy, pp')
+    .select(
+      'key, name, description, power, type, category, accuracy, pp, target, flags',
+    )
     .eq('key', key)
     .maybeSingle()
   if (error) throw new Error(error.message)

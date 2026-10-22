@@ -1132,6 +1132,24 @@ a:hover {
   color: rgba(255, 255, 255, 0.55);
 }
 
+.ability-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ability-hidden-tag {
+  margin-left: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
 .held-items {
   max-width: 520px;
 }
@@ -1356,6 +1374,21 @@ a:hover {
 
 .move-detail-meta {
   margin-top: 0.8rem;
+}
+
+.move-attributes {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 1rem;
+  margin: 1rem 0 0;
+}
+
+.move-attributes dt {
+  color: var(--muted);
+}
+
+.move-attributes dd {
+  margin: 0;
 }
 
 .item-page-subtitle {

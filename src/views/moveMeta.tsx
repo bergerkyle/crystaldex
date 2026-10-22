@@ -121,3 +121,39 @@ export function CategoryMetaChip({ category }: { category: string }) {
     </span>
   )
 }
+
+// Display info for each move target (lowercased MOVE_TARGET_* suffix).
+// ALL_OTHERS (Earthquake, Explosion...) is shown like BOTH_FOES because ally
+// targeting / splash damage is not implemented yet: both only hit the foes.
+const MOVE_TARGETS: Record<string, { label: string; multi: boolean }> = {
+  selected: { label: 'Single target', multi: false },
+  both_foes: { label: 'Both foes', multi: true },
+  all_others: { label: 'Both foes', multi: true },
+  user: { label: 'User', multi: false },
+  user_side: { label: "User's side", multi: false },
+  foe_side: { label: "Foes' side", multi: false },
+  random_foe: { label: 'Random foe', multi: false },
+  all: { label: 'All battlers', multi: true },
+  field: { label: 'Whole field', multi: false },
+  counter: { label: 'Last attacker', multi: false },
+}
+
+export function moveTargetInfo(target: string): {
+  label: string
+  multi: boolean
+} {
+  return (
+    MOVE_TARGETS[target.toLowerCase()] ?? {
+      label: formatConstant(target),
+      multi: false,
+    }
+  )
+}
+
+// Move flags other than CONTACT, shown as tags (e.g. punch, bite, sound).
+export function moveTags(flags: string[]): string[] {
+  return flags
+    .map((flag) => flag.toLowerCase())
+    .filter((flag) => flag !== 'contact')
+    .map((flag) => formatConstant(flag))
+}

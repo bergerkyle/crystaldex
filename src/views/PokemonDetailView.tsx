@@ -331,13 +331,35 @@ export function PokemonDetailView({
             shinyPalette={detail.shinyPalette}
           />
           <div className="ability mb-4">
-            <p className="ability-name">
-              <strong>
-                Ability: {detail.ability ? detail.ability.name : '(None)'}
-              </strong>
-            </p>
-            {detail.ability && detail.ability.description && (
-              <p className="ability-desc">{detail.ability.description}</p>
+            {detail.abilities.length === 0 ? (
+              <p className="ability-name">
+                <strong>Ability: (None)</strong>
+              </p>
+            ) : (
+              <>
+                <p className="ability-name">
+                  <strong>
+                    {detail.abilities.length > 1 ? 'Abilities' : 'Ability'}
+                  </strong>
+                </p>
+                <ul className="ability-list">
+                  {detail.abilities.map((ability) => (
+                    <li
+                      key={`${ability.name}-${ability.hidden ? 'hidden' : 'normal'}`}
+                    >
+                      <p className="ability-name">
+                        <strong>{ability.name}</strong>
+                        {ability.hidden && (
+                          <span className="ability-hidden-tag">Hidden</span>
+                        )}
+                      </p>
+                      {ability.description && (
+                        <p className="ability-desc">{ability.description}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </div>
           {detail.heldItems.length > 0 && (

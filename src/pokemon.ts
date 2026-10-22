@@ -76,6 +76,10 @@ export interface MoveCatalogItem {
   category: string
   accuracy: number
   pp: number
+  // Lowercased MOVE_TARGET_* suffix, e.g. 'selected', 'both_foes'.
+  target: string
+  // Lowercased MOVEFLAG_* suffixes, e.g. ['contact', 'punch'].
+  flags: string[]
 }
 
 export interface ItemListItem {
@@ -105,6 +109,7 @@ export interface Sprites {
 export interface Ability {
   name: string
   description: string
+  hidden: boolean
 }
 
 export interface HeldItem {
@@ -175,7 +180,7 @@ export interface PokemonDetail {
   tmMoves: TmMove[]
   sprites: Sprites
   shinyPalette: ShinyPalette | null
-  ability: Ability | null
+  abilities: Ability[]
   heldItems: HeldItem[]
   encounters: PokemonEncounter[]
 }

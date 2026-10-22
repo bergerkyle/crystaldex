@@ -1,6 +1,11 @@
 import { type MoveCatalogItem } from '../pokemon'
 import { MoveAutocomplete } from '../components/MoveAutocomplete'
-import { CategoryMetaChip, TypeMetaChip } from './moveMeta'
+import {
+  CategoryMetaChip,
+  TypeMetaChip,
+  moveTags,
+  moveTargetInfo,
+} from './moveMeta'
 
 interface MoveDetailViewProps {
   moveDetail: MoveCatalogItem | null
@@ -43,8 +48,31 @@ export function MoveDetailView({
             </span>
             <span className="meta-text">PP {moveDetail.pp}</span>
           </p>
+          <MoveAttributesList move={moveDetail} />
         </article>
       )}
     </main>
+  )
+}
+
+function MoveAttributesList({ move }: { move: MoveCatalogItem }) {
+  const flags = move.flags ?? []
+  const target = moveTargetInfo(move.target ?? 'selected')
+  const tags = moveTags(flags)
+  return (
+    <dl className="move-attributes">
+      <dt>Target</dt>
+      <dd>{target.label}</dd>
+      <dt>Hits multiple targets</dt>
+      <dd>{target.multi ? 'Yes' : 'No'}</dd>
+      <dt>Makes contact</dt>
+      <dd>{flags.includes('contact') ? 'Yes' : 'No'}</dd>
+      {tags.length > 0 && (
+        <>
+          <dt>Tags</dt>
+          <dd>{tags.join(', ')}</dd>
+        </>
+      )}
+    </dl>
   )
 }
