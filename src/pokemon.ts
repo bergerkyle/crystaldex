@@ -82,6 +82,31 @@ export interface MoveCatalogItem {
   flags: string[]
 }
 
+const NEVER_MISS_MOVES = new Set([
+  'SANDSTORM',
+  'HAIL',
+  'RAIN_DANCE',
+  'SUNNY_DAY',
+  'SWIFT',
+  'FAINT_ATTACK',
+  'VITAL_THROW',
+  'SHADOW_PUNCH',
+  'AERIAL_ACE',
+  'MAGICAL_LEAF',
+  'SHOCK_WAVE',
+  'AURA_SPHERE',
+])
+
+export function moveAccuracy(move: {
+  key: string
+  accuracy: number
+  target?: string
+}): number {
+  return move.target === 'field' || NEVER_MISS_MOVES.has(move.key)
+    ? 0
+    : move.accuracy
+}
+
 export interface ItemListItem {
   key: string
   name: string
