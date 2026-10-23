@@ -706,7 +706,11 @@ function wildRegionFromPath(path: string): string {
   return match?.[1] ?? ''
 }
 
-const EXCLUDED_ROUTE_TOKENS = new Set(['PLAYERS_HOUSE_2F', 'PLAYERS_HOUSE_2_F'])
+const EXCLUDED_ROUTE_TOKENS = new Set([
+  'PLAYERS_HOUSE_2F',
+  'PLAYERS_HOUSE_2_F',
+  'TEST_ROOM',
+])
 
 function isExcludedRouteToken(route: string): boolean {
   return EXCLUDED_ROUTE_TOKENS.has(route.toUpperCase())
