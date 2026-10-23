@@ -82,6 +82,18 @@ export interface MoveCatalogItem {
   flags: string[]
 }
 
+const WEATHER_MOVES = new Set(['SANDSTORM', 'HAIL', 'RAIN_DANCE', 'SUNNY_DAY'])
+
+export function moveAccuracy(move: {
+  key: string
+  accuracy: number
+  target?: string
+}): number {
+  return move.target === 'field' || WEATHER_MOVES.has(move.key)
+    ? 100
+    : move.accuracy
+}
+
 export interface ItemListItem {
   key: string
   name: string

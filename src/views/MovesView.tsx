@@ -1,5 +1,5 @@
 import { type ReactNode, useMemo, useState } from 'react'
-import { formatConstant, type MoveCatalogItem } from '../pokemon'
+import { formatConstant, moveAccuracy, type MoveCatalogItem } from '../pokemon'
 import {
   CategoryMetaChip,
   TYPE_HEADER_COLORS,
@@ -64,7 +64,9 @@ export function MovesView({
           const right = String(b[sort.key]).toLowerCase()
           return left.localeCompare(right) * direction
         }
-        return (a[sort.key] - b[sort.key]) * direction
+        const left = sort.key === 'accuracy' ? moveAccuracy(a) : a[sort.key]
+        const right = sort.key === 'accuracy' ? moveAccuracy(b) : b[sort.key]
+        return (left - right) * direction
       }
 
     const grouped = new Map<string, MoveCatalogItem[]>()
@@ -258,7 +260,9 @@ export function MovesView({
                         <CategoryMetaChip category={m.category} />
                       </td>
                       <td>{m.power > 0 ? m.power : '-'}</td>
-                      <td>{m.accuracy > 0 ? `${m.accuracy}%` : '-'}</td>
+                      <td>
+                        {moveAccuracy(m) > 0 ? `${moveAccuracy(m)}%` : '-'}
+                      </td>
                       <td>{m.pp}</td>
                     </tr>
                   ))}

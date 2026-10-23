@@ -1,4 +1,5 @@
-import { type MoveCatalogItem } from '../pokemon'
+import { moveAccuracy, type MoveCatalogItem } from '../pokemon'
+import { tmIconUrl } from '../itemCategories'
 import { MoveAutocomplete } from '../components/MoveAutocomplete'
 import {
   CategoryMetaChip,
@@ -31,7 +32,15 @@ export function MoveDetailView({
       {moveDetailError && <p className="error">{moveDetailError}</p>}
       {moveDetail && (
         <article className="move-detail-content">
-          <h2 className="move-detail-title">{moveDetail.name}</h2>
+          <h2 className="move-detail-title">
+            <img
+              className="item-icon item-icon-lg"
+              src={tmIconUrl(moveDetail.type)}
+              alt=""
+              aria-hidden="true"
+            />
+            {moveDetail.name}
+          </h2>
           <p className="move-key">{moveDetail.key}</p>
           <p className="move-description">
             {moveDetail.description || 'No description available.'}
@@ -44,7 +53,9 @@ export function MoveDetailView({
             </span>
             <span className="meta-text">
               Accuracy{' '}
-              {moveDetail.accuracy > 0 ? `${moveDetail.accuracy}%` : '-'}
+              {moveAccuracy(moveDetail) > 0
+                ? `${moveAccuracy(moveDetail)}%`
+                : '-'}
             </span>
             <span className="meta-text">PP {moveDetail.pp}</span>
           </p>

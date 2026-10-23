@@ -17,6 +17,7 @@ import {
   type PokemonDetail,
   type PokemonListItem,
   formatName,
+  moveAccuracy,
 } from '../pokemon'
 import { PokemonAutocomplete } from '../components/PokemonAutocomplete'
 import { CategoryMetaChip, TypeMetaChip } from './moveMeta'
@@ -519,7 +520,8 @@ export function PokemonDetailView({
                           Pow {m.power > 0 ? m.power : '-'}
                         </span>
                         <span className="meta-text">
-                          Acc {m.accuracy > 0 ? `${m.accuracy}%` : '-'}
+                          Acc{' '}
+                          {moveAccuracy(m) > 0 ? `${moveAccuracy(m)}%` : '-'}
                         </span>
                         <span className="meta-text">PP {m.pp}</span>
                       </span>
@@ -549,7 +551,8 @@ export function PokemonDetailView({
                           Pow {m.power > 0 ? m.power : '-'}
                         </span>
                         <span className="meta-text">
-                          Acc {m.accuracy > 0 ? `${m.accuracy}%` : '-'}
+                          Acc{' '}
+                          {moveAccuracy(m) > 0 ? `${moveAccuracy(m)}%` : '-'}
                         </span>
                         <span className="meta-text">PP {m.pp}</span>
                       </span>
