@@ -53,9 +53,7 @@ export function MoveDetailView({
             </span>
             <span className="meta-text">
               Accuracy{' '}
-              {moveAccuracy(moveDetail) > 0
-                ? `${moveAccuracy(moveDetail)}%`
-                : '-'}
+              {moveAccuracy(moveDetail) > 0 ? moveAccuracy(moveDetail) : '-'}
             </span>
             <span className="meta-text">PP {moveDetail.pp}</span>
           </p>

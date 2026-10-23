@@ -260,9 +260,7 @@ export function MovesView({
                         <CategoryMetaChip category={m.category} />
                       </td>
                       <td>{m.power > 0 ? m.power : '-'}</td>
-                      <td>
-                        {moveAccuracy(m) > 0 ? `${moveAccuracy(m)}%` : '-'}
-                      </td>
+                      <td>{moveAccuracy(m) > 0 ? moveAccuracy(m) : '-'}</td>
                       <td>{m.pp}</td>
                     </tr>
                   ))}

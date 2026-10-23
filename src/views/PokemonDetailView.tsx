@@ -521,7 +521,7 @@ export function PokemonDetailView({
                         </span>
                         <span className="meta-text">
                           Acc{' '}
-                          {moveAccuracy(m) > 0 ? `${moveAccuracy(m)}%` : '-'}
+                          {moveAccuracy(m) > 0 ? moveAccuracy(m) : '-'}
                         </span>
                         <span className="meta-text">PP {m.pp}</span>
                       </span>
@@ -552,7 +552,7 @@ export function PokemonDetailView({
                         </span>
                         <span className="meta-text">
                           Acc{' '}
-                          {moveAccuracy(m) > 0 ? `${moveAccuracy(m)}%` : '-'}
+                          {moveAccuracy(m) > 0 ? moveAccuracy(m) : '-'}
                         </span>
                         <span className="meta-text">PP {m.pp}</span>
                       </span>
