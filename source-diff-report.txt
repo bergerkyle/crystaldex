@@ -1,8 +1,10 @@
-DB species: 539, matched: 458, with differences: 205, unmatched: 81
+DB species: 539, matched: 478, with differences: 215, unmatched: 61
 Source species available: 1327
 
 == DIFFERENCES (DB minus source) ==
 absolx: attack -20, speed +15, specialAttack -10
+adiglett: hp +15, defense +15, speed +5
+adugtrio: attack +10, defense -5, speed +20
 aerodactylx: attack -10, defense -20, speed -10, specialDefense -25
 aggron: types DB=steel source=steel/rock
 aggronx: attack -20, specialAttack -50
@@ -11,15 +13,19 @@ alakazam: specialDefense -10
 alakazamx: speed -20, specialAttack -25, specialDefense -5
 altaria: types DB=dragon/fairy source=dragon/flying
 altariax: attack -15, defense -10, speed +5, specialAttack -15, specialDefense -5
+amarowak: speed +15, specialAttack +10
 ambipom: hp +10, attack +8, speed +5, specialDefense +10
 ampharos: defense -10
 ampharosx: attack -5, defense -10, specialAttack -30, specialDefense -15
+aninetales: hp +20
 anorith: hp +20, attack +5, specialAttack +10, specialDefense +10
 arbok: attack -10, speed +12, types DB=poison/dark source=poison
 arcanine: types DB=fire/normal source=fire
 ariados: hp +5, defense +5, speed +5, specialAttack +30, specialDefense +5
 armaldo: hp +10, speed +20, specialDefense +10
 aron: types DB=steel source=steel/rock
+asandshrew: defense -5, specialAttack +10, specialDefense -5
+avulpix: hp +10, defense +25, speed +6, specialAttack +20, types DB=ice/fairy source=ice
 azumarill: attack +50
 azurill: types DB=water source=normal/fairy
 beautifly: hp +15, attack +5, defense +10, speed +20, specialAttack -5, specialDefense +10
@@ -71,11 +77,15 @@ glaliex: defense -5, specialAttack -20, specialDefense -5
 gligar: hp +10, specialDefense +10
 golduck: types DB=water/psychic source=water
 golem: attack -10
+gponyta: types DB=psychic/fairy source=psychic
 granbull: types DB=dark/fairy source=fairy
+grapidash: hp +10, attack +5, defense +5, specialAttack -15, specialDefense -5
 growlithe: types DB=fire/normal source=fire
 gyarados: types DB=water/dragon source=water/flying
 gyaradosx: attack -20, defense -10, specialDefense -30, types DB=water/dragon source=water/dark
+harcanine: hp -5, attack -5, speed +5, specialAttack +5
 heracrossx: attack -40, defense -10
+hgrowlithe: hp -5, attack -5, speed +5, specialAttack +5
 hoothoot: speed +10, specialAttack +30, types DB=ghost/flying source=normal/flying
 hoppip: hp +15, defense +15, speed +20
 houndoomx: defense -10, speed -10, specialAttack -20, specialDefense -10
@@ -210,23 +220,10 @@ zubat: hp +20, attack +15, speed +10, specialDefense +10
 
 == UNMATCHED DB NAMES ==
 abra2
-adiglett
-adugtrio
-ageodude
-agolem
-agraveler
-agrimer
 akua
 akueria
 alakazam2
-amarowak
-amuk
-aninetales
-araichu
-asandshrew
-asandslash
 ashibomb
-avulpix
 bayleef2
 borubea
 butterfreex
@@ -241,16 +238,9 @@ feraligatr2
 flygonx
 furret2
 gorochu
-gponyta
-grapidash
-gweezing
 hanamole
 haneei
-harcanine
-helectrode
-hgrowlithe
 honobea
-hvoltorb
 ikari
 jupiter
 jynxx

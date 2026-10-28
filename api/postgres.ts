@@ -820,6 +820,12 @@ function sameTypes(a: string[], b: string[]): boolean {
 }
 
 // Compare DB values against the reference species data from the .h files.
+// DB regional forms are prefixed: a = Alolan, g = Galarian, h = Hisuian.
+function regionalSource(key: string) {
+  const suffix = { a: 'alola', g: 'galar', h: 'hisui' }[key[0]]
+  return suffix ? SOURCE_SPECIES[`${key.slice(1)}${suffix}`] : undefined
+}
+
 export function compareWithSource(
   name: string,
   types: string[],
@@ -831,7 +837,8 @@ export function compareWithSource(
   const src =
     SOURCE_SPECIES[key] ??
     SOURCE_SPECIES[`${base}mega${key.slice(base.length)}`] ??
-    SOURCE_SPECIES[`${base}mega`]
+    SOURCE_SPECIES[`${base}mega`] ??
+    regionalSource(key)
   if (!src) return null
   const statDiffs: Record<string, number> = {}
   for (const [k, v] of Object.entries(stats)) {
