@@ -45,6 +45,20 @@ function DetailAccordionSection({
   )
 }
 
+function StatDiff({ diff }: { diff?: number }) {
+  if (!diff) return null
+  const up = diff > 0
+  return (
+    <span
+      className="stat-diff"
+      style={{ color: up ? '#1e88e5' : '#e53935', marginLeft: 6 }}
+      title="Difference from source (.h) value"
+    >
+      {up ? '▲' : '▼'} {up ? `+${diff}` : diff}
+    </span>
+  )
+}
+
 // An item name that reveals its description in a tooltip on hover/focus. Falls
 // back to plain text when there is no description to show.
 function ItemTooltip({
@@ -352,6 +366,14 @@ export function PokemonDetailView({
               <TypeMetaChip key={type} type={type} />
             ))}
           </div>
+          {detail.sourceComparison?.sourceTypes && (
+            <p className="type-diff" style={{ color: '#e53935' }}>
+              Differs from source typing:{' '}
+              {detail.sourceComparison.sourceTypes
+                .map((t) => formatName(t))
+                .join(' / ')}
+            </p>
+          )}
           {detail.region && (
             <p className="region">{formatName(detail.region)}</p>
           )}
@@ -477,7 +499,10 @@ export function PokemonDetailView({
               return (
                 <div className="stat-row" key={key}>
                   <span className="stat-label">{label}</span>
-                  <span className="stat-value">{value}</span>
+                  <span className="stat-value">
+                    {value}
+                    <StatDiff diff={detail.sourceComparison?.statDiffs[key]} />
+                  </span>
                   <div className="stat-track">
                     <div
                       className="stat-bar"

@@ -35,6 +35,7 @@ import {
   parseTypes,
   spriteUrl,
 } from './parser.js'
+import { SOURCE_SPECIES } from './sourceStats.js'
 
 // ---------------------------------------------------------------------------
 // Supabase client
@@ -756,6 +757,10 @@ export interface PokemonDetail {
     specialDefense: number
     speed: number
   }
+  sourceComparison: {
+    statDiffs: Partial<Record<string, number>>
+    sourceTypes: string[] | null
+  } | null
   evolutions: {
     method: string
     level?: number
@@ -809,6 +814,32 @@ export interface PokemonDetail {
 }
 
 export interface EncounterRoute extends RouteEncounter {}
+
+function sameTypes(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((t, i) => t === b[i])
+}
+
+// Compare DB values against the reference species data from the .h files.
+function compareWithSource(
+  name: string,
+  types: string[],
+  stats: Record<string, number>,
+): PokemonDetail['sourceComparison'] {
+  const key = normalizeKey(name)
+  const alt = key.replace(/(.+)(x|y)$/, '$1mega$2')
+  const src =
+    SOURCE_SPECIES[key] ?? SOURCE_SPECIES[alt] ?? SOURCE_SPECIES[`${key}mega`]
+  if (!src) return null
+  const statDiffs: Record<string, number> = {}
+  for (const [k, v] of Object.entries(stats)) {
+    const diff = v - (src.stats as Record<string, number>)[k]
+    if (diff !== 0) statDiffs[k] = diff
+  }
+  return {
+    statDiffs,
+    sourceTypes: sameTypes(types, src.types) ? null : src.types,
+  }
+}
 
 export async function getPokemon(name: string): Promise<PokemonDetail | null> {
   const supabase = getSupabase()
@@ -957,18 +988,23 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
     abilities.push({ ...info, hidden: slot.hidden })
   }
 
+  const dbTypes: string[] =
+    p.type_1 === p.type_2 ? [p.type_1] : [p.type_1, p.type_2]
+  const dbStats = {
+    hp: p.hp,
+    attack: p.attack,
+    defense: p.defense,
+    specialAttack: p.special_attack,
+    specialDefense: p.special_defense,
+    speed: p.speed,
+  }
+
   return {
     name: p.name,
     region: p.region,
-    types: p.type_1 === p.type_2 ? [p.type_1] : [p.type_1, p.type_2],
-    stats: {
-      hp: p.hp,
-      attack: p.attack,
-      defense: p.defense,
-      specialAttack: p.special_attack,
-      specialDefense: p.special_defense,
-      speed: p.speed,
-    },
+    types: dbTypes,
+    stats: dbStats,
+    sourceComparison: compareWithSource(p.name, dbTypes, dbStats),
     evolutions: (evoRes.data ?? []).map((e) => ({
       method: e.method,
       level: e.level ?? undefined,
