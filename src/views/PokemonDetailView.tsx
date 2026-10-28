@@ -99,8 +99,14 @@ function EvolutionTrigger({
     return (
       <>
         {before}
-        <button className="item-inline-link" onClick={() => onOpenItem(evo.item!)}>
-          <ItemTooltip name={itemName} description={evo.itemDescription ?? ''} />
+        <button
+          className="item-inline-link"
+          onClick={() => onOpenItem(evo.item!)}
+        >
+          <ItemTooltip
+            name={itemName}
+            description={evo.itemDescription ?? ''}
+          />
         </button>
         {after}
       </>
@@ -545,8 +551,7 @@ export function PokemonDetailView({
                           Pow {m.power > 0 ? m.power : '-'}
                         </span>
                         <span className="meta-text">
-                          Acc{' '}
-                          {moveAccuracy(m) > 0 ? moveAccuracy(m) : '-'}
+                          Acc {moveAccuracy(m) > 0 ? moveAccuracy(m) : '-'}
                         </span>
                         <span className="meta-text">PP {m.pp}</span>
                       </span>
@@ -576,8 +581,7 @@ export function PokemonDetailView({
                           Pow {m.power > 0 ? m.power : '-'}
                         </span>
                         <span className="meta-text">
-                          Acc{' '}
-                          {moveAccuracy(m) > 0 ? moveAccuracy(m) : '-'}
+                          Acc {moveAccuracy(m) > 0 ? moveAccuracy(m) : '-'}
                         </span>
                         <span className="meta-text">PP {m.pp}</span>
                       </span>

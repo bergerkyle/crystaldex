@@ -820,15 +820,18 @@ function sameTypes(a: string[], b: string[]): boolean {
 }
 
 // Compare DB values against the reference species data from the .h files.
-function compareWithSource(
+export function compareWithSource(
   name: string,
   types: string[],
   stats: Record<string, number>,
 ): PokemonDetail['sourceComparison'] {
   const key = normalizeKey(name)
-  const alt = key.replace(/(.+)(x|y)$/, '$1mega$2')
+  // DB megas are "<name>x"/"<name>y"; source uses "<name>mega[x|y]".
+  const base = key.replace(/[xy]$/, '')
   const src =
-    SOURCE_SPECIES[key] ?? SOURCE_SPECIES[alt] ?? SOURCE_SPECIES[`${key}mega`]
+    SOURCE_SPECIES[key] ??
+    SOURCE_SPECIES[`${base}mega${key.slice(base.length)}`] ??
+    SOURCE_SPECIES[`${base}mega`]
   if (!src) return null
   const statDiffs: Record<string, number> = {}
   for (const [k, v] of Object.entries(stats)) {
