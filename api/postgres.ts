@@ -832,6 +832,8 @@ export function compareWithSource(
   stats: Record<string, number>,
 ): PokemonDetail['sourceComparison'] {
   const key = normalizeKey(name)
+  // Not the Unown letter form; it has no source counterpart.
+  if (key === 'unownx') return null
   // DB megas are "<name>x"/"<name>y"; source uses "<name>mega[x|y]".
   const base = key.replace(/[xy]$/, '')
   const src =
