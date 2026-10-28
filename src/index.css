@@ -1249,7 +1249,7 @@ a:hover {
 
 .stat-row {
   display: grid;
-  grid-template-columns: 130px 40px 1fr;
+  grid-template-columns: 130px 96px 1fr;
   align-items: center;
   gap: 0.75rem;
 }
@@ -1260,6 +1260,7 @@ a:hover {
 
 .stat-value {
   text-align: right;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
