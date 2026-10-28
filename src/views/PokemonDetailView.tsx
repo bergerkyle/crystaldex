@@ -70,25 +70,23 @@ function TypeDiff({
   const added = types.filter((t) => !sourceTypes.includes(t))
   const removed = sourceTypes.filter((t) => !types.includes(t))
   if (!added.length && !removed.length) return null
+  const changes = [
+    ...added.map((t) => ({ sign: '+', type: t, color: '#1e88e5' })),
+    ...removed.map((t) => ({ sign: '-', type: t, color: '#e53935' })),
+  ]
   return (
-    <span
-      className="type-diff"
-      title="Difference from source (.h) typing"
-    >
-      (
-      {added.map((t, i) => (
-        <span key={`+${t}`} style={{ color: '#1e88e5' }}>
-          {i > 0 ? ' ' : ''}+{t.toLowerCase()}
+    <>
+      {changes.map((c) => (
+        <span
+          key={`${c.sign}${c.type}`}
+          className="type-diff"
+          style={{ color: c.color }}
+          title="Difference from source (.h) typing"
+        >
+          ({c.sign} {formatName(c.type)})
         </span>
       ))}
-      {added.length > 0 && removed.length > 0 ? ' ' : ''}
-      {removed.map((t, i) => (
-        <span key={`-${t}`} style={{ color: '#e53935' }}>
-          {i > 0 ? ' ' : ''}-{t.toLowerCase()}
-        </span>
-      ))}
-      )
-    </span>
+    </>
   )
 }
 
