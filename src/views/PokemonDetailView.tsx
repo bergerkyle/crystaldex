@@ -59,6 +59,39 @@ function StatDiff({ diff }: { diff?: number }) {
   )
 }
 
+function TypeDiff({
+  types,
+  sourceTypes,
+}: {
+  types: string[]
+  sourceTypes?: string[] | null
+}) {
+  if (!sourceTypes) return null
+  const added = types.filter((t) => !sourceTypes.includes(t))
+  const removed = sourceTypes.filter((t) => !types.includes(t))
+  if (!added.length && !removed.length) return null
+  return (
+    <span
+      className="type-diff"
+      title="Difference from source (.h) typing"
+    >
+      (
+      {added.map((t, i) => (
+        <span key={`+${t}`} style={{ color: '#1e88e5' }}>
+          {i > 0 ? ' ' : ''}+{t.toLowerCase()}
+        </span>
+      ))}
+      {added.length > 0 && removed.length > 0 ? ' ' : ''}
+      {removed.map((t, i) => (
+        <span key={`-${t}`} style={{ color: '#e53935' }}>
+          {i > 0 ? ' ' : ''}-{t.toLowerCase()}
+        </span>
+      ))}
+      )
+    </span>
+  )
+}
+
 // An item name that reveals its description in a tooltip on hover/focus. Falls
 // back to plain text when there is no description to show.
 function ItemTooltip({
@@ -371,15 +404,11 @@ export function PokemonDetailView({
             {detail.types.map((type) => (
               <TypeMetaChip key={type} type={type} />
             ))}
+            <TypeDiff
+              types={detail.types}
+              sourceTypes={detail.sourceComparison?.sourceTypes}
+            />
           </div>
-          {detail.sourceComparison?.sourceTypes && (
-            <p className="type-diff" style={{ color: '#e53935' }}>
-              Differs from source typing:{' '}
-              {detail.sourceComparison.sourceTypes
-                .map((t) => formatName(t))
-                .join(' / ')}
-            </p>
-          )}
           {detail.region && (
             <p className="region">{formatName(detail.region)}</p>
           )}
