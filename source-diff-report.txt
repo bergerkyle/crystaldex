@@ -1,5 +1,5 @@
-DB species: 539, matched: 478, with differences: 215, unmatched: 61
-Source species available: 1327
+DB species: 539, matched: 480, with differences: 217, unmatched: 59
+Source species available: 1410
 
 == DIFFERENCES (DB minus source) ==
 absolx: attack -20, speed +15, specialAttack -10
@@ -203,6 +203,8 @@ tauros: types DB=normal/fighting source=normal
 togetic: hp +5, speed +20, specialAttack +20
 tyranitarx: attack -20, defense -20, specialDefense -10
 tyrogue: hp +15, attack +15, defense +15, speed +15, specialAttack +15, specialDefense +15
+unown: hp +27, attack +3, defense +27, speed +27, specialAttack +3, specialDefense +27, types DB=ghost/dark source=psychic
+unownx: hp +52, attack +18, defense +42, speed +42, specialAttack +18, specialDefense +42, types DB=ghost/dark source=psychic
 venusaurx: attack -5, defense -20, specialDefense -20
 victreebel: specialDefense -10
 victreebelx: hp +30, attack -25, defense +15, speed -30, specialAttack -35, specialDefense +5
@@ -274,8 +276,6 @@ totartle
 totodile2
 tropiusx
 typhlosion2
-unown
-unownx
 venus
 voltorb2
 vulpix2

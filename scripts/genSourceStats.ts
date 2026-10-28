@@ -100,17 +100,39 @@ function splitArgs(s: string): string[] {
   return args
 }
 
+// Bodies of multi-line function-like #defines, keyed by macro name.
+function collectMacroBodies(source: string): Map<string, string> {
+  const bodies = new Map<string, string>()
+  const lines = source.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^\s*#\s*define\s+(\w+)\([^)]*\)\s*\\$/)
+    if (!m) continue
+    const body: string[] = []
+    for (i++; i < lines.length; i++) {
+      body.push(lines[i].replace(/\\$/, ''))
+      if (!lines[i].endsWith('\\')) break
+    }
+    bodies.set(m[1], body.join('\n'))
+  }
+  return bodies
+}
+
 const out: Record<string, unknown> = {}
 const files = readdirSync('src')
   .filter((f) => /^gen_\d+_families\.h$/.test(f))
   .sort()
 for (const file of files) {
-  const source = preprocess(readFileSync(`src/${file}`, 'utf8'))
+  const raw = readFileSync(`src/${file}`, 'utf8')
+  const macroBodies = collectMacroBodies(raw)
+  const source = preprocess(raw)
   const parts = source.split(/^\s*\[SPECIES_([A-Z0-9_]+)\]\s*=/m)
   for (let i = 1; i < parts.length; i += 2) {
     const key = parts[i].toLowerCase().replace(/[^a-z0-9]/g, '')
     if (out[key]) continue
-    const body = parts[i + 1]
+    let body = parts[i + 1]
+    // Species defined via a multi-line function-like macro (e.g. Unown).
+    const call = body.match(/^\s*(\w+)\(/)
+    if (call && macroBodies.has(call[1])) body = macroBodies.get(call[1])!
     const stats: Record<string, number> = {}
     for (const [field, name] of Object.entries(FIELDS)) {
       const m = body.match(
