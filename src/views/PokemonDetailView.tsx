@@ -51,10 +51,10 @@ function StatDiff({ diff }: { diff?: number }) {
   return (
     <span
       className="stat-diff"
-      style={{ color: up ? '#1e88e5' : '#e53935', marginLeft: 6 }}
+      style={{ color: up ? '#1e88e5' : '#e53935', marginLeft: 4 }}
       title="Difference from source (.h) value"
     >
-      {up ? '▲' : '▼'} {up ? `+${diff}` : diff}
+      ({up ? `+${diff}` : diff})
     </span>
   )
 }
