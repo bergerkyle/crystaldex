@@ -1,0 +1,282 @@
+DB species: 539, matched: 479, with differences: 216, unmatched: 60
+Source species available: 1410
+
+== DIFFERENCES (DB minus source) ==
+absolx: attack -20, speed +15, specialAttack -10
+adiglett: hp +15, defense +15, speed +5
+adugtrio: attack +10, defense -5, speed +20
+aerodactylx: attack -10, defense -20, speed -10, specialDefense -25
+aggron: types DB=steel source=steel/rock
+aggronx: attack -20, specialAttack -50
+aipom: hp +30, attack +15, defense +5, speed +20, specialAttack +15, specialDefense +5
+alakazam: specialDefense -10
+alakazamx: speed -20, specialAttack -25, specialDefense -5
+altaria: types DB=dragon/fairy source=dragon/flying
+altariax: attack -15, defense -10, speed +5, specialAttack -15, specialDefense -5
+amarowak: speed +15, specialAttack +10
+ambipom: hp +10, attack +8, speed +5, specialDefense +10
+ampharos: defense -10
+ampharosx: attack -5, defense -10, specialAttack -30, specialDefense -15
+aninetales: hp +20
+anorith: hp +20, attack +5, specialAttack +10, specialDefense +10
+arbok: attack -10, speed +12, types DB=poison/dark source=poison
+arcanine: types DB=fire/normal source=fire
+ariados: hp +5, defense +5, speed +5, specialAttack +30, specialDefense +5
+armaldo: hp +10, speed +20, specialDefense +10
+aron: types DB=steel source=steel/rock
+asandshrew: defense -5, specialAttack +10, specialDefense -5
+avulpix: hp +10, defense +25, speed +6, specialAttack +20, types DB=ice/fairy source=ice
+azumarill: attack +50
+azurill: types DB=water source=normal/fairy
+beautifly: hp +15, attack +5, defense +10, speed +20, specialAttack -5, specialDefense +10
+beedrill: hp +5, attack +10, defense +15, speed +25, types DB=bug/dark source=bug/poison
+beedrillx: hp +25, attack -10, defense +20, speed -25, specialAttack +45, types DB=bug/dark source=bug/poison
+bellossom: defense -10, types DB=grass/fairy source=grass
+blastoise: types DB=water/steel source=water
+blastoisex: defense -10, speed -30, specialAttack -10, types DB=water/steel source=water
+blazikenx: attack -20, defense -10, specialAttack -10, specialDefense -10
+butterfree: hp +15, defense +10, speed +20, specialAttack +10, types DB=bug/fairy source=bug/flying
+cameruptx: attack -20, speed +20, specialAttack -10
+celebi: types DB=fairy/grass source=psychic/grass
+charizard: types DB=fire/dragon source=fire/flying
+charizardx: attack -15, defense -20, specialAttack -19
+charizardy: attack -10, specialAttack -29, specialDefense -15
+chimecho: hp -10, defense -10, specialDefense -10
+chimechox: hp +30, defense -10, speed +10, specialAttack -15, specialDefense -20
+clefable: specialAttack -10
+clefairy: defense +12, speed +15, specialAttack +10
+corsola: hp +30, defense +5, specialDefense +5
+cradily: hp +10, attack -20, defense +20, specialAttack +20, specialDefense +10
+cubone: types DB=ground/ghost source=ground
+delcatty: hp +10, attack +10, defense +10, specialDefense +20
+delibird: hp +15, attack +10, defense +10, speed +75, specialDefense +10
+diglett: hp +15, defense +20
+ditto: hp +27, attack +27, defense +27, speed +27, specialAttack +27, specialDefense +27
+dodrio: speed -10
+dragonitex: attack +10, defense +5, specialAttack -60, specialDefense -5
+dragonitey: attack -39, defense -15, speed +20, specialAttack -11, specialDefense -5, types DB=dragon source=dragon/flying
+drowzee: attack +15, specialAttack +17, types DB=psychic/ghost source=psychic
+dugtrio: attack +10, defense +5, speed +10
+dunsparce: attack +5, defense +5, speed +5, specialAttack +10, specialDefense +10, types DB=ground/fairy source=normal
+dusknoir: hp +25
+dustox: hp +15, attack +25, speed +10, specialDefense +15
+ekans: attack +10, speed +20, types DB=poison/dark source=poison
+electivire: types DB=electric/fighting source=electric
+electrode: speed -10, types DB=electric/normal source=electric
+exeggcute: hp +10, speed +10, specialDefense +15
+exeggutor: specialDefense -10
+exploud: specialDefense -10
+farfetch_d: hp +25, attack +10, speed +18, specialAttack +20, types DB=fighting/flying source=normal/flying
+fearow: speed +8, types DB=flying source=normal/flying
+froslass: specialDefense +10
+froslassx: hp +10, specialAttack -20, specialDefense -20
+furret: hp +15, defense +10, specialDefense +10
+gardevoirx: hp +2, attack -20, defense +5, speed -10, specialAttack -15, specialDefense -15
+gengarx: speed -10, specialAttack -30, specialDefense -10
+glaliex: defense -5, specialAttack -20, specialDefense -5
+gligar: hp +10, specialDefense +10
+golduck: types DB=water/psychic source=water
+golem: attack -10
+gponyta: types DB=psychic/fairy source=psychic
+granbull: types DB=dark/fairy source=fairy
+grapidash: hp +10, attack +5, defense +5, specialAttack -15, specialDefense -5
+growlithe: types DB=fire/normal source=fire
+gyarados: types DB=water/dragon source=water/flying
+gyaradosx: attack -20, defense -10, specialDefense -30, types DB=water/dragon source=water/dark
+harcanine: hp -5, attack -5, speed +5, specialAttack +5
+heracrossx: attack -40, defense -10
+hgrowlithe: hp -5, attack -5, speed +5, specialAttack +5
+hoothoot: speed +10, specialAttack +30, types DB=ghost/flying source=normal/flying
+hoppip: hp +15, defense +15, speed +20
+houndoomx: defense -10, speed -10, specialAttack -20, specialDefense -10
+houndour: hp +15, attack +10, defense +5
+hypno: types DB=psychic/ghost source=psychic
+illumise: hp +10, defense -20, specialAttack +10, specialDefense -10
+jigglypuff: hp +10, attack +5, defense +30, speed +5, specialAttack +15, specialDefense +25
+jumpluff: specialDefense -10
+kabuto: hp +15, speed +10, specialAttack +5, specialDefense +15
+kabutops: hp +20, defense +10, specialDefense +10
+kingler: types DB=water/steel source=water
+krabby: types DB=water/steel source=water
+lairon: types DB=steel source=steel/rock
+ledian: hp +20, attack +40, types DB=bug/fighting source=bug/flying
+ledyba: attack +35, types DB=bug/fighting source=bug/flying
+lickitung: hp +25, attack +20, specialAttack +20
+lileep: hp +10, attack +10, defense +10, speed +10, specialAttack +5
+linoone: hp +10, attack +10, speed +10
+lugia: types DB=water/flying source=psychic/flying
+luvdisc: hp +30, attack +30, defense +10, speed +30, specialAttack +20
+magcargo: hp +10, specialAttack -10, specialDefense +20
+mankey: hp +10, defense +10, types DB=fighting/ground source=fighting
+mantine: hp -20
+mareep: speed +20
+marill: attack +10, speed +30, specialAttack +10
+marowak: speed +15, specialAttack +10, types DB=ground/ghost source=ground
+masquerain: types DB=bug/water source=bug/flying
+mawile: attack +20, defense +40, specialDefense +40
+medicham: attack +60
+meditite: attack +20
+meowth: hp +10, attack +20, types DB=normal/dark source=normal
+metagrossx: attack -10, defense -20, speed -10, specialDefense -10
+mew: types DB=psychic/fairy source=psychic
+mightyena: hp +10, defense +10, speed +10
+minun: hp +15, speed +10, specialAttack +10, specialDefense +10
+misdreavus: hp +15
+mismagius: hp +15, attack +5
+mr__rime: types DB=psychic/ice source=ice/psychic
+nidoking: attack -10
+nidoqueen: attack -10
+nidorina: attack +10, speed +10, specialDefense +15
+nidorino: hp +15, attack +10, speed +10
+ninetales: hp +20, attack -9, speed +9, types DB=fire/fairy source=fire
+noctowl: types DB=ghost/flying source=normal/flying
+nosepass: hp +45, specialAttack +30, types DB=rock/electric source=rock
+numel: specialAttack -20, specialDefense -10
+omanyte: hp +30, speed +10, specialDefense +5
+omastar: hp +15, speed +10, specialDefense +15
+paras: hp +15
+parasect: hp +40, speed +5, types DB=ghost/grass source=bug/grass
+pelipper: hp +10, speed +10, specialAttack -10
+persian: attack +10, types DB=normal/dark source=normal
+pidgeot: speed -10
+pidgeotto: hp +10, attack +10, defense +10, specialDefense +10
+pidgeotx: hp +16, attack -10, defense -10, specialAttack -15, specialDefense -10
+pidgey: hp +10, attack +10, defense +10, specialDefense +10
+pikachu: hp +10, attack +10, defense -10, specialAttack +10, specialDefense -10
+pineco: hp +10
+pinsirx: attack -25, defense -5, speed -10, specialDefense -10
+plusle: hp +15, defense +10, speed +10, specialAttack +10
+poliwhirl: hp +5, attack +10
+poliwrath: attack -10
+ponyta: types DB=fire/normal source=fire
+poochyena: hp +20, defense +20, speed +20
+porygon2: types DB=normal/electric source=normal
+porygon: types DB=normal/electric source=normal
+porygonz: types DB=normal/electric source=normal
+primeape: types DB=fighting/ground source=fighting
+probopass: types DB=rock/electric source=rock/steel
+quagsire: attack +10, defense +10
+qwilfish: defense -10, specialDefense +20
+rapidash: hp +10, defense +5, specialAttack -10, specialDefense -5, types DB=fire/normal source=fire
+raticate: attack +10, speed +10, specialAttack +20
+regice: hp +25, specialAttack +25, specialDefense -50
+regirock: hp +25, attack +25, defense -50
+registeel: hp +25, attack +50, defense -25, specialAttack -25, specialDefense -25
+rhydon: types DB=dragon/rock source=ground/rock
+rhyhorn: specialDefense +15, types DB=dragon/rock source=ground/rock
+rhyperior: types DB=dragon/rock source=ground/rock
+roselia: hp +20, defense +30
+rowlet: speed +3, specialAttack -1, specialDefense +15
+sableye: hp +20, defense +20, speed +10, specialDefense +20
+salamencex: attack -10, defense -10, specialAttack -20, specialDefense -10
+sandshrew: types DB=ground/steel source=ground
+sandslash: types DB=ground/steel source=ground
+sceptilex: attack -15, defense -10, speed -5, specialAttack -20
+scizorx: attack -20, defense -20, specialAttack -10
+seaking: types DB=water/flying source=water
+sentret: hp +10, attack +20, speed +5
+shedinja: defense -44, speed +80, specialDefense -29
+shuckle: hp +20
+sirfetch_d: hp +3, speed +10, types DB=fighting/flying source=fighting
+skiploom: hp +10, defense +10, specialAttack +20
+skitty: attack +20
+slaking: attack -80, speed -50, specialAttack -40, specialDefense +30
+slowbrox: attack -10, defense -30, speed +10, specialAttack -10
+slowpoke: specialAttack +25, specialDefense +20
+slugma: hp +20, defense +20, specialAttack +10, specialDefense +20
+smeargle: hp +20, attack +40, defense +30, specialAttack +40, specialDefense +20
+snubbull: types DB=dark/fairy source=fairy
+spearow: hp +20, attack +10, defense +10, types DB=flying source=normal/flying
+spinarak: hp +20, attack +10, defense +10, specialDefense +10
+spinda: hp +15, attack +15, defense +15, speed +15, specialAttack +15, specialDefense +15
+steelixx: defense -50, specialAttack -10
+sudowoodo: speed +40
+sunflora: hp +25, types DB=grass/fire source=grass
+sunkern: hp +30, defense +10, specialAttack +50, specialDefense +30, types DB=grass/fire source=grass
+surskit: hp +20
+swablu: types DB=dragon/fairy source=normal/flying
+swampertx: attack -20, defense -10, speed -5, specialAttack -10, specialDefense -10
+swellow: hp +10, attack +10, specialAttack -25
+swinub: hp +10, attack +10, defense +20, specialDefense +10
+tangela: specialDefense +15
+tauros: types DB=normal/fighting source=normal
+togetic: hp +5, speed +20, specialAttack +20
+tyranitarx: attack -20, defense -20, specialDefense -10
+tyrogue: hp +15, attack +15, defense +15, speed +15, specialAttack +15, specialDefense +15
+unown: hp +27, attack +3, defense +27, speed +27, specialAttack +3, specialDefense +27, types DB=ghost/dark source=psychic
+venusaurx: attack -5, defense -20, specialDefense -20
+victreebel: specialDefense -10
+victreebelx: hp +30, attack -25, defense +15, speed -30, specialAttack -35, specialDefense +5
+vileplume: specialAttack -10, types DB=grass/dark source=grass/poison
+volbeat: hp +10, attack +20, specialDefense -10
+voltorb: types DB=electric/normal source=electric
+vulpix: hp +10, defense +25, speed +6, specialAttack +20, types DB=fire/fairy source=fire
+wigglytuff: defense +25, specialAttack -10, specialDefense +25
+wobbuffet: hp +45
+wooper: hp +20, attack +20, defense +20, specialAttack +10, specialDefense +20
+wurmple: defense +10
+yanma: hp +10, attack +10, defense +10, speed +20, specialDefense +10, types DB=bug/dragon source=bug/flying
+yanmega: types DB=bug/dragon source=bug/flying
+zubat: hp +20, attack +15, speed +10, specialDefense +10
+
+== UNMATCHED DB NAMES ==
+abra2
+akua
+akueria
+alakazam2
+ashibomb
+bayleef2
+borubea
+butterfreex
+chikorita2
+croconaw2
+cyndaquil2
+dynabea
+electrode2
+exeggcute2
+exeggutor2
+feraligatr2
+flygonx
+furret2
+gorochu
+hanamole
+haneei
+honobea
+ikari
+jupiter
+jynxx
+kadabra2
+kinglerx
+kotora
+kurusu
+ledianx
+magcargox
+mars
+meganium2
+mercury
+ninetales2
+noctowl2
+octillery2
+piloswine2
+ponyta2
+quilava2
+raitora
+rapidash2
+scizor2
+scyther2
+skarmory2
+sunbou
+swalotx
+swinub2
+tauros2
+tentacool2
+tentacruel2
+totartle
+totodile2
+tropiusx
+typhlosion2
+unownx
+venus
+voltorb2
+vulpix2
+yanma2

@@ -1,0 +1,166 @@
+// Parse src/gen_*_families.h into api/sourceStats.ts (reference base stats and
+// types). Run: npx tsx scripts/genSourceStats.ts
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+
+const FIELDS: Record<string, string> = {
+  baseHP: 'hp',
+  baseAttack: 'attack',
+  baseDefense: 'defense',
+  baseSpeed: 'speed',
+  baseSpAttack: 'specialAttack',
+  baseSpDefense: 'specialDefense',
+}
+
+// Assume the newest config: every P_* option resolves to GEN_9 / enabled.
+const defines = new Map<string, string>()
+
+function evaluate(expr: string): unknown {
+  let js = expr
+  for (let i = 0; i < 20 && /\b[A-Z][A-Z0-9_]*\b/.test(js); i++) {
+    js = js
+      .replace(/\bGEN_(\d+)\b/g, '$1')
+      .replace(/\bTYPE_([A-Z_]+)\b/g, (_m, t: string) => `'${t.toLowerCase()}'`)
+      .replace(/(?<!')\b([A-Z][A-Z0-9_]*)\b(?!')/g, (m) => {
+        if (defines.has(m)) return `(${defines.get(m)})`
+        if (m.startsWith('P_')) return '9'
+        throw new Error(`unknown ${m}`)
+      })
+  }
+  js = js.replace(/\bdefined\s*\(\s*\w+\s*\)/g, '1')
+  if (/\b[A-Za-z_]\w*\b/.test(js.replace(/'[a-z_0-9]+'/g, ''))) {
+    throw new Error(`unresolved ${js}`)
+  }
+  return new Function(`return (${js})`)()
+}
+
+// Minimal preprocessor: resolves #if/#elif/#else/#endif and records #defines.
+function preprocess(source: string): string {
+  const out: string[] = []
+  const stack: { active: boolean; taken: boolean; parent: boolean }[] = []
+  const active = () => stack.every((f) => f.active)
+  const cond = (e: string) => {
+    try {
+      return Boolean(evaluate(e))
+    } catch {
+      return false
+    }
+  }
+  for (const line of source.split('\n')) {
+    const d = line.match(/^\s*#\s*(\w+)\s*(.*)$/)
+    if (!d) {
+      if (active()) out.push(line)
+      continue
+    }
+    const [, dir, rest] = d
+    const e = rest
+      .replace(/\/\/.*$/, '')
+      .replace(/\/\*.*?\*\//g, '')
+      .trim()
+    if (dir === 'if' || dir === 'ifdef' || dir === 'ifndef') {
+      const parent = active()
+      const v =
+        dir === 'if'
+          ? cond(e)
+          : dir === 'ifdef'
+            ? defines.has(e) || /^P_/.test(e)
+            : !(defines.has(e) || /^P_/.test(e))
+      stack.push({ active: v, taken: v, parent })
+    } else if (dir === 'elif') {
+      const f = stack[stack.length - 1]
+      const v = !f.taken && cond(e)
+      f.active = v
+      f.taken ||= v
+    } else if (dir === 'else') {
+      const f = stack[stack.length - 1]
+      f.active = !f.taken
+      f.taken = true
+    } else if (dir === 'endif') {
+      stack.pop()
+    } else if (dir === 'define' && active()) {
+      const m = e.match(/^(\w+)\s+(.+)$/)
+      if (m) defines.set(m[1], m[2])
+    }
+  }
+  return out.join('\n')
+}
+
+function splitArgs(s: string): string[] {
+  const args: string[] = []
+  let depth = 0
+  let cur = ''
+  for (const c of s) {
+    if (c === '(') depth++
+    if (c === ')') depth--
+    if (c === ',' && depth === 0) {
+      args.push(cur.trim())
+      cur = ''
+    } else cur += c
+  }
+  if (cur.trim()) args.push(cur.trim())
+  return args
+}
+
+// Bodies of multi-line function-like #defines, keyed by macro name.
+function collectMacroBodies(source: string): Map<string, string> {
+  const bodies = new Map<string, string>()
+  const lines = source.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^\s*#\s*define\s+(\w+)\([^)]*\)\s*\\$/)
+    if (!m) continue
+    const body: string[] = []
+    for (i++; i < lines.length; i++) {
+      body.push(lines[i].replace(/\\$/, ''))
+      if (!lines[i].endsWith('\\')) break
+    }
+    bodies.set(m[1], body.join('\n'))
+  }
+  return bodies
+}
+
+const out: Record<string, unknown> = {}
+const files = readdirSync('src')
+  .filter((f) => /^gen_\d+_families\.h$/.test(f))
+  .sort()
+for (const file of files) {
+  const raw = readFileSync(`src/${file}`, 'utf8')
+  const macroBodies = collectMacroBodies(raw)
+  const source = preprocess(raw)
+  const parts = source.split(/^\s*\[SPECIES_([A-Z0-9_]+)\]\s*=/m)
+  for (let i = 1; i < parts.length; i += 2) {
+    const key = parts[i].toLowerCase().replace(/[^a-z0-9]/g, '')
+    if (out[key]) continue
+    let body = parts[i + 1]
+    // Species defined via a multi-line function-like macro (e.g. Unown).
+    const call = body.match(/^\s*(\w+)\(/)
+    if (call && macroBodies.has(call[1])) body = macroBodies.get(call[1])!
+    const stats: Record<string, number> = {}
+    for (const [field, name] of Object.entries(FIELDS)) {
+      const m = body.match(
+        new RegExp(`\\.${field}\\s*=\\s*([^\\n]+?),\\s*(?://.*)?$`, 'm'),
+      )
+      if (!m) continue
+      try {
+        stats[name] = Number(evaluate(m[1]))
+      } catch {
+        /* skipped below */
+      }
+    }
+    let rhs = body.match(/\.types\s*=\s*([^\n]+?),\s*$/m)?.[1] ?? ''
+    for (let n = 0; n < 5 && defines.has(rhs); n++) rhs = defines.get(rhs)!
+    const t = rhs.match(/^(?:MON_TYPES\((.*)\)|\{(.*)\})$/)
+    if (!t || Object.keys(stats).length !== 6) continue
+    let types: string[]
+    try {
+      types = splitArgs(t[1] ?? t[2]).map((a) => String(evaluate(a)))
+    } catch {
+      continue
+    }
+    out[key] = { stats, types: types[0] === types[1] ? [types[0]] : types }
+  }
+}
+
+writeFileSync(
+  'api/sourceStats.ts',
+  `// Generated by scripts/genSourceStats.ts from src/gen_*_families.h. Do not edit.\nexport interface SourceSpecies {\n  stats: {\n    hp: number\n    attack: number\n    defense: number\n    specialAttack: number\n    specialDefense: number\n    speed: number\n  }\n  types: string[]\n}\n\nexport const SOURCE_SPECIES: Record<string, SourceSpecies> = ${JSON.stringify(out, null, 2)}\n`,
+)
+console.log(Object.keys(out).length, 'species')

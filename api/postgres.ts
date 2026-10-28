@@ -35,6 +35,7 @@ import {
   parseTypes,
   spriteUrl,
 } from './parser.js'
+import { SOURCE_SPECIES } from './sourceStats.js'
 
 // ---------------------------------------------------------------------------
 // Supabase client
@@ -756,6 +757,10 @@ export interface PokemonDetail {
     specialDefense: number
     speed: number
   }
+  sourceComparison: {
+    statDiffs: Partial<Record<string, number>>
+    sourceTypes: string[] | null
+  } | null
   evolutions: {
     method: string
     level?: number
@@ -809,6 +814,44 @@ export interface PokemonDetail {
 }
 
 export interface EncounterRoute extends RouteEncounter {}
+
+function sameTypes(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((t, i) => t === b[i])
+}
+
+// Compare DB values against the reference species data from the .h files.
+// DB regional forms are prefixed: a = Alolan, g = Galarian, h = Hisuian.
+function regionalSource(key: string) {
+  const suffix = { a: 'alola', g: 'galar', h: 'hisui' }[key[0]]
+  return suffix ? SOURCE_SPECIES[`${key.slice(1)}${suffix}`] : undefined
+}
+
+export function compareWithSource(
+  name: string,
+  types: string[],
+  stats: Record<string, number>,
+): PokemonDetail['sourceComparison'] {
+  const key = normalizeKey(name)
+  // Not the Unown letter form; it has no source counterpart.
+  if (key === 'unownx') return null
+  // DB megas are "<name>x"/"<name>y"; source uses "<name>mega[x|y]".
+  const base = key.replace(/[xy]$/, '')
+  const src =
+    SOURCE_SPECIES[key] ??
+    SOURCE_SPECIES[`${base}mega${key.slice(base.length)}`] ??
+    SOURCE_SPECIES[`${base}mega`] ??
+    regionalSource(key)
+  if (!src) return null
+  const statDiffs: Record<string, number> = {}
+  for (const [k, v] of Object.entries(stats)) {
+    const diff = v - (src.stats as Record<string, number>)[k]
+    if (diff !== 0) statDiffs[k] = diff
+  }
+  return {
+    statDiffs,
+    sourceTypes: sameTypes(types, src.types) ? null : src.types,
+  }
+}
 
 export async function getPokemon(name: string): Promise<PokemonDetail | null> {
   const supabase = getSupabase()
@@ -957,18 +1000,23 @@ export async function getPokemon(name: string): Promise<PokemonDetail | null> {
     abilities.push({ ...info, hidden: slot.hidden })
   }
 
+  const dbTypes: string[] =
+    p.type_1 === p.type_2 ? [p.type_1] : [p.type_1, p.type_2]
+  const dbStats = {
+    hp: p.hp,
+    attack: p.attack,
+    defense: p.defense,
+    specialAttack: p.special_attack,
+    specialDefense: p.special_defense,
+    speed: p.speed,
+  }
+
   return {
     name: p.name,
     region: p.region,
-    types: p.type_1 === p.type_2 ? [p.type_1] : [p.type_1, p.type_2],
-    stats: {
-      hp: p.hp,
-      attack: p.attack,
-      defense: p.defense,
-      specialAttack: p.special_attack,
-      specialDefense: p.special_defense,
-      speed: p.speed,
-    },
+    types: dbTypes,
+    stats: dbStats,
+    sourceComparison: compareWithSource(p.name, dbTypes, dbStats),
     evolutions: (evoRes.data ?? []).map((e) => ({
       method: e.method,
       level: e.level ?? undefined,

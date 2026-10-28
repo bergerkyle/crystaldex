@@ -212,6 +212,10 @@ export interface PokemonDetail {
   region: string
   types: string[]
   stats: PokemonStats
+  sourceComparison: {
+    statDiffs: Partial<Record<keyof PokemonStats, number>>
+    sourceTypes: string[] | null
+  } | null
   evolutions: Evolution[]
   evolutionSources: EvolutionSource[]
   moves: Move[]
