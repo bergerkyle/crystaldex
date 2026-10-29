@@ -10,6 +10,8 @@ import { SOURCE_SPECIES } from './sourceStats.js'
 
 // Compare upstream base stats/types (what the sync stores in the DB) against
 // api/sourceStats.ts and return the same text as source-diff-report.txt.
+// Served by GET /api/delta in index.ts. Don't name this file delta.ts: Vercel
+// would route /api/delta straight to it instead of to the Express app.
 export async function buildDeltaReport(): Promise<string> {
   const entries = entriesFromTree(await fetchTree())
   const unmatched: string[] = []

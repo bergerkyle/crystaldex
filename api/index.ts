@@ -1,5 +1,5 @@
 import express from 'express'
-import { buildDeltaReport } from './delta.js'
+import { buildDeltaReport } from './deltaReport.js'
 import {
   getItem,
   getAbout,
