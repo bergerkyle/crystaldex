@@ -1,4 +1,5 @@
 import express from 'express'
+import { buildDeltaReport } from './delta.js'
 import {
   getItem,
   getAbout,
@@ -250,6 +251,16 @@ app.get('/api/about', async (_req, res) => {
       .json({
         error: err instanceof Error ? err.message : 'Failed to load about info',
       })
+  }
+})
+
+app.get('/api/delta', async (_req, res) => {
+  try {
+    res.type('text/plain').send(await buildDeltaReport())
+  } catch (err) {
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to build delta',
+    })
   }
 })
 
