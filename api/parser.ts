@@ -1387,6 +1387,39 @@ export function parseTmHmLearnset(source: string): string[] {
     .filter((s) => /^[A-Z0-9_]+$/.test(s))
 }
 
+export const TMHM_LEARN_PATH = 'engine/items/tmhm2.asm'
+
+// Parse UniversalTMs (move constants every species learns) and NoTMSpecies
+// (normalized species keys exempt from them) from engine/items/tmhm2.asm.
+export function parseUniversalTms(source: string): {
+  moves: string[]
+  excluded: Set<string>
+} {
+  const moves: string[] = []
+  const excluded = new Set<string>()
+  let section: 'universal' | 'excluded' | null = null
+  for (const raw of source.split('\n')) {
+    const line = raw.split(';')[0].trim()
+    if (/^UniversalTMs:/.test(raw)) section = 'universal'
+    else if (/^NoTMSpecies:/.test(raw)) section = 'excluded'
+    else if (/^\w+:/.test(raw)) section = null
+    if (!section) continue
+    let m: RegExpMatchArray | null
+    if (
+      section === 'universal' &&
+      (m = line.match(/^db\s+([A-Z0-9_]+)_TMNUM\s*-\s*1/))
+    ) {
+      moves.push(m[1])
+    } else if (
+      section === 'excluded' &&
+      (m = line.match(/^dw\s+([A-Z0-9_]+)$/))
+    ) {
+      excluded.add(normalizeKey(m[1]))
+    }
+  }
+  return { moves, excluded }
+}
+
 // Sprite URLs point straight at GitHub's CDN (already cached by the browser and
 // GitHub). When a sprite file is edited its git SHA changes, so we append it as
 // a version query to bust stale browser caches without proxying the bytes.

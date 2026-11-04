@@ -14,6 +14,8 @@ import {
   type PokemonEntry,
   type TreeNode,
   ITEM_CONSTANTS_PATH,
+  TMHM_LEARN_PATH,
+  parseUniversalTms,
   entriesFromTree,
   fetchAbilityCatalog,
   fetchEvosAttacks,
@@ -246,6 +248,10 @@ export async function syncDatabase(): Promise<{
     tmhmDefs.map((d) => [d.move, { label: d.label, sort: d.sort }]),
   )
   console.log(`[sync] parsed tm/hm mapping: ${tmhmDefs.length} entries`)
+  const { moves: universalTms, excluded: noTmSpecies } = parseUniversalTms(
+    await fetchRaw(TMHM_LEARN_PATH),
+  )
+  console.log(`[sync] parsed universal tms: ${universalTms.length} entries`)
 
   // Parse every evos_attacks file present in the repo on every sync.
   // Some Pokemon are defined in a different region file than their folder.
@@ -448,7 +454,16 @@ export async function syncDatabase(): Promise<{
       held_item_2: heldItem2,
     })
 
-    const rows = parseTmHmLearnset(source)
+    // TMs/HMs/tutors are no longer listed when learned by level-up or
+    // universal, so merge those in.
+    const tmMoves = new Set(parseTmHmLearnset(source))
+    for (const mv of block?.moves ?? []) {
+      if (tmhmMap.has(mv.move)) tmMoves.add(mv.move)
+    }
+    if (!noTmSpecies.has(pokemonKey)) {
+      for (const mv of universalTms) tmMoves.add(mv)
+    }
+    const rows = [...tmMoves]
       .filter((mv) => validMoveKeys.has(mv))
       .map((mv) => {
         const info = tmhmMap.get(mv)
