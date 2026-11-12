@@ -40,6 +40,21 @@ const SLUG_OVERRIDES: Record<string, string> = {
   REVIVALHERB: 'revival-herb',
   RAGECANDYBAR: 'rage-candy-bar',
   MOOMOO_MILK: 'moomoo-milk',
+  FLAME_ORB: 'flame-orb',
+  TOXIC_ORB: 'toxic-orb',
+  EVIOLITE: 'eviolite',
+  WIDE_LENS: 'wide-lens',
+  BLACK_SLUDGE: 'black-sludge',
+  LIFE_ORB: 'life-orb',
+  FOCUS_SASH: 'focus-sash',
+  ROCKY_HELMET: 'rocky-helmet',
+  EXPERT_BELT: 'expert-belt',
+  MUSCLE_BAND: 'muscle-band',
+  WISE_GLASSES: 'wise-glasses',
+  SHELL_BELL: 'shell-bell',
+  BIG_ROOT: 'big-root',
+  BINDING_BAND: 'binding-band',
+  MACHO_BRACE: 'macho-brace',
 }
 
 export const POKEMON_TYPES = [
