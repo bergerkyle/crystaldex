@@ -195,12 +195,9 @@ export default function App() {
   }, [])
 
   const navigate = (nextRoute: Route) => {
-    // Keep the trainer Rocket-event selection while browsing.
-    const rocket = new URLSearchParams(window.location.search).get('rocket')
     const path = routePath(nextRoute)
-    const target = rocket ? `${path}?rocket=${rocket}` : path
-    if (window.location.pathname + window.location.search !== target) {
-      window.history.pushState({}, '', target)
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path)
     }
     window.scrollTo({ top: 0, behavior: 'instant' })
     setRoute(nextRoute)

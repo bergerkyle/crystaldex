@@ -55,19 +55,18 @@ function ItemChip({
   )
 }
 
-const ROCKET_PARAM = 'rocket'
+const ROCKET_COOKIE = 'crystaldex_rocket'
 
-function readRocketParam(): string[] {
-  const value = new URLSearchParams(window.location.search).get(ROCKET_PARAM)
+function readRocketCookie(): string[] {
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${ROCKET_COOKIE}=([a-z,]*)`),
+  )
   const valid: string[] = ROCKET_EVENTS.map((ev) => ev.key)
-  return (value ?? '').split(',').filter((k) => valid.includes(k))
+  return (match?.[1] ?? '').split(',').filter((k) => valid.includes(k))
 }
 
-function writeRocketParam(keys: string[]) {
-  const url = new URL(window.location.href)
-  if (keys.length > 0) url.searchParams.set(ROCKET_PARAM, keys.join(','))
-  else url.searchParams.delete(ROCKET_PARAM)
-  window.history.replaceState({}, '', url)
+function writeRocketCookie(keys: string[]) {
+  document.cookie = `${ROCKET_COOKIE}=${keys.join(',')}; path=/; max-age=31536000; SameSite=Lax`
 }
 
 const BADGES_COOKIE = 'crystaldex_badges'
@@ -92,7 +91,7 @@ export function TrainerDetailView({
   onSelectPokemon,
 }: TrainerDetailViewProps) {
   const [badges, setBadges] = useState(readBadgesCookie)
-  const [rocket, setRocket] = useState(readRocketParam)
+  const [rocket, setRocket] = useState(readRocketCookie)
   const baseLevel = baseLevelFor(badges, rocket.length)
   const [hardMode, setHardMode] = useState(false)
 
@@ -184,7 +183,7 @@ export function TrainerDetailView({
                         k === key ? e.target.checked : rocket.includes(k),
                     )
                     setRocket(next)
-                    writeRocketParam(next)
+                    writeRocketCookie(next)
                   }}
                 />{' '}
                 {label} Rockets
