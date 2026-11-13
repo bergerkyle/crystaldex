@@ -1,19 +1,20 @@
 import { useLayoutEffect, useRef } from 'react'
 
 interface AppHeaderProps {
-  active: 'pokedex' | 'moves' | 'items' | 'locations' | 'about'
+  active: 'pokedex' | 'moves' | 'items' | 'locations' | 'trainers' | 'about'
   onNavigateHome: () => void
   onNavigatePokedex: () => void
   onNavigateMoves: () => void
   onNavigateItems: () => void
   onNavigateLocations: () => void
+  onNavigateTrainers: () => void
   onNavigateAbout: () => void
   mobileSidebarOpen?: boolean
   onToggleSidebar?: () => void
 }
 
 interface NavItem {
-  key: 'pokedex' | 'moves' | 'items' | 'locations' | 'about'
+  key: 'pokedex' | 'moves' | 'items' | 'locations' | 'trainers' | 'about'
   label: string
   onClick: () => void
 }
@@ -25,6 +26,7 @@ export function AppHeader({
   onNavigateMoves,
   onNavigateItems,
   onNavigateLocations,
+  onNavigateTrainers,
   onNavigateAbout,
   mobileSidebarOpen,
   onToggleSidebar,
@@ -35,6 +37,7 @@ export function AppHeader({
     { key: 'moves', label: 'Moves', onClick: onNavigateMoves },
     { key: 'items', label: 'Items', onClick: onNavigateItems },
     { key: 'locations', label: 'Locations', onClick: onNavigateLocations },
+    { key: 'trainers', label: 'Trainers', onClick: onNavigateTrainers },
     { key: 'about', label: 'About', onClick: onNavigateAbout },
   ]
   const secondRowKeys = new Set<NavItem['key']>(['items', 'about'])

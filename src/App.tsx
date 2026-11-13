@@ -9,6 +9,13 @@ import { LocationsView } from './views/LocationsView'
 import { MoveDetailView } from './views/MoveDetailView'
 import { MovesView } from './views/MovesView'
 import { PokedexView } from './views/PokedexView'
+import { TrainerDetailView } from './views/TrainerDetailView'
+import { TrainersView } from './views/TrainersView'
+import {
+  trainerPath,
+  type TrainerDetail,
+  type TrainerListItem,
+} from './trainers'
 import {
   type ItemDetail,
   type ItemListItem,
@@ -26,6 +33,8 @@ type Route =
   | { view: 'item'; key: string }
   | { view: 'locations' }
   | { view: 'location'; region: string; route: string }
+  | { view: 'trainers' }
+  | { view: 'trainer'; key: string }
   | { view: 'about' }
 
 function parseRoute(pathname: string, search: string): Route {
@@ -54,6 +63,17 @@ function parseRoute(pathname: string, search: string): Route {
     if (itemFromQuery) return { view: 'item', key: itemFromQuery.toUpperCase() }
     return { view: 'items' }
   }
+  if (pathname.startsWith('/trainers/')) {
+    const parts = pathname
+      .slice('/trainers/'.length)
+      .split('/')
+      .map((part) => decodeURIComponent(part).trim())
+      .filter(Boolean)
+    if (parts.length === 2) {
+      return { view: 'trainer', key: parts.join('/').toUpperCase() }
+    }
+  }
+  if (pathname === '/trainers') return { view: 'trainers' }
   if (pathname.startsWith('/locations/')) {
     const parts = pathname
       .slice('/locations/'.length)
@@ -92,6 +112,8 @@ function parseRoute(pathname: string, search: string): Route {
 
 function routePath(route: Route): string {
   if (route.view === 'about') return '/about'
+  if (route.view === 'trainers') return '/trainers'
+  if (route.view === 'trainer') return trainerPath(route.key)
   if (route.view === 'locations') return '/locations'
   if (route.view === 'location') {
     return `/locations/${encodeURIComponent(route.region.toLowerCase())}/${encodeURIComponent(route.route.toUpperCase())}`
@@ -122,6 +144,16 @@ export default function App() {
   const [detail, setDetail] = useState<PokemonDetail | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
+
+  const [trainerList, setTrainerList] = useState<TrainerListItem[]>([])
+  const [trainerListError, setTrainerListError] = useState<string | null>(null)
+  const [loadingTrainerList, setLoadingTrainerList] = useState(false)
+  const [trainerFilter, setTrainerFilter] = useState('')
+  const [trainerDetail, setTrainerDetail] = useState<TrainerDetail | null>(null)
+  const [trainerDetailError, setTrainerDetailError] = useState<string | null>(
+    null,
+  )
+  const [loadingTrainerDetail, setLoadingTrainerDetail] = useState(false)
 
   const [moveList, setMoveList] = useState<MoveCatalogItem[]>([])
   const [moveListError, setMoveListError] = useState<string | null>(null)
@@ -340,6 +372,67 @@ export default function App() {
       .finally(() => setLoadingEncounterRoutes(false))
   }, [route.view, encounterRoutes.length, loadingEncounterRoutes])
 
+  const needsTrainerList =
+    route.view === 'trainers' ||
+    route.view === 'trainer' ||
+    route.view === 'location'
+
+  useEffect(() => {
+    if (
+      !needsTrainerList ||
+      trainerList.length > 0 ||
+      loadingTrainerList ||
+      trainerListError
+    )
+      return
+    setLoadingTrainerList(true)
+    fetch('/api/trainers')
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load trainers (${res.status})`)
+        return res.json() as Promise<TrainerListItem[]>
+      })
+      .then(setTrainerList)
+      .catch((err: unknown) =>
+        setTrainerListError(
+          err instanceof Error ? err.message : 'Unknown error',
+        ),
+      )
+      .finally(() => setLoadingTrainerList(false))
+  }, [
+    needsTrainerList,
+    trainerList.length,
+    loadingTrainerList,
+    trainerListError,
+  ])
+
+  useEffect(() => {
+    if (route.view !== 'trainer') return
+    let cancelled = false
+    setLoadingTrainerDetail(true)
+    setTrainerDetail(null)
+    setTrainerDetailError(null)
+    fetch(
+      `/api/trainers/${route.key.split('/').map(encodeURIComponent).join('/')}`,
+    )
+      .then((res) => {
+        if (res.status === 404) throw new Error('Trainer not found')
+        if (!res.ok) throw new Error(`Failed to load trainer (${res.status})`)
+        return res.json() as Promise<TrainerDetail>
+      })
+      .then((data) => !cancelled && setTrainerDetail(data))
+      .catch(
+        (err: unknown) =>
+          !cancelled &&
+          setTrainerDetailError(
+            err instanceof Error ? err.message : 'Unknown error',
+          ),
+      )
+      .finally(() => !cancelled && setLoadingTrainerDetail(false))
+    return () => {
+      cancelled = true
+    }
+  }, [route])
+
   const allNames = useMemo(
     () => new Set(list.map((p) => p.name.toLowerCase())),
     [list],
@@ -368,17 +461,20 @@ export default function App() {
             ? 'pokedex'
             : route.view === 'about'
               ? 'about'
-              : route.view === 'items' || route.view === 'item'
-                ? 'items'
-              : route.view === 'locations' || route.view === 'location'
-                ? 'locations'
-                : 'moves'
+              : route.view === 'trainers' || route.view === 'trainer'
+                ? 'trainers'
+                : route.view === 'items' || route.view === 'item'
+                  ? 'items'
+                  : route.view === 'locations' || route.view === 'location'
+                    ? 'locations'
+                    : 'moves'
         }
         onNavigateHome={() => navigate({ view: 'pokedex' })}
         onNavigatePokedex={() => navigate({ view: 'pokedex' })}
         onNavigateMoves={() => navigate({ view: 'moves' })}
         onNavigateItems={() => navigate({ view: 'items' })}
         onNavigateLocations={() => navigate({ view: 'locations' })}
+        onNavigateTrainers={() => navigate({ view: 'trainers' })}
         onNavigateAbout={() => navigate({ view: 'about' })}
         mobileSidebarOpen={
           route.view === 'pokedex'
@@ -387,9 +483,9 @@ export default function App() {
               ? mobileMovesSidebarOpen
               : route.view === 'items' || route.view === 'item'
                 ? mobileItemsSidebarOpen
-              : route.view === 'locations' || route.view === 'location'
-                ? mobileLocationsSidebarOpen
-                : undefined
+                : route.view === 'locations' || route.view === 'location'
+                  ? mobileLocationsSidebarOpen
+                  : undefined
         }
         onToggleSidebar={
           route.view === 'pokedex'
@@ -404,11 +500,11 @@ export default function App() {
                 ? () => {
                     setMobileItemsSidebarOpen((isOpen) => !isOpen)
                   }
-              : route.view === 'locations' || route.view === 'location'
-                ? () => {
-                    setMobileLocationsSidebarOpen((isOpen) => !isOpen)
-                  }
-                : undefined
+                : route.view === 'locations' || route.view === 'location'
+                  ? () => {
+                      setMobileLocationsSidebarOpen((isOpen) => !isOpen)
+                    }
+                  : undefined
         }
       />
 
@@ -506,9 +602,39 @@ export default function App() {
             itemList={itemList}
             allNames={allNames}
             onOpenItem={(key) => navigate({ view: 'item', key })}
-            onSelectPokemon={(name) => navigate({ view: 'pokedex', pokemon: name })}
+            onSelectPokemon={(name) =>
+              navigate({ view: 'pokedex', pokemon: name })
+            }
           />
         </ItemsView>
+      )}
+      {route.view === 'trainers' && (
+        <TrainersView
+          trainers={trainerList}
+          loading={loadingTrainerList}
+          error={trainerListError}
+          filter={trainerFilter}
+          onFilterChange={setTrainerFilter}
+          onOpenTrainer={(key) => navigate({ view: 'trainer', key })}
+        />
+      )}
+      {route.view === 'trainer' && (
+        <TrainerDetailView
+          key={route.key}
+          trainer={trainerDetail}
+          error={trainerDetailError}
+          loading={loadingTrainerDetail}
+          allTrainers={trainerList}
+          allNames={allNames}
+          onOpenLocation={(region, routeName) =>
+            navigate({ view: 'location', region, route: routeName })
+          }
+          onOpenItem={(key) => navigate({ view: 'item', key })}
+          onOpenMove={(key) => navigate({ view: 'move', key })}
+          onSelectPokemon={(name) =>
+            navigate({ view: 'pokedex', pokemon: name })
+          }
+        />
       )}
       {route.view === 'about' && (
         <AboutView
@@ -543,6 +669,10 @@ export default function App() {
             />
           ) : (
             <LocationDetailView
+              region={route.region}
+              route={route.route}
+              trainers={trainerList}
+              onOpenTrainer={(key) => navigate({ view: 'trainer', key })}
               routeDetail={
                 encounterRoutes.find(
                   (routeEntry) =>

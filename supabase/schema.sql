@@ -172,6 +172,32 @@ alter table public.pokemon
 alter table public.pokemon
   add column if not exists held_item_2 text references public.items(key) on delete set null;
 
+-- Trainers parsed from data/trainers/parties.asm. Teams are stored as jsonb
+-- (mons with level offsets, items, moves, DVs/EVs); class defaults used for
+-- stat calculation are denormalised onto each row. `locations` is a list of
+-- { region, route } map tokens where the trainer is fought.
+create table if not exists public.trainers (
+  key          text primary key,        -- <CLASS>/<ID>, e.g. YOUNGSTER/JOEY
+  sort         integer not null default 0,
+  class_key    text not null,
+  class_name   text not null,
+  name         text not null,
+  double       boolean not null default false,
+  category     text not null check (category in ('gym', 'elite_four', 'dungeon', 'route')),
+  region       text not null default '',
+  locations    jsonb not null default '[]',
+  pic_url      text,
+  class_items  text[] not null default '{}',
+  base_reward  integer not null default 0,
+  class_dvs    jsonb not null,
+  ev_tier      integer not null default 0,
+  ev_shape     integer not null default 0,
+  normal_team  jsonb not null,
+  hard_team    jsonb
+);
+
+create index if not exists trainers_region_category_idx on public.trainers (region, category);
+
 -- Small key/value store for tracking source-file SHAs between syncs.
 create table if not exists public.sync_meta (
   key    text primary key,
@@ -201,4 +227,5 @@ alter table public.pokemon_tmhm enable row level security;
 alter table public.location_encounters enable row level security;
 alter table public.abilities enable row level security;
 alter table public.items enable row level security;
+alter table public.trainers enable row level security;
 alter table public.sync_meta enable row level security;
