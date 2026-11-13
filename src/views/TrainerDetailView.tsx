@@ -347,6 +347,7 @@ export function TrainerDetailView({
                     </div>
                   </div>
 
+                  <h4 className="trainer-mon-section-title">Moves</h4>
                   <div className="move-table-wrap">
                     <table className="move-table trainer-moves-table">
                       <tbody>
@@ -377,14 +378,17 @@ export function TrainerDetailView({
                   </div>
 
                   {computed && (
-                    <div className="trainer-mon-stats">
-                      {STAT_DISPLAY.map(({ key, label, color }) => (
-                        <div className="trainer-stat" key={key}>
-                          <strong style={{ color }}>{label}:</strong>{' '}
-                          {computed.stats[key]}
-                        </div>
-                      ))}
-                    </div>
+                    <>
+                      <h4 className="trainer-mon-section-title">Stats</h4>
+                      <div className="trainer-mon-stats">
+                        {STAT_DISPLAY.map(({ key, label, color }) => (
+                          <div className="trainer-stat" key={key}>
+                            <strong style={{ color }}>{label}:</strong>{' '}
+                            {computed.stats[key]}
+                          </div>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </section>
               )

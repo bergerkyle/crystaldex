@@ -2348,3 +2348,8 @@ a:hover {
 .trainer-table-sprite {
   image-rendering: pixelated;
 }
+
+.trainer-mon-section-title {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.95rem;
+}
