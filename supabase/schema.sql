@@ -199,6 +199,14 @@ create table if not exists public.trainers (
   hard_team    jsonb
 );
 
+-- Keeps databases created from an earlier version of this table up to date.
+alter table public.trainers add column if not exists sprite_url text;
+alter table public.trainers add column if not exists group_key text not null default '';
+alter table public.trainers add column if not exists variant jsonb;
+alter table public.trainers drop constraint if exists trainers_category_check;
+alter table public.trainers add constraint trainers_category_check
+  check (category in ('gym', 'elite_four', 'dungeon', 'route', 'battle_tower'));
+
 create index if not exists trainers_region_category_idx on public.trainers (region, category);
 
 -- Small key/value store for tracking source-file SHAs between syncs.
