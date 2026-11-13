@@ -2360,3 +2360,25 @@ a:hover {
 .trainer-mon-head > div {
   min-width: 0;
 }
+
+.moves-page .trainer-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.moves-page .trainer-table td,
+.moves-page .trainer-table th {
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.moves-page .trainer-table td:nth-child(1),
+.moves-page .trainer-table th:nth-child(1) {
+  width: 20%;
+}
+
+.moves-page .trainer-table td:nth-child(2),
+.moves-page .trainer-table td:nth-child(3) {
+  width: 40%;
+}
