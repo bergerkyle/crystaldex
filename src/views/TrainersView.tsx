@@ -11,6 +11,40 @@ import {
 // Multi-floor gyms are listed as one group.
 const FLOOR_SUFFIX_RE = /_B?\d+_?F$/
 
+const GYM_ORDER = [
+  'PEWTER_GYM',
+  'CERULEAN_GYM',
+  'VERMILION_GYM',
+  'CELADON_GYM',
+  'FUCHSIA_GYM',
+  'SAFFRON_GYM',
+  'SEAFOAM_GYM',
+  'VIRIDIAN_GYM',
+  'VIOLET_GYM',
+  'AZALEA_GYM',
+  'GOLDENROD_GYM',
+  'ECRUTEAK_GYM',
+  'OLIVINE_GYM',
+  'CIANWOOD_GYM',
+  'MAHOGANY_GYM',
+  'BLACKTHORN_GYM',
+  'RUSTBORO_GYM',
+  'DEWFORD_GYM',
+  'MAUVILLE_GYM',
+  'LAVARIDGE_GYM',
+  'PETALBURG_GYM',
+  'FORTREE_GYM',
+  'MOSSDEEP_GYM',
+  'SOOTOPOLIS_GYM',
+]
+
+function groupRank(category: string, route: string): number {
+  if (category === 'elite_four') return 1000
+  if (category === 'battle_tower') return 999
+  const index = GYM_ORDER.indexOf(route)
+  return index === -1 ? 998 : index
+}
+
 interface TrainersViewProps {
   trainers: TrainerListItem[]
   loading: boolean
@@ -65,16 +99,28 @@ export function TrainersView({
       }
       return {
         region,
-        groups: [...byLocation.entries()].map(([key, group]) => ({
-          key,
-          title:
-            group[0].category === 'elite_four' || !group[0].locations[0]
-              ? TRAINER_CATEGORY_LABELS[group[0].category]
-              : formatLocation(
-                  group[0].locations[0].route.replace(FLOOR_SUFFIX_RE, ''),
-                ),
-          trainers: group,
-        })),
+        groups: [...byLocation.entries()]
+          .sort(
+            ([a, [first]], [b, [second]]) =>
+              groupRank(
+                first.category,
+                (first.locations[0]?.route ?? '').replace(FLOOR_SUFFIX_RE, ''),
+              ) -
+              groupRank(
+                second.category,
+                (second.locations[0]?.route ?? '').replace(FLOOR_SUFFIX_RE, ''),
+              ),
+          )
+          .map(([key, group]) => ({
+            key,
+            title:
+              group[0].category === 'elite_four' || !group[0].locations[0]
+                ? TRAINER_CATEGORY_LABELS[group[0].category]
+                : formatLocation(
+                    group[0].locations[0].route.replace(FLOOR_SUFFIX_RE, ''),
+                  ),
+            trainers: group,
+          })),
       }
     })
   }, [trainers, filter])
