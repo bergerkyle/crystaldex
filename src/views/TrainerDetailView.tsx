@@ -8,9 +8,10 @@ import {
   formatName,
 } from '../pokemon'
 import {
-  baseLevelForBadges,
+  baseLevelFor,
   computeMonStats,
   MAX_BADGES,
+  ROCKET_EVENTS,
   monMoves,
   trainerLabel,
   type TrainerDetail,
@@ -54,6 +55,21 @@ function ItemChip({
   )
 }
 
+const ROCKET_PARAM = 'rocket'
+
+function readRocketParam(): string[] {
+  const value = new URLSearchParams(window.location.search).get(ROCKET_PARAM)
+  const valid: string[] = ROCKET_EVENTS.map((ev) => ev.key)
+  return (value ?? '').split(',').filter((k) => valid.includes(k))
+}
+
+function writeRocketParam(keys: string[]) {
+  const url = new URL(window.location.href)
+  if (keys.length > 0) url.searchParams.set(ROCKET_PARAM, keys.join(','))
+  else url.searchParams.delete(ROCKET_PARAM)
+  window.history.replaceState({}, '', url)
+}
+
 const BADGES_COOKIE = 'crystaldex_badges'
 
 function readBadgesCookie(): number {
@@ -76,7 +92,8 @@ export function TrainerDetailView({
   onSelectPokemon,
 }: TrainerDetailViewProps) {
   const [badges, setBadges] = useState(readBadgesCookie)
-  const baseLevel = baseLevelForBadges(badges)
+  const [rocket, setRocket] = useState(readRocketParam)
+  const baseLevel = baseLevelFor(badges, rocket.length)
   const [hardMode, setHardMode] = useState(false)
 
   const team = trainer
@@ -151,11 +168,28 @@ export function TrainerDetailView({
               >
                 {Array.from({ length: MAX_BADGES + 1 }, (_, n) => (
                   <option key={n} value={n}>
-                    {n} (base Lv. {baseLevelForBadges(n)})
+                    {n} (base Lv. {baseLevelFor(n, rocket.length)})
                   </option>
                 ))}
               </select>
             </label>
+            {ROCKET_EVENTS.map(({ key, label }) => (
+              <label key={key}>
+                <input
+                  type="checkbox"
+                  checked={rocket.includes(key)}
+                  onChange={(e) => {
+                    const next = ROCKET_EVENTS.map((ev) => ev.key).filter(
+                      (k) =>
+                        k === key ? e.target.checked : rocket.includes(k),
+                    )
+                    setRocket(next)
+                    writeRocketParam(next)
+                  }}
+                />{' '}
+                {label} Rockets
+              </label>
+            ))}
             {trainer.hard && (
               <label>
                 <input
@@ -168,10 +202,9 @@ export function TrainerDetailView({
             )}
           </div>
           <p className="muted trainer-note">
-            Trainer levels scale with the number of badges earned (base level =
-            badge level + 5, assuming Rocket events are done as you progress: 1
-            from 8 badges, 2 from 16, all 4 at 24). Stats use the engine formula
-            with the trainer's DVs and EVs.
+            Trainer levels scale with badges earned (badge level + 5) plus 2 for
+            each Rocket event completed. Stats use the engine formula with the
+            trainer's DVs and EVs.
           </p>
           {team.randomCount !== null && (
             <p className="muted">
