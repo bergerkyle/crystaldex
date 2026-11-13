@@ -1,7 +1,12 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { TrainerTable } from '../components/TrainerTable'
 import { RegionAccordion } from '../components/RegionAccordion'
-import { compareRegionOrder, formatLocation, regionGroup } from '../pokemon'
+import {
+  compareRegionOrder,
+  formatLocation,
+  regionGroup,
+  regionGroupLabel,
+} from '../pokemon'
 import {
   TRAINER_CATEGORY_LABELS,
   TRAINERS_PAGE_CATEGORIES,
@@ -60,7 +65,12 @@ interface TrainersViewProps {
   filter: string
   onFilterChange: (value: string) => void
   onOpenTrainer: (key: string) => void
+  mobileSidebarOpen: boolean
+  onCloseSidebar: () => void
 }
+
+const groupAnchor = (region: string, key: string) =>
+  `trainer-group-${region}-${key}`.replace(/[^a-zA-Z0-9_-]/g, '-')
 
 export function TrainersView({
   trainers,
@@ -69,7 +79,11 @@ export function TrainersView({
   filter,
   onFilterChange,
   onOpenTrainer,
+  mobileSidebarOpen,
+  onCloseSidebar,
 }: TrainersViewProps) {
+  const [closedRegions, setClosedRegions] = useState<Set<string>>(new Set())
+  const [pendingAnchor, setPendingAnchor] = useState<string | null>(null)
   const sections = useMemo(() => {
     const query = filter.trim().toLowerCase()
     const listed = trainers.filter((t) =>
@@ -138,39 +152,118 @@ export function TrainersView({
     })
   }, [trainers, filter])
 
+  useEffect(() => {
+    if (!pendingAnchor) return
+    document
+      .getElementById(pendingAnchor)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setPendingAnchor(null)
+  }, [pendingAnchor])
+
+  const setRegionOpen = (region: string, open: boolean) =>
+    setClosedRegions((prev) => {
+      const next = new Set(prev)
+      if (open) next.delete(region)
+      else next.add(region)
+      return next
+    })
+
+  const goToGroup = (region: string, key: string) => {
+    setRegionOpen(region, true)
+    setPendingAnchor(groupAnchor(region, key))
+    onCloseSidebar()
+  }
+
   return (
-    <main className="moves-page trainers-page">
-      <h1 className="moves-page-title">Trainers</h1>
-      <input
-        className="trainer-filter"
-        type="search"
-        placeholder="Filter by name, class or location"
-        value={filter}
-        onChange={(e) => onFilterChange(e.target.value)}
+    <div className="moves-layout">
+      <button
+        className={`moves-sidebar-backdrop ${mobileSidebarOpen ? 'open' : ''}`}
+        onClick={onCloseSidebar}
+        aria-label="Close trainers sidebar"
       />
-      {loading && <p className="muted">Loading...</p>}
-      {error && <p className="error">{error}</p>}
-      {!loading && !error && sections.length === 0 && (
-        <p className="muted">No trainers found.</p>
-      )}
-      {sections.map(({ region, groups }) => (
-        <RegionAccordion
-          key={region}
-          group={region}
-          forceOpen={filter.trim().length > 0}
-        >
-          {groups.map((group) => (
-            <section className="trainer-group" key={group.key}>
-              <TrainerTable
-                title={group.title}
-                trainers={group.trainers}
-                all={trainers}
-                onOpen={onOpenTrainer}
-              />
+      <aside
+        className={`moves-sidebar ${mobileSidebarOpen ? 'open' : ''}`}
+        aria-label="Trainers by region"
+      >
+        <div className="moves-sidebar-head">
+          <span className="moves-sidebar-title">Trainers</span>
+          <button
+            className="moves-sidebar-close"
+            onClick={onCloseSidebar}
+            aria-label="Close trainers sidebar"
+          >
+            <span className="sidebar-close-icon" aria-hidden="true">
+              <span className="sidebar-close-line" />
+              <span className="sidebar-close-line" />
+            </span>
+          </button>
+        </div>
+        <div className="moves-sidebar-scroll">
+          {sections.map(({ region, groups }) => (
+            <section className="moves-sidebar-type" key={region}>
+              <div
+                className={`moves-sidebar-type-toggle locations-sidebar-region-toggle locations-sidebar-region-toggle-${region}`}
+              >
+                <span className="moves-sidebar-type-label">
+                  {regionGroupLabel(region)}
+                </span>
+              </div>
+              <ul className="moves-sidebar-move-list">
+                {groups.map((group) => (
+                  <li key={group.key}>
+                    <button
+                      className="moves-sidebar-move-btn"
+                      onClick={() => goToGroup(region, group.key)}
+                    >
+                      {group.title}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </section>
           ))}
-        </RegionAccordion>
-      ))}
-    </main>
+        </div>
+      </aside>
+      return (
+      <main className="moves-page trainers-page">
+        <h1 className="moves-page-title">Trainers</h1>
+        <input
+          className="trainer-filter"
+          type="search"
+          placeholder="Filter by name, class or location"
+          value={filter}
+          onChange={(e) => onFilterChange(e.target.value)}
+        />
+        {loading && <p className="muted">Loading...</p>}
+        {error && <p className="error">{error}</p>}
+        {!loading && !error && sections.length === 0 && (
+          <p className="muted">No trainers found.</p>
+        )}
+        {sections.map(({ region, groups }) => (
+          <RegionAccordion
+            key={region}
+            group={region}
+            forceOpen={filter.trim().length > 0}
+            open={!closedRegions.has(region)}
+            onOpenChange={(open) => setRegionOpen(region, open)}
+          >
+            {groups.map((group) => (
+              <section
+                className="trainer-group"
+                id={groupAnchor(region, group.key)}
+                key={group.key}
+              >
+                <TrainerTable
+                  title={group.title}
+                  trainers={group.trainers}
+                  all={trainers}
+                  onOpen={onOpenTrainer}
+                />
+              </section>
+            ))}
+          </RegionAccordion>
+        ))}
+      </main>
+    </div>
   )
 }

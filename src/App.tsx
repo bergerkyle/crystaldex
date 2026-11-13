@@ -159,6 +159,8 @@ export default function App() {
   const [moveListError, setMoveListError] = useState<string | null>(null)
   const [loadingMoveList, setLoadingMoveList] = useState(true)
   const [moveFilter, setMoveFilter] = useState('')
+  const [mobileTrainersSidebarOpen, setMobileTrainersSidebarOpen] =
+    useState(false)
   const [mobileMovesSidebarOpen, setMobileMovesSidebarOpen] = useState(false)
 
   const [moveDetail, setMoveDetail] = useState<MoveCatalogItem | null>(null)
@@ -485,7 +487,9 @@ export default function App() {
                 ? mobileItemsSidebarOpen
                 : route.view === 'locations' || route.view === 'location'
                   ? mobileLocationsSidebarOpen
-                  : undefined
+                  : route.view === 'trainers'
+                    ? mobileTrainersSidebarOpen
+                    : undefined
         }
         onToggleSidebar={
           route.view === 'pokedex'
@@ -504,7 +508,11 @@ export default function App() {
                   ? () => {
                       setMobileLocationsSidebarOpen((isOpen) => !isOpen)
                     }
-                  : undefined
+                  : route.view === 'trainers'
+                    ? () => {
+                        setMobileTrainersSidebarOpen((isOpen) => !isOpen)
+                      }
+                    : undefined
         }
       />
 
@@ -616,6 +624,8 @@ export default function App() {
           filter={trainerFilter}
           onFilterChange={setTrainerFilter}
           onOpenTrainer={(key) => navigate({ view: 'trainer', key })}
+          mobileSidebarOpen={mobileTrainersSidebarOpen}
+          onCloseSidebar={() => setMobileTrainersSidebarOpen(false)}
         />
       )}
       {route.view === 'trainer' && (
