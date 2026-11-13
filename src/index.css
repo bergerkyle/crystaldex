@@ -2089,9 +2089,11 @@ a:hover {
 }
 
 .trainer-mon {
-  border: 1px solid rgba(154, 165, 208, 0.3);
+  min-width: 0;
+  border: 1px solid rgba(154, 165, 208, 0.4);
   border-radius: 10px;
   padding: 0.75rem;
+  background: rgba(108, 133, 205, 0.16);
 }
 
 .trainer-mon-head {
@@ -2259,7 +2261,7 @@ a:hover {
 }
 
 .trainer-party {
-  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(420px, 100%), 1fr));
 }
 
 .move-type-heading-toggle {
@@ -2353,4 +2355,8 @@ a:hover {
   margin: 0.75rem 0 0.25rem;
   font-size: 0.95rem;
   font-weight: 700;
+}
+
+.trainer-mon-head > div {
+  min-width: 0;
 }
