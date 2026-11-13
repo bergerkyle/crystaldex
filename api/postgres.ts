@@ -668,7 +668,6 @@ export async function syncDatabase(): Promise<{
       locations: trainer.locations,
       pic_url: cls.picUrl,
       sprite_url: trainer.spriteUrl,
-      sprite_palette: trainer.spritePalette,
       group_key: trainer.group,
       variant: trainer.variant,
       class_items: cls.items,
@@ -1327,7 +1326,6 @@ export interface TrainerListItem {
   locations: TrainerLocation[]
   picUrl: string | null
   spriteUrl: string | null
-  spritePalette: string | null
   double: boolean
   partySize: number
   variantCount: number
@@ -1344,7 +1342,6 @@ interface TrainerRow {
   locations: TrainerLocation[]
   pic_url: string | null
   sprite_url: string | null
-  sprite_palette: string | null
   group_key: string
   variant: TrainerVariant | null
   class_items: string[]
@@ -1413,7 +1410,7 @@ export async function listTrainers(): Promise<TrainerListItem[]> {
     const { data, error } = await supabase
       .from('trainers')
       .select(
-        'key, class_key, class_name, name, double, category, region, locations, pic_url, sprite_url, sprite_palette, group_key, normal_team',
+        'key, class_key, class_name, name, double, category, region, locations, pic_url, sprite_url, group_key, normal_team',
       )
       .order('sort')
       .range(page * pageSize, page * pageSize + pageSize - 1)
@@ -1441,8 +1438,7 @@ export async function listTrainers(): Promise<TrainerListItem[]> {
       locations: row.locations,
       picUrl: row.pic_url,
       spriteUrl: row.sprite_url,
-      spritePalette: row.sprite_palette,
-      double: row.double,
+        double: row.double,
       partySize: row.normal_team.randomCount ?? row.normal_team.mons.length,
       variantCount: variantCounts.get(row.group_key) ?? 1,
     }))
@@ -1573,7 +1569,6 @@ export async function getTrainer(key: string): Promise<TrainerDetail | null> {
     locations: row.locations,
     picUrl: row.pic_url,
     spriteUrl: row.sprite_url,
-    spritePalette: row.sprite_palette,
     double: row.double,
     baseReward: row.base_reward,
     classDvs: row.class_dvs,

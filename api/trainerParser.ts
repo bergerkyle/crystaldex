@@ -12,6 +12,7 @@ import {
   type PokemonEntry,
   type TreeNode,
 } from './parser.js'
+import { PNG } from 'pngjs'
 
 const TRAINER_CONSTANTS_PATH = 'constants/trainer_constants.asm'
 const TRAINER_CLASS_NAMES_PATH = 'data/trainers/class_names.asm'
@@ -769,6 +770,74 @@ function findTrainerPlacements(
   return placements
 }
 
+const SPRITE_FRAME = 16
+const GRAY_THRESHOLDS = [212, 128, 43]
+
+// Tints the first (front-facing) frame of a 2-bit grayscale overworld sheet
+// with its palette and returns it as a transparent PNG data URL.
+function renderPalettedSprite(sheet: Buffer, palette: string): string {
+  const source = PNG.sync.read(sheet)
+  const colors = palette
+    .split(',')
+    .map((hex) =>
+      [0, 2, 4].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)),
+    )
+  const out = new PNG({ width: SPRITE_FRAME, height: SPRITE_FRAME })
+  for (let y = 0; y < SPRITE_FRAME; y += 1) {
+    for (let x = 0; x < SPRITE_FRAME; x += 1) {
+      const from = (y * source.width + x) * 4
+      const to = (y * SPRITE_FRAME + x) * 4
+      const found = GRAY_THRESHOLDS.findIndex((t) => source.data[from] >= t)
+      const slot = found === -1 ? 3 : found
+      if (slot === 0 || source.data[from + 3] === 0) continue
+      const [r, g, b] = colors[slot - 1]
+      out.data[to] = r
+      out.data[to + 1] = g
+      out.data[to + 2] = b
+      out.data[to + 3] = 255
+    }
+  }
+  return `data:image/png;base64,${PNG.sync.write(out).toString('base64')}`
+}
+
+// Replaces each sprite sheet URL with a ready-to-display tinted frame so the
+// client needs no image processing.
+async function renderTrainerSprites(trainers: TrainerDef[]) {
+  const sheets = new Map<string, Promise<Buffer | null>>()
+  const load = (url: string) => {
+    let sheet = sheets.get(url)
+    if (!sheet) {
+      sheet = fetch(url, { headers: { 'User-Agent': 'crystaldex-pokedex' } })
+        .then(async (res) =>
+          res.ok ? Buffer.from(await res.arrayBuffer()) : null,
+        )
+        .catch(() => null)
+      sheets.set(url, sheet)
+    }
+    return sheet
+  }
+  const rendered = new Map<string, Promise<string | null>>()
+  for (const t of trainers) {
+    if (!t.spriteUrl) continue
+    const sheetUrl = t.spriteUrl
+    const palette = t.spritePalette ?? '9a9a9a,5a5a5a,000000'
+    const id = `${sheetUrl}|${palette}`
+    if (!rendered.has(id)) {
+      rendered.set(
+        id,
+        load(sheetUrl).then((sheet) => {
+          try {
+            return sheet ? renderPalettedSprite(sheet, palette) : null
+          } catch {
+            return null
+          }
+        }),
+      )
+    }
+    t.spriteUrl = (await rendered.get(id)) ?? null
+  }
+}
+
 // Trainers without an object event of their own (e.g. fought via loadtrainer
 // from a script) borrow the most common sprite used by their class.
 function fillClassSprites(trainers: TrainerDef[]) {
@@ -966,5 +1035,6 @@ export async function fetchTrainerData(
 
   fillClassSprites(trainers)
   groupTrainerVariants(trainers)
+  await renderTrainerSprites(trainers)
   return { classes, trainers }
 }

@@ -187,8 +187,7 @@ create table if not exists public.trainers (
   region       text not null default '',
   locations    jsonb not null default '[]',
   pic_url      text,
-  sprite_url   text,                    -- overworld sprite sheet
-  sprite_palette text,                  -- 'RRGGBB,RRGGBB,RRGGBB' tint for the sprite
+  sprite_url   text,                    -- palette-tinted overworld sprite (PNG data URL)
   group_key    text not null,           -- key of the primary variant (own key if none)
   variant      jsonb,                   -- { label, minBadges, maxBadges, order }
   class_items  text[] not null default '{}',
@@ -202,7 +201,6 @@ create table if not exists public.trainers (
 
 -- Keeps databases created from an earlier version of this table up to date.
 alter table public.trainers add column if not exists sprite_url text;
-alter table public.trainers add column if not exists sprite_palette text;
 alter table public.trainers add column if not exists group_key text not null default '';
 alter table public.trainers add column if not exists variant jsonb;
 alter table public.trainers drop constraint if exists trainers_category_check;

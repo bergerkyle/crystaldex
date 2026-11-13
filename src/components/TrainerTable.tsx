@@ -1,4 +1,3 @@
-import { TrainerSprite } from './TrainerSprite'
 import { trainerLabel, type TrainerListItem } from '../trainers'
 
 interface TrainerTableProps {
@@ -35,9 +34,11 @@ export function TrainerTable({
             >
               <td>
                 {trainer.spriteUrl && (
-                  <TrainerSprite
+                  <img
+                    className="trainer-table-sprite"
                     src={trainer.spriteUrl}
-                    palette={trainer.spritePalette}
+                    alt=""
+                    loading="lazy"
                   />
                 )}
               </td>
