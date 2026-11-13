@@ -8,6 +8,9 @@ import {
   type TrainerListItem,
 } from '../trainers'
 
+// Multi-floor gyms are listed as one group.
+const FLOOR_SUFFIX_RE = /_B?\d+_?F$/
+
 interface TrainersViewProps {
   trainers: TrainerListItem[]
   loading: boolean
@@ -51,8 +54,12 @@ export function TrainersView({
       const byLocation = new Map<string, TrainerListItem[]>()
       for (const category of TRAINERS_PAGE_CATEGORIES) {
         for (const trainer of inRegion.filter((t) => t.category === category)) {
-          const route = trainer.locations[0]?.route ?? ''
-          const key = `${category}/${route}`
+          const route = (trainer.locations[0]?.route ?? '').replace(
+            FLOOR_SUFFIX_RE,
+            '',
+          )
+          const key =
+            category === 'elite_four' ? 'elite_four' : `${category}/${route}`
           byLocation.set(key, [...(byLocation.get(key) ?? []), trainer])
         }
       }
@@ -60,9 +67,12 @@ export function TrainersView({
         region,
         groups: [...byLocation.entries()].map(([key, group]) => ({
           key,
-          title: group[0].locations[0]
-            ? formatLocation(group[0].locations[0].route)
-            : TRAINER_CATEGORY_LABELS[group[0].category],
+          title:
+            group[0].category === 'elite_four' || !group[0].locations[0]
+              ? TRAINER_CATEGORY_LABELS[group[0].category]
+              : formatLocation(
+                  group[0].locations[0].route.replace(FLOOR_SUFFIX_RE, ''),
+                ),
           trainers: group,
         })),
       }

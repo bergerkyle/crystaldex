@@ -867,6 +867,21 @@ function groupTrainerVariants(trainers: TrainerDef[]) {
     const groupId = `${t.classKey}|${t.name}|${t.locations.map((l) => l.route).join(',')}`
     byGroup.set(groupId, [...(byGroup.get(groupId) ?? []), t])
   }
+  // A gym leader's follow-up battle (loadtrainer outside the badge ladder)
+  // belongs to the same fight.
+  for (const t of trainers) {
+    if (t.variant || t.category !== 'gym') continue
+    const groupId = `${t.classKey}|${t.name}|${t.locations.map((l) => l.route).join(',')}`
+    const members = byGroup.get(groupId)
+    if (!members || members.length < 1) continue
+    t.variant = {
+      label: 'Second battle',
+      minBadges: null,
+      maxBadges: null,
+      order: 99,
+    }
+    members.push(t)
+  }
   for (const members of byGroup.values()) {
     if (members.length < 2) {
       for (const t of members) t.variant = null

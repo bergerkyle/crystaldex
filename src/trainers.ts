@@ -147,18 +147,12 @@ export function trainerPath(key: string): string {
   return `/trainers/${key.split('/').map(encodeURIComponent).join('/')}`
 }
 
-// Trainers sharing a name within a class (rematches) get a numeric suffix.
 export function trainerLabel(
   trainer: Pick<TrainerListItem, 'key' | 'name'>,
-  all: Pick<TrainerListItem, 'key' | 'name' | 'classKey'>[],
+  // Kept so call sites need not change; names are shown as-is.
+  _all?: unknown,
 ): string {
-  const classKey = trainer.key.split('/')[0]
-  const clashes = all.filter(
-    (other) => other.classKey === classKey && other.name === trainer.name,
-  )
-  if (clashes.length < 2) return trainer.name
-  const number = trainer.key.match(/(\d+)$/)?.[1]
-  return number ? `${trainer.name} (${number})` : trainer.name
+  return trainer.name
 }
 
 // Rows of the engine's TrainerEVSpreads (data/trainers/ev_spreads.asm):
