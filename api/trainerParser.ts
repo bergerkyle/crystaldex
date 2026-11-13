@@ -451,14 +451,44 @@ const CATEGORY_RANK: Record<TrainerCategory, number> = {
 
 // Challenge facility and tower parties are fought through engine scripts, not
 // map scripts, so they are identified by their ID prefix.
+const FACILITY_MAPS: Record<string, string[]> = {
+  kanto: [
+    'VIRIDIAN_TRAINER_HOUSE',
+    'VERMILION_CHALLENGE_HALL',
+    'SAFFRON_CHALLENGE_HALL',
+  ],
+  johto: [
+    'VIOLET_EARLS_ACADEMY',
+    'GOLDENROD_CHALLENGE_HALL',
+    'ROUTE_40_CHALLENGE_HALL',
+  ],
+  hoenn: [
+    'RUSTBORO_TRAINERS_SCHOOL',
+    'MAUVILLE_CHALLENGE_HALL',
+    'LILYCOVE_CHALLENGE_HALL',
+  ],
+}
+
 function battleTowerPlacement(id: string): TrainerPlacement | null {
-  const match = /^(?:FACILITY_([A-Z]+)_\d+|TOWER_[A-Z_0-9]+)$/.exec(id)
-  if (!match) return null
-  return {
-    locations: [],
-    category: 'battle_tower',
-    region: match[1]?.toLowerCase() ?? '',
+  const facility = /^FACILITY_([A-Z]+)_(\d+)$/.exec(id)
+  if (facility) {
+    const region = facility[1].toLowerCase()
+    const route =
+      FACILITY_MAPS[region]?.[Math.floor((Number(facility[2]) - 1) / 3)]
+    return {
+      locations: route ? [{ region, route }] : [],
+      category: 'battle_tower',
+      region,
+    }
   }
+  if (/^TOWER_[A-Z_0-9]+$/.test(id)) {
+    return {
+      locations: [{ region: 'hoenn', route: 'BATTLE_RESORT_TOWER' }],
+      category: 'battle_tower',
+      region: 'hoenn',
+    }
+  }
+  return null
 }
 
 const TRAINER_REF_RE =
