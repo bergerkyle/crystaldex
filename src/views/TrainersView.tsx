@@ -39,8 +39,8 @@ const GYM_ORDER = [
 ]
 
 function groupRank(category: string, route: string): number {
-  if (category === 'elite_four') return 1000
-  if (category === 'battle_tower') return 999
+  if (category === 'elite_four') return 999
+  if (category === 'battle_tower') return 1000
   const index = GYM_ORDER.indexOf(route)
   return index === -1 ? 998 : index
 }
