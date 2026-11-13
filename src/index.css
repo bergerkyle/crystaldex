@@ -2375,12 +2375,12 @@ a:hover {
 
 .moves-page .trainer-table td:nth-child(1),
 .moves-page .trainer-table th:nth-child(1) {
-  width: 20%;
+  width: 10%;
 }
 
 .moves-page .trainer-table td:nth-child(2),
 .moves-page .trainer-table td:nth-child(3) {
-  width: 40%;
+  width: 45%;
 }
 
 .trainer-mon .trainer-moves-table,
