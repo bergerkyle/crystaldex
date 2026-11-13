@@ -3,7 +3,8 @@ import {
   compareLocationOrder,
   compareRegionOrder,
   formatLocation,
-  formatName,
+  regionGroup,
+  regionGroupLabel,
   type RouteEncounter,
 } from '../pokemon'
 
@@ -39,7 +40,7 @@ export function LocationsLayout({
   const sidebarGroupedRoutes = useMemo(() => {
     const grouped = new Map<string, RouteEncounter[]>()
     for (const route of routes) {
-      const region = route.region.toLowerCase()
+      const region = regionGroup(route.region)
       if (!grouped.has(region)) grouped.set(region, [])
       grouped.get(region)!.push(route)
     }
@@ -118,7 +119,7 @@ export function LocationsLayout({
                   aria-expanded={isOpen}
                 >
                   <span className="moves-sidebar-type-label">
-                    {formatName(group.region)}
+                    {regionGroupLabel(group.region)}
                   </span>
                   <span className="moves-sidebar-caret" aria-hidden="true">
                     {isOpen ? '▾' : '▸'}

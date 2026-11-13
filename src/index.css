@@ -2255,3 +2255,49 @@ a:hover {
 .trainer-party {
   grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
 }
+
+.move-type-heading-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.region-accordion {
+  margin-top: 1rem;
+}
+
+.region-accordion-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.5rem 0.8rem;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.region-accordion-content {
+  margin-top: 0.6rem;
+}
+
+.locations-sidebar-region-toggle-other {
+  background: rgba(66, 133, 244, 0.34);
+}
+
+.locations-sidebar-region-toggle-other:hover {
+  background: rgba(66, 133, 244, 0.48);
+}
+
+.trainer-table-title {
+  text-align: left;
+  font-weight: 700;
+}
+
+.trainer-group {
+  margin-bottom: 0.8rem;
+}

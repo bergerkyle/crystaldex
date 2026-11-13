@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { TrainerTable } from '../components/TrainerTable'
-import { compareRegionOrder, formatLocation, formatName } from '../pokemon'
+import { RegionAccordion } from '../components/RegionAccordion'
+import { compareRegionOrder, formatLocation, regionGroup } from '../pokemon'
 import {
   TRAINER_CATEGORY_LABELS,
   TRAINERS_PAGE_CATEGORIES,
@@ -42,18 +43,30 @@ export function TrainersView({
             .includes(query),
         )
       : listed
-    const regions = [...new Set(matches.map((t) => t.region))].sort(
-      compareRegionOrder,
-    )
-    return regions.map((region) => ({
-      region,
-      categories: TRAINERS_PAGE_CATEGORIES.map((category) => ({
-        category,
-        trainers: matches.filter(
-          (t) => t.region === region && t.category === category,
-        ),
-      })).filter((group) => group.trainers.length > 0),
-    }))
+    const regions = [
+      ...new Set(matches.map((t) => regionGroup(t.region))),
+    ].sort(compareRegionOrder)
+    return regions.map((region) => {
+      const inRegion = matches.filter((t) => regionGroup(t.region) === region)
+      const byLocation = new Map<string, TrainerListItem[]>()
+      for (const category of TRAINERS_PAGE_CATEGORIES) {
+        for (const trainer of inRegion.filter((t) => t.category === category)) {
+          const route = trainer.locations[0]?.route ?? ''
+          const key = `${category}/${route}`
+          byLocation.set(key, [...(byLocation.get(key) ?? []), trainer])
+        }
+      }
+      return {
+        region,
+        groups: [...byLocation.entries()].map(([key, group]) => ({
+          key,
+          title: group[0].locations[0]
+            ? formatLocation(group[0].locations[0].route)
+            : TRAINER_CATEGORY_LABELS[group[0].category],
+          trainers: group,
+        })),
+      }
+    })
   }, [trainers, filter])
 
   return (
@@ -71,32 +84,23 @@ export function TrainersView({
       {!loading && !error && sections.length === 0 && (
         <p className="muted">No trainers found.</p>
       )}
-      {sections.map(({ region, categories }) => (
-        <details className="detail-accordion" key={region} open>
-          <summary className="detail-accordion-summary">
-            <span className="detail-accordion-title">
-              {region ? formatName(region) : 'Other'}
-            </span>
-            <span className="detail-accordion-caret" aria-hidden="true">
-              ▾
-            </span>
-          </summary>
-          <div className="detail-accordion-content">
-            {categories.map(({ category, trainers: group }) => (
-              <section className="trainer-group" key={category}>
-                <h2 className="route-detail-table-title">
-                  {TRAINER_CATEGORY_LABELS[category]} ({group.length})
-                </h2>
-                <TrainerTable
-                  trainers={group}
-                  all={trainers}
-                  showLocation
-                  onOpen={onOpenTrainer}
-                />
-              </section>
-            ))}
-          </div>
-        </details>
+      {sections.map(({ region, groups }) => (
+        <RegionAccordion
+          key={region}
+          group={region}
+          forceOpen={filter.trim().length > 0}
+        >
+          {groups.map((group) => (
+            <section className="trainer-group" key={group.key}>
+              <TrainerTable
+                title={group.title}
+                trainers={group.trainers}
+                all={trainers}
+                onOpen={onOpenTrainer}
+              />
+            </section>
+          ))}
+        </RegionAccordion>
       ))}
     </main>
   )

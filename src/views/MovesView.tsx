@@ -40,9 +40,15 @@ export function MovesView({
   const [moveSortByType, setMoveSortByType] = useState<
     Record<string, MoveSortState>
   >({})
+  const [collapsedTypes, setCollapsedTypes] = useState<Record<string, boolean>>(
+    {},
+  )
   const [openTypeSections, setOpenTypeSections] = useState<
     Record<string, boolean>
   >({})
+
+  const toggleCollapsedType = (type: string) =>
+    setCollapsedTypes((prev) => ({ ...prev, [type]: !prev[type] }))
 
   const filteredMoves = useMemo(() => {
     const query = moveFilter.trim().toLowerCase()
@@ -180,8 +186,18 @@ export function MovesView({
         {sortedGroupedMoves.map((group) => (
           <section className="move-type-section" key={group.type}>
             <h3
-              className="move-type-heading"
+              className="move-type-heading move-type-heading-toggle"
               id={`type-heading-${group.type}`}
+              role="button"
+              tabIndex={0}
+              aria-expanded={!collapsedTypes[group.type]}
+              onClick={() => toggleCollapsedType(group.type)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  toggleCollapsedType(group.type)
+                }
+              }}
               style={{
                 backgroundColor: TYPE_HEADER_COLORS[group.type] ?? '#666',
                 color: headerTextColor(
@@ -201,72 +217,77 @@ export function MovesView({
                 )}
                 {formatConstant(group.type).toUpperCase()}
               </span>
+              <span aria-hidden="true">
+                {collapsedTypes[group.type] ? '▸' : '▾'}
+              </span>
             </h3>
-            <div className="move-table-wrap">
-              <table className="move-table">
-                <thead>
-                  <tr>
-                    <th>
-                      <button
-                        className="sort-btn"
-                        onClick={() => toggleMoveSort(group.type, 'name')}
-                      >
-                        Name{sortIndicator(group.type, 'name')}
-                      </button>
-                    </th>
-                    <th>
-                      <button
-                        className="sort-btn"
-                        onClick={() => toggleMoveSort(group.type, 'category')}
-                      >
-                        Category{sortIndicator(group.type, 'category')}
-                      </button>
-                    </th>
-                    <th>
-                      <button
-                        className="sort-btn"
-                        onClick={() => toggleMoveSort(group.type, 'power')}
-                      >
-                        Power{sortIndicator(group.type, 'power')}
-                      </button>
-                    </th>
-                    <th>
-                      <button
-                        className="sort-btn"
-                        onClick={() => toggleMoveSort(group.type, 'accuracy')}
-                      >
-                        Accuracy{sortIndicator(group.type, 'accuracy')}
-                      </button>
-                    </th>
-                    <th>
-                      <button
-                        className="sort-btn"
-                        onClick={() => toggleMoveSort(group.type, 'pp')}
-                      >
-                        PP{sortIndicator(group.type, 'pp')}
-                      </button>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {group.moves.map((m) => (
-                    <tr
-                      key={m.key}
-                      className="move-table-row"
-                      onClick={() => onOpenMove(m.key)}
-                    >
-                      <td className="move-table-name-cell">{m.name}</td>
-                      <td>
-                        <CategoryMetaChip category={m.category} />
-                      </td>
-                      <td>{m.power > 0 ? m.power : '-'}</td>
-                      <td>{moveAccuracy(m) > 0 ? moveAccuracy(m) : '-'}</td>
-                      <td>{m.pp}</td>
+            {!collapsedTypes[group.type] && (
+              <div className="move-table-wrap">
+                <table className="move-table">
+                  <thead>
+                    <tr>
+                      <th>
+                        <button
+                          className="sort-btn"
+                          onClick={() => toggleMoveSort(group.type, 'name')}
+                        >
+                          Name{sortIndicator(group.type, 'name')}
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          className="sort-btn"
+                          onClick={() => toggleMoveSort(group.type, 'category')}
+                        >
+                          Category{sortIndicator(group.type, 'category')}
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          className="sort-btn"
+                          onClick={() => toggleMoveSort(group.type, 'power')}
+                        >
+                          Power{sortIndicator(group.type, 'power')}
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          className="sort-btn"
+                          onClick={() => toggleMoveSort(group.type, 'accuracy')}
+                        >
+                          Accuracy{sortIndicator(group.type, 'accuracy')}
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          className="sort-btn"
+                          onClick={() => toggleMoveSort(group.type, 'pp')}
+                        >
+                          PP{sortIndicator(group.type, 'pp')}
+                        </button>
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {group.moves.map((m) => (
+                      <tr
+                        key={m.key}
+                        className="move-table-row"
+                        onClick={() => onOpenMove(m.key)}
+                      >
+                        <td className="move-table-name-cell">{m.name}</td>
+                        <td>
+                          <CategoryMetaChip category={m.category} />
+                        </td>
+                        <td>{m.power > 0 ? m.power : '-'}</td>
+                        <td>{moveAccuracy(m) > 0 ? moveAccuracy(m) : '-'}</td>
+                        <td>{m.pp}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         ))}
       </>

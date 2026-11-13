@@ -1,9 +1,10 @@
+import { RegionAccordion } from '../components/RegionAccordion'
 import { LocationAutocomplete } from '../components/LocationAutocomplete'
 import {
   compareLocationOrder,
   compareRegionOrder,
   formatLocation,
-  formatName,
+  regionGroup,
   type RouteEncounter,
 } from '../pokemon'
 
@@ -24,7 +25,7 @@ export function LocationsView({
 }: LocationsViewProps) {
   const groupedRoutes = routes.reduce<Record<string, RouteEncounter[]>>(
     (acc, route) => {
-      const key = route.region
+      const key = regionGroup(route.region)
       acc[key] ??= []
       acc[key].push(route)
       return acc
@@ -54,26 +55,30 @@ export function LocationsView({
       {!loading && !error && (
         <div className="location-region-list">
           {regions.map(([region, regionRoutes]) => (
-            <section key={region} className="location-region-section">
-              <h2 className="location-region-title">{formatName(region)}</h2>
-              <ul className="location-list">
-                {regionRoutes
-                  .slice()
-                  .sort((a, b) => compareLocationOrder(a.route, b.route))
-                  .map((route) => (
-                    <li key={`${route.region}/${route.route}`}>
-                      <button
-                        className="location-list-button"
-                        onClick={() =>
-                          onOpenLocation(route.region, route.route)
-                        }
-                      >
-                        {formatLocation(route.route)}
-                      </button>
-                    </li>
-                  ))}
-              </ul>
-            </section>
+            <RegionAccordion key={region} group={region}>
+              <div className="move-table-wrap">
+                <table className="move-table location-table">
+                  <tbody>
+                    {regionRoutes
+                      .slice()
+                      .sort((a, b) => compareLocationOrder(a.route, b.route))
+                      .map((route) => (
+                        <tr
+                          key={`${route.region}/${route.route}`}
+                          className="move-table-row"
+                          onClick={() =>
+                            onOpenLocation(route.region, route.route)
+                          }
+                        >
+                          <td className="move-table-name-cell">
+                            {formatLocation(route.route)}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </RegionAccordion>
           ))}
         </div>
       )}
