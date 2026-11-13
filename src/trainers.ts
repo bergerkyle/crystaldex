@@ -12,8 +12,17 @@ const BADGE_LEVEL_MODS = [
 
 export const MAX_BADGES = BADGE_LEVEL_MODS.length - 1
 
+// The engine adds +2 per Rocket event (Mahogany, Radio Tower, Mauvile,
+// Mt. Moon). Assume 1 done at 8 badges, 2 at 16 and all 4 at 24.
+export function rocketEventsForBadges(badges: number): number {
+  if (badges >= 24) return 4
+  if (badges >= 16) return 2
+  if (badges >= 8) return 1
+  return 0
+}
+
 export function baseLevelForBadges(badges: number): number {
-  return (BADGE_LEVEL_MODS[badges] ?? 0) + 5
+  return (BADGE_LEVEL_MODS[badges] ?? 0) + 5 + 2 * rocketEventsForBadges(badges)
 }
 
 export const TRAINER_CATEGORY_ORDER: TrainerCategory[] = [

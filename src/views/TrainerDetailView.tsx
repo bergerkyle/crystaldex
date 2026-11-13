@@ -54,6 +54,16 @@ function ItemChip({
   )
 }
 
+const BADGES_COOKIE = 'crystaldex_badges'
+
+function readBadgesCookie(): number {
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${BADGES_COOKIE}=(\\d+)`),
+  )
+  const value = match ? Number(match[1]) : 0
+  return value >= 0 && value <= MAX_BADGES ? value : 0
+}
+
 export function TrainerDetailView({
   trainer,
   error,
@@ -65,7 +75,7 @@ export function TrainerDetailView({
   onOpenMove,
   onSelectPokemon,
 }: TrainerDetailViewProps) {
-  const [badges, setBadges] = useState(0)
+  const [badges, setBadges] = useState(readBadgesCookie)
   const baseLevel = baseLevelForBadges(badges)
   const [hardMode, setHardMode] = useState(false)
 
@@ -133,7 +143,11 @@ export function TrainerDetailView({
               Badges{' '}
               <select
                 value={badges}
-                onChange={(e) => setBadges(Number(e.target.value))}
+                onChange={(e) => {
+                  const value = Number(e.target.value)
+                  setBadges(value)
+                  document.cookie = `${BADGES_COOKIE}=${value}; path=/; max-age=31536000; SameSite=Lax`
+                }}
               >
                 {Array.from({ length: MAX_BADGES + 1 }, (_, n) => (
                   <option key={n} value={n}>
@@ -155,8 +169,9 @@ export function TrainerDetailView({
           </div>
           <p className="muted trainer-note">
             Trainer levels scale with the number of badges earned (base level =
-            badge level + 5, before Rocket story bonuses). Stats use the engine
-            formula with the trainer's DVs and EVs.
+            badge level + 5, assuming Rocket events are done as you progress: 1
+            from 8 badges, 2 from 16, all 4 at 24). Stats use the engine formula
+            with the trainer's DVs and EVs.
           </p>
           {team.randomCount !== null && (
             <p className="muted">
