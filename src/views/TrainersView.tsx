@@ -224,7 +224,6 @@ export function TrainersView({
           ))}
         </div>
       </aside>
-      return (
       <main className="moves-page trainers-page">
         <h1 className="moves-page-title">Trainers</h1>
         <input
