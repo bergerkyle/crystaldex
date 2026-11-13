@@ -38,11 +38,19 @@ const GYM_ORDER = [
   'SOOTOPOLIS_GYM',
 ]
 
+const ELITE_FOUR_ORDER = ['will', 'koga', 'bruno', 'karen', 'lance']
+
 function groupRank(category: string, route: string): number {
   if (category === 'elite_four') return 999
   if (category === 'battle_tower') return 1000
   const index = GYM_ORDER.indexOf(route)
   return index === -1 ? 998 : index
+}
+
+function eliteRank(trainer: TrainerListItem): number {
+  if (trainer.category !== 'elite_four' || trainer.region !== 'kanto') return 0
+  const index = ELITE_FOUR_ORDER.indexOf(trainer.name.toLowerCase())
+  return index === -1 ? ELITE_FOUR_ORDER.length : index
 }
 
 interface TrainersViewProps {
@@ -122,7 +130,8 @@ export function TrainersView({
             trainers: [...group].sort(
               (x, y) =>
                 Number(y.className === 'Leader') -
-                Number(x.className === 'Leader'),
+                  Number(x.className === 'Leader') ||
+                eliteRank(x) - eliteRank(y),
             ),
           })),
       }
