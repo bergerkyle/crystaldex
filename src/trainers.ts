@@ -127,7 +127,18 @@ export interface TrainerDetail extends Omit<
   evTier: number
   evShape: number
   classItems: TrainerItemInfo[]
-  moves: Record<string, { name: string; type: string; category: string }>
+  moves: Record<
+    string,
+    {
+      name: string
+      type: string
+      category: string
+      power: number
+      accuracy: number
+      pp: number
+      target: string
+    }
+  >
   // One entry per party the trainer can use, ordered by progression.
   variants: TrainerVariantDetail[]
 }

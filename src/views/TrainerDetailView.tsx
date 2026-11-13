@@ -6,7 +6,9 @@ import {
   formatConstant,
   formatLocation,
   formatName,
+  moveAccuracy,
 } from '../pokemon'
+import { CategoryMetaChip, TypeMetaChip } from './moveMeta'
 import {
   baseLevelFor,
   computeMonStats,
@@ -18,7 +20,6 @@ import {
   type TrainerItemInfo,
   type TrainerListItem,
 } from '../trainers'
-import { TYPE_ICONS } from './moveMeta'
 
 interface TrainerDetailViewProps {
   trainer: TrainerDetail | null
@@ -299,21 +300,11 @@ export function TrainerDetailView({
                         Lv. {level}
                         {mon.shiny ? ' · Shiny' : ''}
                       </p>
-                      <p className="trainer-mon-types">
-                        {mon.types.map((type) =>
-                          TYPE_ICONS[type] ? (
-                            <img
-                              key={type}
-                              src={TYPE_ICONS[type]}
-                              alt={type}
-                              title={type}
-                              width={20}
-                            />
-                          ) : (
-                            <span key={type}>{type}</span>
-                          ),
-                        )}
-                      </p>
+                      <div className="pokemon-types">
+                        {mon.types.map((type) => (
+                          <TypeMetaChip key={type} type={type} />
+                        ))}
+                      </div>
                       {mon.ability && (
                         <p>Ability: {formatConstant(mon.ability)}</p>
                       )}
@@ -336,38 +327,66 @@ export function TrainerDetailView({
                     </div>
                   </div>
 
-                  <ul className="trainer-mon-moves">
-                    {moves.map((move) => (
-                      <li key={move}>
-                        <button
-                          className="move-link"
-                          onClick={() => onOpenMove(move)}
-                        >
-                          {trainer.moves[move]?.name ?? formatConstant(move)}
-                        </button>
-                      </li>
-                    ))}
-                    {!mon.moves && <li className="muted">(level-up moves)</li>}
-                  </ul>
+                  <div className="move-table-wrap">
+                    <table className="move-table trainer-moves-table">
+                      <thead>
+                        <tr>
+                          <th>Move</th>
+                          <th>Type</th>
+                          <th>Category</th>
+                          <th>Power</th>
+                          <th>Accuracy</th>
+                          <th>PP</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {moves.map((move) => {
+                          const info = trainer.moves[move]
+                          return (
+                            <tr
+                              key={move}
+                              className="move-table-row"
+                              onClick={() => onOpenMove(move)}
+                            >
+                              <td className="move-table-name-cell">
+                                {info?.name ?? formatConstant(move)}
+                              </td>
+                              <td>
+                                {info && <TypeMetaChip type={info.type} />}
+                              </td>
+                              <td>
+                                {info && (
+                                  <CategoryMetaChip category={info.category} />
+                                )}
+                              </td>
+                              <td>
+                                {info && info.power > 0 ? info.power : '-'}
+                              </td>
+                              <td>
+                                {info &&
+                                moveAccuracy({ key: move, ...info }) > 0
+                                  ? moveAccuracy({ key: move, ...info })
+                                  : '-'}
+                              </td>
+                              <td>{info?.pp ?? '-'}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {!mon.moves && (
+                    <p className="muted">
+                      Moves are its latest level-up moves.
+                    </p>
+                  )}
 
                   {computed && (
                     <div className="trainer-mon-stats">
                       {STAT_DISPLAY.map(({ key, label, color }) => (
-                        <div className="stat-row" key={key}>
-                          <span className="stat-label">{label}</span>
-                          <span className="stat-value">
-                            {computed.stats[key]}
-                          </span>
-                          <span className="stat-track">
-                            <span
-                              className="stat-bar"
-                              style={{
-                                display: 'block',
-                                width: `${Math.min(100, (computed.stats[key] / (key === 'hp' ? 400 : 300)) * 100)}%`,
-                                background: color,
-                              }}
-                            />
-                          </span>
+                        <div className="trainer-stat" key={key}>
+                          <strong style={{ color }}>{label}:</strong>{' '}
+                          {computed.stats[key]}
                         </div>
                       ))}
                     </div>

@@ -2240,3 +2240,18 @@ a:hover {
 .trainer-info:focus .trainer-info-tip {
   display: block;
 }
+
+.trainer-mon-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 1rem;
+}
+
+.trainer-moves-table {
+  table-layout: auto;
+  margin: 0.5rem 0;
+}
+
+.trainer-party {
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+}

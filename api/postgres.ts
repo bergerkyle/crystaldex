@@ -1386,7 +1386,18 @@ export interface TrainerDetail extends Omit<
   evTier: number
   evShape: number
   classItems: { key: string; name: string; iconUrl: string | null }[]
-  moves: Record<string, { name: string; type: string; category: string }>
+  moves: Record<
+    string,
+    {
+      name: string
+      type: string
+      category: string
+      power: number
+      accuracy: number
+      pp: number
+      target: string
+    }
+  >
   // One entry per party the trainer can use, ordered by progression.
   variants: TrainerVariantDetail[]
 }
@@ -1500,7 +1511,7 @@ export async function getTrainer(key: string): Promise<TrainerDetail | null> {
   const movesRes = allMoveKeys.length
     ? await supabase
         .from('moves')
-        .select('key, name, type, category')
+        .select('key, name, type, category, power, accuracy, pp, target')
         .in('key', allMoveKeys)
     : { data: [], error: null }
   if (movesRes.error) throw new Error(movesRes.error.message)
@@ -1567,7 +1578,15 @@ export async function getTrainer(key: string): Promise<TrainerDetail | null> {
     moves: Object.fromEntries(
       (movesRes.data ?? []).map((m) => [
         m.key,
-        { name: m.name, type: m.type, category: m.category },
+        {
+          name: m.name,
+          type: m.type,
+          category: m.category,
+          power: m.power,
+          accuracy: m.accuracy,
+          pp: m.pp,
+          target: m.target,
+        },
       ]),
     ),
     variants: rows.map((r) => ({
