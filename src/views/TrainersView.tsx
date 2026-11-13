@@ -3,7 +3,7 @@ import { TrainerLink } from '../components/TrainerLink'
 import { compareRegionOrder, formatLocation, formatName } from '../pokemon'
 import {
   TRAINER_CATEGORY_LABELS,
-  TRAINER_CATEGORY_ORDER,
+  TRAINERS_PAGE_CATEGORIES,
   type TrainerListItem,
 } from '../trainers'
 
@@ -26,8 +26,11 @@ export function TrainersView({
 }: TrainersViewProps) {
   const sections = useMemo(() => {
     const query = filter.trim().toLowerCase()
+    const listed = trainers.filter((t) =>
+      TRAINERS_PAGE_CATEGORIES.includes(t.category),
+    )
     const matches = query
-      ? trainers.filter((trainer) =>
+      ? listed.filter((trainer) =>
           [
             trainer.name,
             trainer.className,
@@ -38,13 +41,13 @@ export function TrainersView({
             .toLowerCase()
             .includes(query),
         )
-      : trainers
+      : listed
     const regions = [...new Set(matches.map((t) => t.region))].sort(
       compareRegionOrder,
     )
     return regions.map((region) => ({
       region,
-      categories: TRAINER_CATEGORY_ORDER.map((category) => ({
+      categories: TRAINERS_PAGE_CATEGORIES.map((category) => ({
         category,
         trainers: matches.filter(
           (t) => t.region === region && t.category === category,

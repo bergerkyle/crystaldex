@@ -2123,3 +2123,11 @@ a:hover {
   gap: 0.5rem;
   font-size: 0.85rem;
 }
+
+.trainer-controls select {
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid rgba(154, 165, 208, 0.4);
+  background: transparent;
+  color: inherit;
+}

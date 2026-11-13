@@ -39,6 +39,7 @@ import {
 } from './parser.js'
 import {
   fetchTrainerData,
+  type TrainerCategory,
   type TrainerDvs,
   type TrainerLocation,
   type TrainerMon,
@@ -662,7 +663,7 @@ export async function syncDatabase(): Promise<{
       name: trainer.name,
       double: trainer.double,
       category: trainer.category,
-      region: trainer.locations[0]?.region ?? '',
+      region: trainer.region,
       locations: trainer.locations,
       pic_url: cls.picUrl,
       class_items: cls.items,
@@ -1316,7 +1317,7 @@ export interface TrainerListItem {
   name: string
   classKey: string
   className: string
-  category: 'gym' | 'elite_four' | 'dungeon' | 'route'
+  category: TrainerCategory
   region: string
   locations: TrainerLocation[]
   picUrl: string | null

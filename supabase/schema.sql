@@ -183,7 +183,7 @@ create table if not exists public.trainers (
   class_name   text not null,
   name         text not null,
   double       boolean not null default false,
-  category     text not null check (category in ('gym', 'elite_four', 'dungeon', 'route')),
+  category     text not null check (category in ('gym', 'elite_four', 'dungeon', 'route', 'battle_tower')),
   region       text not null default '',
   locations    jsonb not null default '[]',
   pic_url      text,
@@ -195,6 +195,11 @@ create table if not exists public.trainers (
   normal_team  jsonb not null,
   hard_team    jsonb
 );
+
+-- For databases created before the battle_tower category existed.
+alter table public.trainers drop constraint if exists trainers_category_check;
+alter table public.trainers add constraint trainers_category_check
+  check (category in ('gym', 'elite_four', 'dungeon', 'route', 'battle_tower'));
 
 create index if not exists trainers_region_category_idx on public.trainers (region, category);
 

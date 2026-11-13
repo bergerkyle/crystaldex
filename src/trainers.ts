@@ -1,12 +1,34 @@
 import type { PokemonStats } from './pokemon'
 
-export type TrainerCategory = 'gym' | 'elite_four' | 'dungeon' | 'route'
+export type TrainerCategory =
+  'gym' | 'elite_four' | 'dungeon' | 'route' | 'battle_tower'
+
+// Engine badge count -> level mod (engine/events/std_scripts.asm). The
+// scaling base level is the mod + 5.
+const BADGE_LEVEL_MODS = [
+  0, 5, 10, 15, 20, 25, 30, 35, 40, 42, 44, 46, 48, 50, 52, 54, 56, 57, 58, 59,
+  60, 61, 62, 63, 64,
+]
+
+export const MAX_BADGES = BADGE_LEVEL_MODS.length - 1
+
+export function baseLevelForBadges(badges: number): number {
+  return (BADGE_LEVEL_MODS[badges] ?? 0) + 5
+}
 
 export const TRAINER_CATEGORY_ORDER: TrainerCategory[] = [
   'gym',
   'elite_four',
   'dungeon',
   'route',
+  'battle_tower',
+]
+
+// Dungeon and route trainers are only listed on their location pages.
+export const TRAINERS_PAGE_CATEGORIES: TrainerCategory[] = [
+  'gym',
+  'elite_four',
+  'battle_tower',
 ]
 
 export const TRAINER_CATEGORY_LABELS: Record<TrainerCategory, string> = {
@@ -14,6 +36,7 @@ export const TRAINER_CATEGORY_LABELS: Record<TrainerCategory, string> = {
   elite_four: 'Elite Four',
   dungeon: 'Dungeons & Buildings',
   route: 'Routes & Towns',
+  battle_tower: 'Battle Tower & Facility',
 }
 
 export interface TrainerLocation {

@@ -8,7 +8,9 @@ import {
   formatName,
 } from '../pokemon'
 import {
+  baseLevelForBadges,
   computeMonStats,
+  MAX_BADGES,
   monMoves,
   trainerLabel,
   type TrainerDetail,
@@ -63,7 +65,8 @@ export function TrainerDetailView({
   onOpenMove,
   onSelectPokemon,
 }: TrainerDetailViewProps) {
-  const [baseLevel, setBaseLevel] = useState(0)
+  const [badges, setBadges] = useState(0)
+  const baseLevel = baseLevelForBadges(badges)
   const [hardMode, setHardMode] = useState(false)
 
   const team = trainer
@@ -127,18 +130,17 @@ export function TrainerDetailView({
 
           <div className="trainer-controls">
             <label>
-              Base level{' '}
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={baseLevel}
-                onChange={(e) =>
-                  setBaseLevel(
-                    Math.min(100, Math.max(0, Number(e.target.value) || 0)),
-                  )
-                }
-              />
+              Badges{' '}
+              <select
+                value={badges}
+                onChange={(e) => setBadges(Number(e.target.value))}
+              >
+                {Array.from({ length: MAX_BADGES + 1 }, (_, n) => (
+                  <option key={n} value={n}>
+                    {n} (base Lv. {baseLevelForBadges(n)})
+                  </option>
+                ))}
+              </select>
             </label>
             {trainer.hard && (
               <label>
@@ -152,8 +154,9 @@ export function TrainerDetailView({
             )}
           </div>
           <p className="muted trainer-note">
-            Trainer levels are offsets added to the game's scaling base level.
-            Stats use the engine formula with the trainer's DVs and EVs.
+            Trainer levels scale with the number of badges earned (base level =
+            badge level + 5, before Rocket story bonuses). Stats use the engine
+            formula with the trainer's DVs and EVs.
           </p>
           {team.randomCount !== null && (
             <p className="muted">
@@ -199,7 +202,6 @@ export function TrainerDetailView({
                       </h3>
                       <p className="trainer-mon-level">
                         Lv. {level}
-                        {baseLevel === 0 ? '' : ` (base + ${mon.levelOffset})`}
                         {mon.shiny ? ' · Shiny' : ''}
                       </p>
                       <p className="trainer-mon-types">

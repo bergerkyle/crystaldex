@@ -33,7 +33,8 @@ const TRAINER_REGION_OVERRIDES: Record<string, string> = {
   SEAFOAM_GYM: 'kanto',
 }
 
-export type TrainerCategory = 'gym' | 'elite_four' | 'dungeon' | 'route'
+export type TrainerCategory =
+  'gym' | 'elite_four' | 'dungeon' | 'route' | 'battle_tower'
 
 export interface TrainerDvs {
   atk: number
@@ -91,6 +92,7 @@ export interface TrainerDef {
   name: string
   double: boolean
   category: TrainerCategory
+  region: string
   locations: TrainerLocation[]
   normal: TrainerTeam
   hard: TrainerTeam | null
@@ -424,6 +426,19 @@ const CATEGORY_RANK: Record<TrainerCategory, number> = {
   gym: 1,
   dungeon: 2,
   route: 3,
+  battle_tower: 4,
+}
+
+// Challenge facility and tower parties are fought through engine scripts, not
+// map scripts, so they are identified by their ID prefix.
+function battleTowerPlacement(id: string): TrainerPlacement | null {
+  const match = /^(?:FACILITY_([A-Z]+)_\d+|TOWER_[A-Z_0-9]+)$/.exec(id)
+  if (!match) return null
+  return {
+    locations: [],
+    category: 'battle_tower',
+    region: match[1]?.toLowerCase() ?? '',
+  }
 }
 
 const TRAINER_REF_RE =
@@ -432,6 +447,7 @@ const TRAINER_REF_RE =
 interface TrainerPlacement {
   locations: TrainerLocation[]
   category: TrainerCategory
+  region?: string
 }
 
 function findTrainerPlacements(
@@ -546,8 +562,8 @@ export async function fetchTrainerData(
 
     for (const party of groups.get(groupLabels[index] ?? '') ?? []) {
       const key = `${classKey}/${party.id}`
-      const placement = placements.get(key)
-      // Facility, tower and unused parties never appear in a map script.
+      const placement = placements.get(key) ?? battleTowerPlacement(party.id)
+      // Remaining unplaced parties are unused or test data.
       if (!placement) continue
       const normal = resolveTeam(party.normal)
       if (normal.mons.length === 0) continue
@@ -558,6 +574,7 @@ export async function fetchTrainerData(
         name: party.name,
         double: party.double,
         category: placement.category,
+        region: placement.region ?? placement.locations[0]?.region ?? '',
         locations: placement.locations,
         normal,
         hard: party.hard ? resolveTeam(party.hard) : null,
