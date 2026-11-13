@@ -83,6 +83,9 @@ export function TrainersView({
   onCloseSidebar,
 }: TrainersViewProps) {
   const [closedRegions, setClosedRegions] = useState<Set<string>>(new Set())
+  const [openSidebarRegions, setOpenSidebarRegions] = useState<Set<string>>(
+    new Set(),
+  )
   const [pendingAnchor, setPendingAnchor] = useState<string | null>(null)
   const sections = useMemo(() => {
     const query = filter.trim().toLowerCase()
@@ -168,6 +171,13 @@ export function TrainersView({
       return next
     })
 
+  const toggleSidebarRegion = (region: string) =>
+    setOpenSidebarRegions((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(region)) next.add(region)
+      return next
+    })
+
   const goToGroup = (region: string, key: string) => {
     setRegionOpen(region, true)
     setPendingAnchor(groupAnchor(region, key))
@@ -199,29 +209,40 @@ export function TrainersView({
           </button>
         </div>
         <div className="moves-sidebar-scroll">
-          {sections.map(({ region, groups }) => (
-            <section className="moves-sidebar-type" key={region}>
-              <div
-                className={`moves-sidebar-type-toggle locations-sidebar-region-toggle locations-sidebar-region-toggle-${region}`}
-              >
-                <span className="moves-sidebar-type-label">
-                  {regionGroupLabel(region)}
-                </span>
-              </div>
-              <ul className="moves-sidebar-move-list">
-                {groups.map((group) => (
-                  <li key={group.key}>
-                    <button
-                      className="moves-sidebar-move-btn"
-                      onClick={() => goToGroup(region, group.key)}
-                    >
-                      {group.title}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
+          {sections.map(({ region, groups }) => {
+            const isSidebarOpen =
+              filter.trim().length > 0 || openSidebarRegions.has(region)
+            return (
+              <section className="moves-sidebar-type" key={region}>
+                <button
+                  className={`moves-sidebar-type-toggle locations-sidebar-region-toggle locations-sidebar-region-toggle-${region}`}
+                  onClick={() => toggleSidebarRegion(region)}
+                  aria-expanded={isSidebarOpen}
+                >
+                  <span className="moves-sidebar-type-label">
+                    {regionGroupLabel(region)}
+                  </span>
+                  <span className="moves-sidebar-caret" aria-hidden="true">
+                    {isSidebarOpen ? '▾' : '▸'}
+                  </span>
+                </button>
+                {isSidebarOpen && (
+                  <ul className="moves-sidebar-move-list">
+                    {groups.map((group) => (
+                      <li key={group.key}>
+                        <button
+                          className="moves-sidebar-move-btn"
+                          onClick={() => goToGroup(region, group.key)}
+                        >
+                          {group.title}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )
+          })}
         </div>
       </aside>
       <main className="moves-page trainers-page">
