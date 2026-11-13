@@ -37,6 +37,15 @@ import {
   parseTypes,
   spriteUrl,
 } from './parser.js'
+import {
+  fetchTrainerData,
+  type TrainerCategory,
+  type TrainerVariant,
+  type TrainerDvs,
+  type TrainerLocation,
+  type TrainerMon,
+  type TrainerTeam,
+} from './trainerParser.js'
 import { SOURCE_SPECIES } from './sourceStats.js'
 
 // ---------------------------------------------------------------------------
@@ -514,6 +523,9 @@ export async function syncDatabase(): Promise<{
     throw new Error(
       `Clear location encounters failed: ${clearEncounters.error.message}`,
     )
+  const clearTrainers = await supabase.from('trainers').delete().neq('key', '')
+  if (clearTrainers.error)
+    throw new Error(`Clear trainers failed: ${clearTrainers.error.message}`)
   console.log('[sync] clear complete')
 
   console.log('[sync] inserting move catalog')
@@ -639,6 +651,39 @@ export async function syncDatabase(): Promise<{
   console.log(
     `[sync] inserted location encounter rows: ${encounterRows.length}`,
   )
+
+  const trainerData = await fetchTrainerData(tree, entries)
+  const trainerClasses = new Map(trainerData.classes.map((c) => [c.key, c]))
+  const trainerRows = trainerData.trainers.map((trainer, index) => {
+    const cls = trainerClasses.get(trainer.classKey)!
+    return {
+      key: trainer.key,
+      sort: index,
+      class_key: trainer.classKey,
+      class_name: cls.name,
+      name: trainer.name,
+      double: trainer.double,
+      category: trainer.category,
+      region: trainer.region,
+      locations: trainer.locations,
+      pic_url: cls.picUrl,
+      sprite_url: trainer.spriteUrl,
+      group_key: trainer.group,
+      variant: trainer.variant,
+      class_items: cls.items,
+      base_reward: cls.baseReward,
+      class_dvs: cls.dvs,
+      ev_tier: cls.evTier,
+      ev_shape: cls.evShape,
+      normal_team: trainer.normal,
+      hard_team: trainer.hard,
+    }
+  })
+  for (const batch of chunk(trainerRows, 100)) {
+    const { error } = await supabase.from('trainers').insert(batch)
+    if (error) throw new Error(`Insert trainers failed: ${error.message}`)
+  }
+  console.log(`[sync] inserted trainers: ${trainerRows.length}`)
 
   const durationMs = Date.now() - syncStartedAt
   console.log(`[sync] complete in ${durationMs}ms`)
@@ -1265,4 +1310,290 @@ export async function getAbout(): Promise<{
     .maybeSingle()
   if (error) throw new Error(error.message)
   return { version: APP_VERSION, lastSynced: data?.updated_at ?? null }
+}
+
+// ---------------------------------------------------------------------------
+// Trainers
+// ---------------------------------------------------------------------------
+
+export interface TrainerListItem {
+  key: string
+  name: string
+  classKey: string
+  className: string
+  category: TrainerCategory
+  region: string
+  locations: TrainerLocation[]
+  picUrl: string | null
+  spriteUrl: string | null
+  double: boolean
+  partySize: number
+  variantCount: number
+}
+
+interface TrainerRow {
+  key: string
+  class_key: string
+  class_name: string
+  name: string
+  double: boolean
+  category: TrainerListItem['category']
+  region: string
+  locations: TrainerLocation[]
+  pic_url: string | null
+  sprite_url: string | null
+  group_key: string
+  variant: TrainerVariant | null
+  class_items: string[]
+  base_reward: number
+  class_dvs: TrainerDvs
+  ev_tier: number
+  ev_shape: number
+  normal_team: TrainerTeam
+  hard_team: TrainerTeam | null
+}
+
+export interface TrainerMonDetail extends TrainerMon {
+  speciesRegion: string
+  frontSprite: string | null
+  types: string[]
+  baseStats: {
+    hp: number
+    attack: number
+    defense: number
+    specialAttack: number
+    specialDefense: number
+    speed: number
+  } | null
+  // Level-up learnset, only for Pokémon without explicit moves.
+  learnset: { level: number; move: string }[]
+  itemInfo: { key: string; name: string; iconUrl: string | null } | null
+}
+
+export interface TrainerVariantDetail {
+  key: string
+  variant: TrainerVariant | null
+  normal: { mons: TrainerMonDetail[]; randomCount: number | null }
+  hard: { mons: TrainerMonDetail[]; randomCount: number | null } | null
+}
+
+export interface TrainerDetail extends Omit<
+  TrainerListItem,
+  'partySize' | 'variantCount'
+> {
+  baseReward: number
+  classDvs: TrainerDvs
+  evTier: number
+  evShape: number
+  classItems: { key: string; name: string; iconUrl: string | null }[]
+  moves: Record<
+    string,
+    {
+      name: string
+      type: string
+      category: string
+      power: number
+      accuracy: number
+      pp: number
+      target: string
+    }
+  >
+  // One entry per party the trainer can use, ordered by progression.
+  variants: TrainerVariantDetail[]
+}
+
+export async function listTrainers(): Promise<TrainerListItem[]> {
+  const supabase = getSupabase()
+  const pageSize = 500
+  const rows: TrainerRow[] = []
+  for (let page = 0; ; page += 1) {
+    const { data, error } = await supabase
+      .from('trainers')
+      .select(
+        'key, class_key, class_name, name, double, category, region, locations, pic_url, sprite_url, group_key, normal_team',
+      )
+      .order('sort')
+      .range(page * pageSize, page * pageSize + pageSize - 1)
+    if (error) throw new Error(error.message)
+    rows.push(...((data ?? []) as unknown as TrainerRow[]))
+    if (!data || data.length < pageSize) break
+  }
+  const variantCounts = new Map<string, number>()
+  for (const row of rows) {
+    variantCounts.set(
+      row.group_key,
+      (variantCounts.get(row.group_key) ?? 0) + 1,
+    )
+  }
+  // Variants of one fight are listed once, under their primary trainer.
+  return rows
+    .filter((row) => row.key === row.group_key)
+    .map((row) => ({
+      key: row.key,
+      name: row.name,
+      classKey: row.class_key,
+      className: row.class_name,
+      category: row.category,
+      region: row.region,
+      locations: row.locations,
+      picUrl: row.pic_url,
+      spriteUrl: row.sprite_url,
+        double: row.double,
+      partySize: row.normal_team.randomCount ?? row.normal_team.mons.length,
+      variantCount: variantCounts.get(row.group_key) ?? 1,
+    }))
+}
+
+export async function getTrainer(key: string): Promise<TrainerDetail | null> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('trainers')
+    .select('*')
+    .eq('key', key)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) return null
+  const requested = data as unknown as TrainerRow
+
+  const { data: groupData, error: groupError } = await supabase
+    .from('trainers')
+    .select('*')
+    .eq('group_key', requested.group_key)
+  if (groupError) throw new Error(groupError.message)
+  const rows = ((groupData ?? []) as unknown as TrainerRow[]).sort(
+    (a, b) => (a.variant?.order ?? 0) - (b.variant?.order ?? 0),
+  )
+  const row = rows.find((r) => r.key === r.group_key) ?? requested
+
+  const teams = rows
+    .flatMap((r) => [r.normal_team, r.hard_team])
+    .filter((team): team is TrainerTeam => team !== null)
+  const allMons = teams.flatMap((team) => team.mons)
+  const speciesNames = [...new Set(allMons.map((mon) => mon.species))]
+  const itemKeys = [
+    ...new Set([
+      ...row.class_items,
+      ...allMons.map((mon) => mon.item).filter((i): i is string => !!i),
+    ]),
+  ]
+  const moveKeys = [...new Set(allMons.flatMap((mon) => mon.moves ?? []))]
+  const defaultMoveSpecies = [
+    ...new Set(allMons.filter((mon) => !mon.moves).map((mon) => mon.species)),
+  ]
+
+  const [pokemonRes, itemsRes, learnsetRes] = await Promise.all([
+    speciesNames.length
+      ? supabase
+          .from('pokemon')
+          .select(
+            'name, region, front_sprite, type_1, type_2, hp, attack, defense, special_attack, special_defense, speed',
+          )
+          .in('name', speciesNames)
+      : Promise.resolve({ data: [], error: null }),
+    itemKeys.length
+      ? supabase.from('items').select('key, name, icon_url').in('key', itemKeys)
+      : Promise.resolve({ data: [], error: null }),
+    defaultMoveSpecies.length
+      ? supabase
+          .from('pokemon_moves')
+          .select('pokemon_name, move_key, level')
+          .in('pokemon_name', defaultMoveSpecies)
+          .order('level')
+          .order('id')
+      : Promise.resolve({ data: [], error: null }),
+  ])
+  if (pokemonRes.error) throw new Error(pokemonRes.error.message)
+  if (itemsRes.error) throw new Error(itemsRes.error.message)
+  if (learnsetRes.error) throw new Error(learnsetRes.error.message)
+
+  const learnsetMoveKeys = (learnsetRes.data ?? []).map((m) => m.move_key)
+  const allMoveKeys = [...new Set([...moveKeys, ...learnsetMoveKeys])]
+  const movesRes = allMoveKeys.length
+    ? await supabase
+        .from('moves')
+        .select('key, name, type, category, power, accuracy, pp, target')
+        .in('key', allMoveKeys)
+    : { data: [], error: null }
+  if (movesRes.error) throw new Error(movesRes.error.message)
+
+  const pokemonByName = new Map((pokemonRes.data ?? []).map((p) => [p.name, p]))
+  const itemByKey = new Map(
+    (itemsRes.data ?? []).map((i) => [
+      i.key,
+      { key: i.key, name: i.name, iconUrl: i.icon_url ?? null },
+    ]),
+  )
+  const learnsetBySpecies = new Map<string, { level: number; move: string }[]>()
+  for (const entry of learnsetRes.data ?? []) {
+    const list = learnsetBySpecies.get(entry.pokemon_name) ?? []
+    list.push({ level: entry.level, move: entry.move_key })
+    learnsetBySpecies.set(entry.pokemon_name, list)
+  }
+
+  const enrichTeam = (team: TrainerTeam) => ({
+    randomCount: team.randomCount,
+    mons: team.mons.map((mon): TrainerMonDetail => {
+      const pokemon = pokemonByName.get(mon.species)
+      return {
+        ...mon,
+        speciesRegion: pokemon?.region ?? '',
+        frontSprite: pokemon?.front_sprite ?? null,
+        types: pokemon
+          ? pokemon.type_1 === pokemon.type_2
+            ? [pokemon.type_1]
+            : [pokemon.type_1, pokemon.type_2]
+          : [],
+        baseStats: pokemon
+          ? {
+              hp: pokemon.hp,
+              attack: pokemon.attack,
+              defense: pokemon.defense,
+              specialAttack: pokemon.special_attack,
+              specialDefense: pokemon.special_defense,
+              speed: pokemon.speed,
+            }
+          : null,
+        learnset: mon.moves ? [] : (learnsetBySpecies.get(mon.species) ?? []),
+        itemInfo: mon.item ? (itemByKey.get(mon.item) ?? null) : null,
+      }
+    }),
+  })
+
+  return {
+    key: row.key,
+    name: row.name,
+    classKey: row.class_key,
+    className: row.class_name,
+    category: row.category,
+    region: row.region,
+    locations: row.locations,
+    picUrl: row.pic_url,
+    spriteUrl: row.sprite_url,
+    double: row.double,
+    baseReward: row.base_reward,
+    classDvs: row.class_dvs,
+    evTier: row.ev_tier,
+    evShape: row.ev_shape,
+    classItems: row.class_items.flatMap((k) => itemByKey.get(k) ?? []),
+    moves: Object.fromEntries(
+      (movesRes.data ?? []).map((m) => [
+        m.key,
+        {
+          name: m.name,
+          type: m.type,
+          category: m.category,
+          power: m.power,
+          accuracy: m.accuracy,
+          pp: m.pp,
+          target: m.target,
+        },
+      ]),
+    ),
+    variants: rows.map((r) => ({
+      key: r.key,
+      variant: r.variant,
+      normal: enrichTeam(r.normal_team),
+      hard: r.hard_team ? enrichTeam(r.hard_team) : null,
+    })),
+  }
 }

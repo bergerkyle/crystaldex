@@ -218,6 +218,12 @@ export interface TreeNode {
 
 let wildEncounterDataPromise: Promise<WildEncounterData> | null = null
 let itemScriptLocationPromise: Promise<ItemScriptLocationIndex> | null = null
+let mapSourcesPromise: Promise<MapSource[]> | null = null
+
+export interface MapSource {
+  path: string
+  source: string
+}
 
 export function resetWildEncounterCache(): void {
   wildEncounterDataPromise = null
@@ -225,6 +231,7 @@ export function resetWildEncounterCache(): void {
 
 export function resetItemScriptLocationCache(): void {
   itemScriptLocationPromise = null
+  mapSourcesPromise = null
 }
 
 // ---------------------------------------------------------------------------
@@ -261,6 +268,42 @@ export async function fetchRaw(path: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`Failed to fetch ${path} (${res.status})`)
   return res.text()
+}
+
+// Every maps/**/*.asm script, fetched once and shared by the item-location,
+// fixed-encounter and trainer parsers (a sync would otherwise download the
+// ~1000 map files once per parser).
+export function fetchMapSources(tree?: TreeNode[]): Promise<MapSource[]> {
+  if (!mapSourcesPromise) {
+    mapSourcesPromise = (async () => {
+      const nodes = tree ?? (await fetchTree())
+      const paths = nodes
+        .filter(
+          (node) =>
+            node.type === 'blob' &&
+            node.path.startsWith('maps/') &&
+            node.path.endsWith('.asm'),
+        )
+        .map((node) => node.path)
+      const sources: MapSource[] = []
+      let next = 0
+      const workers = Array.from(
+        { length: Math.min(16, paths.length) },
+        async () => {
+          while (next < paths.length) {
+            const path = paths[next++]
+            sources.push({ path, source: await fetchRaw(path) })
+          }
+        },
+      )
+      await Promise.all(workers)
+      return sources.sort((a, b) => a.path.localeCompare(b.path))
+    })()
+    mapSourcesPromise.catch(() => {
+      mapSourcesPromise = null
+    })
+  }
+  return mapSourcesPromise
 }
 
 // ---------------------------------------------------------------------------
@@ -712,7 +755,7 @@ const EXCLUDED_ROUTE_TOKENS = new Set([
   'TEST_ROOM',
 ])
 
-function isExcludedRouteToken(route: string): boolean {
+export function isExcludedRouteToken(route: string): boolean {
   return EXCLUDED_ROUTE_TOKENS.has(route.toUpperCase())
 }
 
@@ -879,7 +922,7 @@ function slotRatesFromCumulative(entries: FishRodEntry[]): number[] {
   return rates
 }
 
-function mapNameToRouteToken(name: string): string {
+export function mapNameToRouteToken(name: string): string {
   return name
     .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
     .replace(/([A-Za-z])([0-9]+)/g, '$1_$2')
@@ -1573,7 +1616,7 @@ const GIVEPOKE_RE = /^\s*givepoke\s+([A-Z][A-Z0-9_]*)\s*,/gm
 // Maps that live directly under maps/ (no region subfolder) need an explicit
 // region assignment. Keys are the UPPER_SNAKE_CASE route token derived from the
 // filename (e.g. NationalPark -> NATIONAL_PARK).
-const FIXED_ENCOUNTER_REGION_OVERRIDES: Record<string, string> = {
+export const FIXED_ENCOUNTER_REGION_OVERRIDES: Record<string, string> = {
   NATIONAL_PARK: 'johto',
   NATIONAL_PARK_BUG_CONTEST: 'johto',
   ROUTE_35_NATIONAL_PARK_GATE: 'johto',
@@ -1599,56 +1642,36 @@ export async function fetchFixedEncounters(
   tree: TreeNode[],
   entriesByKey: Map<string, PokemonEntry>,
 ): Promise<FixedEncounterEntry[]> {
-  const mapBlobs = tree.filter(
-    (node) =>
-      node.type === 'blob' &&
-      node.path.startsWith('maps/') &&
-      node.path.endsWith('.asm'),
-  )
-
+  const mapSources = await fetchMapSources(tree)
   const results: FixedEncounterEntry[] = []
-  let idx = 0
-  const limit = 16
-  const workers = Array.from(
-    { length: Math.min(limit, mapBlobs.length) },
-    async () => {
-      while (idx < mapBlobs.length) {
-        const node = mapBlobs[idx++]
-        const source = await fetchRaw(node.path)
-        const matches = [
-          ...source.matchAll(LOADWILDMON_RE),
-          ...source.matchAll(GIVEPOKE_RE),
-        ]
-        if (matches.length === 0) continue
+  for (const { path, source } of mapSources) {
+    const matches = [
+      ...source.matchAll(LOADWILDMON_RE),
+      ...source.matchAll(GIVEPOKE_RE),
+    ]
+    if (matches.length === 0) continue
 
-        const segments = node.path.split('/')
-        const filename = (segments[segments.length - 1] ?? '').replace(
-          /\.asm$/,
-          '',
-        )
-        const route = mapNameToRouteToken(filename)
-        if (isExcludedRouteToken(route)) continue
-        // maps/<region>/[subdirs/]<MapName>.asm — when depth > 2 the second
-        // segment is the region folder; otherwise fall back to the override map.
-        const region =
-          segments.length > 2
-            ? (segments[1] ?? '')
-            : (FIXED_ENCOUNTER_REGION_OVERRIDES[route] ?? '')
+    const segments = path.split('/')
+    const filename = (segments[segments.length - 1] ?? '').replace(/\.asm$/, '')
+    const route = mapNameToRouteToken(filename)
+    if (isExcludedRouteToken(route)) continue
+    // maps/<region>/[subdirs/]<MapName>.asm — when depth > 2 the second
+    // segment is the region folder; otherwise fall back to the override map.
+    const region =
+      segments.length > 2
+        ? (segments[1] ?? '')
+        : (FIXED_ENCOUNTER_REGION_OVERRIDES[route] ?? '')
 
-        for (const m of matches) {
-          const pokemon = resolveEncounterPokemon(m[1], entriesByKey)
-          results.push({
-            region,
-            route,
-            pokemon_name: pokemon.name,
-            pokemon_region: pokemon.region,
-          })
-        }
-      }
-    },
-  )
-  await Promise.all(workers)
-
+    for (const m of matches) {
+      const pokemon = resolveEncounterPokemon(m[1], entriesByKey)
+      results.push({
+        region,
+        route,
+        pokemon_name: pokemon.name,
+        pokemon_region: pokemon.region,
+      })
+    }
+  }
   return results
 }
 
@@ -1982,35 +2005,20 @@ function sortedArrayByKey(
 export async function fetchItemScriptLocations(): Promise<ItemScriptLocationIndex> {
   if (!itemScriptLocationPromise) {
     itemScriptLocationPromise = (async () => {
-      const [tree, martsSource, constSource] = await Promise.all([
-        fetchTree(),
+      const [mapSources, martsSource, constSource] = await Promise.all([
+        fetchMapSources(),
         fetchRaw(ITEM_MARTS_PATH),
         fetchRaw(ITEM_CONSTANTS_PATH),
       ])
 
       const tmHmAlias = buildTmHmAliasMap(constSource)
 
-      const mapAsmPaths = tree
-        .filter(
-          (node) =>
-            node.type === 'blob' &&
-            node.path.startsWith('maps/') &&
-            node.path.endsWith('.asm'),
-        )
-        .map((node) => node.path)
-
       const mapsByItemMutable = new Map<string, Set<string>>()
-      for (let i = 0; i < mapAsmPaths.length; i += 24) {
-        const batch = mapAsmPaths.slice(i, i + 24)
-        const sources = await Promise.all(
-          batch.map(async (path) => ({ path, source: await fetchRaw(path) })),
-        )
-        for (const { path, source } of sources) {
-          const parsed = parseMapItemLocations(path, source, tmHmAlias)
-          for (const [itemKey, locations] of parsed) {
-            for (const location of locations) {
-              addLocationEntry(mapsByItemMutable, itemKey, location)
-            }
+      for (const { path, source } of mapSources) {
+        const parsed = parseMapItemLocations(path, source, tmHmAlias)
+        for (const [itemKey, locations] of parsed) {
+          for (const location of locations) {
+            addLocationEntry(mapsByItemMutable, itemKey, location)
           }
         }
       }

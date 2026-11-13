@@ -10,10 +10,20 @@ import {
   type RouteEncounter,
 } from '../pokemon'
 import { LocationAutocomplete } from '../components/LocationAutocomplete'
+import { TrainerTable } from '../components/TrainerTable'
+import {
+  TRAINER_CATEGORY_LABELS,
+  TRAINER_CATEGORY_ORDER,
+  type TrainerListItem,
+} from '../trainers'
 import { FIGHTING_TM_ICON, NORMAL_TM_ICON } from '../itemCategories'
 
 interface LocationDetailViewProps {
   routeDetail: RouteEncounter | null
+  region: string
+  route: string
+  trainers: TrainerListItem[]
+  onOpenTrainer: (key: string) => void
   allRoutes: RouteEncounter[]
   loading: boolean
   error: string | null
@@ -298,6 +308,10 @@ function EncounterTable({
 
 export function LocationDetailView({
   routeDetail,
+  region,
+  route,
+  trainers,
+  onOpenTrainer,
   allRoutes,
   loading,
   error,
@@ -306,6 +320,15 @@ export function LocationDetailView({
   onOpenLocation,
   onSelectPokemon,
 }: LocationDetailViewProps) {
+  const locationTrainers = trainers.filter((trainer) =>
+    trainer.locations.some(
+      (location) =>
+        location.region.toLowerCase() === region.toLowerCase() &&
+        location.route.toUpperCase() === route.toUpperCase(),
+    ),
+  )
+  const showLocation = routeDetail || locationTrainers.length > 0
+
   return (
     <div className="encounters-page">
       <div className="md:hidden">
@@ -316,18 +339,19 @@ export function LocationDetailView({
       </div>
       {loading && <p className="muted">Loading...</p>}
       {error && <p className="error">{error}</p>}
-      {!loading && !error && !routeDetail && (
+      {!loading && !error && !showLocation && (
         <p className="muted">Location not found.</p>
+      )}
+      {showLocation && (
+        <>
+          <p className="route-encounter-region">{formatName(region)}</p>
+          <h1 className="moves-page-title location-detail-title">
+            {formatLocation(route)}
+          </h1>
+        </>
       )}
       {routeDetail && (
         <>
-          <p className="route-encounter-region">
-            {formatName(routeDetail.region)}
-          </p>
-          <h1 className="moves-page-title location-detail-title">
-            {formatLocation(routeDetail.route)}
-          </h1>
-
           <EncounterTable
             title="Land Locations"
             rows={buildLandEncounterRows(routeDetail.grass)}
@@ -393,6 +417,27 @@ export function LocationDetailView({
           )}
         </>
       )}
+      {locationTrainers.length > 0 &&
+        TRAINER_CATEGORY_ORDER.map((category) => {
+          const group = locationTrainers.filter((t) => t.category === category)
+          if (group.length === 0) return null
+          return (
+            <section className="move-type-section" key={category}>
+              <h2 className="route-detail-table-title">
+                Trainers
+                {category === 'route'
+                  ? ''
+                  : ` · ${TRAINER_CATEGORY_LABELS[category]}`}{' '}
+                ({group.length})
+              </h2>
+              <TrainerTable
+                trainers={group}
+                all={trainers}
+                onOpen={onOpenTrainer}
+              />
+            </section>
+          )
+        })}
     </div>
   )
 }

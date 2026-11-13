@@ -5,6 +5,8 @@ import {
   getAbout,
   getMove,
   getPokemon,
+  getTrainer,
+  listTrainers,
   listItems,
   listEncounterRoutes,
   listMoves,
@@ -212,6 +214,36 @@ app.get('/api/items/:key', async (req, res) => {
       .json({
         error: err instanceof Error ? err.message : 'Failed to load item',
       })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Trainer routes
+// ---------------------------------------------------------------------------
+
+app.get('/api/trainers', async (_req, res) => {
+  try {
+    res.json(await listTrainers())
+  } catch (err) {
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load trainers',
+    })
+  }
+})
+
+app.get('/api/trainers/:class/:id', async (req, res) => {
+  const key = `${req.params.class}/${req.params.id}`.toUpperCase()
+  try {
+    const trainer = await getTrainer(key)
+    if (!trainer) {
+      res.status(404).json({ error: 'Trainer not found' })
+      return
+    }
+    res.json(trainer)
+  } catch (err) {
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load trainer',
+    })
   }
 })
 

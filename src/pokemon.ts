@@ -366,6 +366,19 @@ export function formatEncounterTime(time?: EncounterTime): string {
 
 const REGION_DISPLAY_ORDER = ['kanto', 'johto', 'hoenn'] as const
 
+export type RegionGroup = (typeof REGION_DISPLAY_ORDER)[number] | 'other'
+
+export function regionGroup(region: string): RegionGroup {
+  const key = region.toLowerCase()
+  return (REGION_DISPLAY_ORDER as readonly string[]).includes(key)
+    ? (key as RegionGroup)
+    : 'other'
+}
+
+export function regionGroupLabel(group: string): string {
+  return group === 'other' ? 'Other' : formatName(group)
+}
+
 export function compareRegionOrder(left: string, right: string): number {
   const leftIndex = REGION_DISPLAY_ORDER.indexOf(
     left.toLowerCase() as (typeof REGION_DISPLAY_ORDER)[number],
