@@ -10,7 +10,7 @@ import {
   type RouteEncounter,
 } from '../pokemon'
 import { LocationAutocomplete } from '../components/LocationAutocomplete'
-import { TrainerLink } from '../components/TrainerLink'
+import { TrainerTable } from '../components/TrainerTable'
 import {
   TRAINER_CATEGORY_LABELS,
   TRAINER_CATEGORY_ORDER,
@@ -430,16 +430,11 @@ export function LocationDetailView({
                   : ` · ${TRAINER_CATEGORY_LABELS[category]}`}{' '}
                 ({group.length})
               </h2>
-              <div className="trainer-grid">
-                {group.map((trainer) => (
-                  <TrainerLink
-                    key={trainer.key}
-                    trainer={trainer}
-                    all={trainers}
-                    onOpen={onOpenTrainer}
-                  />
-                ))}
-              </div>
+              <TrainerTable
+                trainers={group}
+                all={trainers}
+                onOpen={onOpenTrainer}
+              />
             </section>
           )
         })}

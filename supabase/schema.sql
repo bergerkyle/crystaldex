@@ -187,6 +187,9 @@ create table if not exists public.trainers (
   region       text not null default '',
   locations    jsonb not null default '[]',
   pic_url      text,
+  sprite_url   text,                    -- overworld sprite sheet
+  group_key    text not null,           -- key of the primary variant (own key if none)
+  variant      jsonb,                   -- { label, minBadges, maxBadges, order }
   class_items  text[] not null default '{}',
   base_reward  integer not null default 0,
   class_dvs    jsonb not null,

@@ -2131,3 +2131,60 @@ a:hover {
   background: transparent;
   color: inherit;
 }
+
+.trainer-table-sprite,
+.trainer-table-pic {
+  display: block;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.trainer-table-sprite {
+  background-size: 32px auto;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+}
+
+.moves-page .trainer-table th:nth-child(1),
+.moves-page .trainer-table td:nth-child(1) {
+  width: 48px;
+}
+
+.trainer-variants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+}
+
+.trainer-variant {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(154, 165, 208, 0.4);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.trainer-variant.active {
+  background: rgba(154, 165, 208, 0.3);
+  font-weight: 600;
+}
+
+.trainer-table {
+  table-layout: auto;
+}
+
+.moves-page .trainer-table th,
+.moves-page .trainer-table td {
+  width: auto;
+  min-width: 0;
+  white-space: normal;
+}
+
+.moves-page .trainer-table th:nth-child(1),
+.moves-page .trainer-table td:nth-child(1) {
+  width: 48px;
+}

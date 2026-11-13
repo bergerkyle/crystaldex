@@ -84,6 +84,15 @@ export interface TrainerClassInfo {
   evShape: number
 }
 
+// A trainer fought with a different party depending on the player's progress:
+// gym leaders scale with the badge count and the League uses rematch teams.
+export interface TrainerVariant {
+  label: string
+  minBadges: number | null
+  maxBadges: number | null
+  order: number
+}
+
 export interface TrainerDef {
   // `<CLASS>/<ID>`, e.g. YOUNGSTER/JOEY.
   key: string
@@ -93,6 +102,11 @@ export interface TrainerDef {
   double: boolean
   category: TrainerCategory
   region: string
+  // Overworld sprite sheet (first frame is the front-facing pose).
+  spriteUrl: string | null
+  // `<CLASS>/<ID>` of the primary variant this trainer is grouped under.
+  group: string
+  variant: TrainerVariant | null
   locations: TrainerLocation[]
   normal: TrainerTeam
   hard: TrainerTeam | null
@@ -448,6 +462,122 @@ interface TrainerPlacement {
   locations: TrainerLocation[]
   category: TrainerCategory
   region?: string
+  sprite?: string
+  variant?: TrainerVariant
+}
+
+const MAX_BADGES = 24
+const BADGE_VAR_RE = /^\s*readvar\s+VAR_BADGES\b/
+const LABEL_RE = /^(\.[A-Za-z_]\w*):?\s*$|^([A-Za-z_]\w*)::?\s*$/
+const LOADTRAINER_RE = /^\s*loadtrainer\s+([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/
+const BADGE_BRANCH_RE =
+  /^\s*(ifgreater|ifless|ifequal|sjump)\s+(?:(\d+)\s*,\s*)?(\.\w+)/
+
+function badgeRangeLabel(min: number, max: number): string {
+  if (max >= MAX_BADGES) return `${min}+ badges`
+  return min === max ? `${min} badges` : `${min}–${max} badges`
+}
+
+// Works out which party each loadtrainer ID is used for. Scripts pick a party
+// either from the badge count (readvar VAR_BADGES + ifgreater ladders) or, for
+// the Elite Four and Champion, from LeagueRematchCheckScript. A loadtrainer not
+// reached through either is a follow-up battle in the same fight.
+function findScriptVariants(source: string): Map<string, TrainerVariant> {
+  const usesLeague = source.includes('LeagueRematchCheckScript')
+  const result = new Map<string, TrainerVariant>()
+  if (!usesLeague && !/readvar\s+VAR_BADGES/.test(source)) return result
+
+  const lines = source.split('\n')
+  const loads: { line: number; key: string; label: string }[] = []
+  let currentLabel = ''
+  lines.forEach((text, line) => {
+    const label = LABEL_RE.exec(text)
+    if (label) currentLabel = label[1] ?? label[2]
+    const load = LOADTRAINER_RE.exec(text)
+    if (load) {
+      loads.push({ line, key: `${load[1]}/${load[2]}`, label: currentLabel })
+    }
+  })
+  const firstLoadAfter = (line: number, label: string) =>
+    loads.find((l) => l.line > line && l.label === label)
+
+  const badgeRanges = new Map<string, [number, number]>()
+  lines.forEach((text, line) => {
+    if (!BADGE_VAR_RE.test(text)) return
+    const labelForBadges: (string | null)[] = Array(MAX_BADGES + 1).fill(null)
+    for (let i = line + 1; i < lines.length; i += 1) {
+      const m = BADGE_BRANCH_RE.exec(lines[i])
+      if (!m) break
+      const n = m[2] === undefined ? 0 : Number(m[2])
+      for (let badges = 0; badges <= MAX_BADGES; badges += 1) {
+        if (labelForBadges[badges] !== null) continue
+        const hit =
+          m[1] === 'sjump' ||
+          (m[1] === 'ifgreater' && badges > n) ||
+          (m[1] === 'ifless' && badges < n) ||
+          (m[1] === 'ifequal' && badges === n)
+        if (hit) labelForBadges[badges] = m[3]
+      }
+    }
+    labelForBadges.forEach((label, badges) => {
+      if (!label) return
+      const load = firstLoadAfter(line, label)
+      if (!load) return
+      const range = badgeRanges.get(load.key)
+      badgeRanges.set(
+        load.key,
+        range
+          ? [Math.min(range[0], badges), Math.max(range[1], badges)]
+          : [badges, badges],
+      )
+    })
+  })
+  for (const [key, [min, max]] of badgeRanges) {
+    result.set(key, {
+      label: badgeRangeLabel(min, max),
+      minBadges: min,
+      maxBadges: max,
+      order: min,
+    })
+  }
+
+  if (usesLeague) {
+    const rematchLabels = new Set<string>()
+    const firstLabels = new Set<string>()
+    lines.forEach((text, line) => {
+      if (!/callstd\s+LeagueRematchCheckScript/.test(text)) return
+      for (let i = line + 1; i < Math.min(lines.length, line + 4); i += 1) {
+        const rematch = /^\s*iftrue\s+(\.\w+)/.exec(lines[i])
+        if (rematch) rematchLabels.add(rematch[1])
+        const first = /^\s*sjump\s+(\.\w+)/.exec(lines[i])
+        if (first) firstLabels.add(first[1])
+      }
+    })
+    for (const load of loads) {
+      if (result.has(load.key)) continue
+      const variant = rematchLabels.has(load.label)
+        ? { label: 'League rematch', order: 1 }
+        : firstLabels.has(load.label)
+          ? { label: 'First League run', order: 0 }
+          : { label: 'Second battle', order: 2 }
+      result.set(load.key, { ...variant, minBadges: null, maxBadges: null })
+    }
+  }
+  return result
+}
+
+// Script label -> SPRITE_* constant for every object event in a map.
+function parseObjectSprites(source: string): Map<string, string> {
+  const sprites = new Map<string, string>()
+  for (const m of source.matchAll(/^\s*object_event\s+(.*)$/gm)) {
+    const fields = m[1].split(',').map((field) => field.trim())
+    const sprite = fields.find((field) => field.startsWith('SPRITE_'))
+    const label = fields.at(-2)
+    if (sprite && label && /^[A-Za-z_]\w*$/.test(label)) {
+      sprites.set(label, sprite)
+    }
+  }
+  return sprites
 }
 
 function findTrainerPlacements(
@@ -465,10 +595,20 @@ function findTrainerPlacements(
         ? segments[1]
         : (TRAINER_REGION_OVERRIDES[route] ?? '')
     const category = categorizeMap(mapName, mapInfo.get(mapName))
+    const objectSprites = parseObjectSprites(source)
+    const variants = findScriptVariants(source)
+    const topLabels = [...source.matchAll(/^([A-Za-z_]\w*)::?\s*$/gm)]
 
     for (const m of source.matchAll(TRAINER_REF_RE)) {
       const key = `${m[1]}/${m[2]}`
       const placement = placements.get(key) ?? { locations: [], category }
+      const enclosing = topLabels
+        .filter((l) => (l.index ?? 0) < (m.index ?? 0))
+        .at(-1)
+      const sprite = enclosing ? objectSprites.get(enclosing[1]) : undefined
+      if (sprite && !placement.sprite) placement.sprite = sprite
+      const variant = variants.get(key)
+      if (variant && !placement.variant) placement.variant = variant
       if (
         !placement.locations.some(
           (location) => location.region === region && location.route === route,
@@ -483,6 +623,43 @@ function findTrainerPlacements(
     }
   }
   return placements
+}
+
+// Trainers without an object event of their own (e.g. fought via loadtrainer
+// from a script) borrow the most common sprite used by their class.
+function fillClassSprites(trainers: TrainerDef[]) {
+  const counts = new Map<string, Map<string, number>>()
+  for (const t of trainers) {
+    if (!t.spriteUrl) continue
+    const byUrl = counts.get(t.classKey) ?? new Map<string, number>()
+    byUrl.set(t.spriteUrl, (byUrl.get(t.spriteUrl) ?? 0) + 1)
+    counts.set(t.classKey, byUrl)
+  }
+  for (const t of trainers) {
+    if (t.spriteUrl) continue
+    const byUrl = counts.get(t.classKey)
+    if (!byUrl) continue
+    t.spriteUrl = [...byUrl.entries()].sort((a, b) => b[1] - a[1])[0][0]
+  }
+}
+
+// Variants of one fight (same class and name, picked by a script) are grouped
+// under the earliest variant.
+function groupTrainerVariants(trainers: TrainerDef[]) {
+  const byGroup = new Map<string, TrainerDef[]>()
+  for (const t of trainers) {
+    if (!t.variant) continue
+    const groupId = `${t.classKey}|${t.name}|${t.locations.map((l) => l.route).join(',')}`
+    byGroup.set(groupId, [...(byGroup.get(groupId) ?? []), t])
+  }
+  for (const members of byGroup.values()) {
+    if (members.length < 2) {
+      for (const t of members) t.variant = null
+      continue
+    }
+    members.sort((a, b) => (a.variant?.order ?? 0) - (b.variant?.order ?? 0))
+    for (const t of members) t.group = members[0].key
+  }
 }
 
 export async function fetchTrainerData(
@@ -529,6 +706,17 @@ export async function fetchTrainerData(
   const randomLists = parseRandomLists(randomSource)
   const groups = parseParties(partiesSource, randomLists)
   const placements = findTrainerPlacements(mapSources, parseMapInfo(mapsSource))
+  const spriteFiles = new Set(
+    tree
+      .map((node) => /^gfx\/sprites\/(.+)\.png$/.exec(node.path)?.[1])
+      .filter((name): name is string => !!name),
+  )
+  const spriteUrlFor = (constant: string | undefined): string | null => {
+    const name = constant?.replace(/^SPRITE_/, '').toLowerCase()
+    return name && spriteFiles.has(name)
+      ? `${TRAINER_PIC_BASE}/gfx/sprites/${name}.png`
+      : null
+  }
 
   const validSpecies = new Set(pokemonEntries.map((e) => normalizeKey(e.name)))
   const speciesName = new Map(
@@ -575,6 +763,12 @@ export async function fetchTrainerData(
         double: party.double,
         category: placement.category,
         region: placement.region ?? placement.locations[0]?.region ?? '',
+        spriteUrl:
+          spriteUrlFor(placement.sprite) ??
+          spriteUrlFor(`SPRITE_${classKey}`) ??
+          spriteUrlFor(`SPRITE_${party.id.replace(/_?\d+$/, '')}`),
+        group: key,
+        variant: placement.variant ?? null,
         locations: placement.locations,
         normal,
         hard: party.hard ? resolveTeam(party.hard) : null,
@@ -582,5 +776,7 @@ export async function fetchTrainerData(
     }
   })
 
+  fillClassSprites(trainers)
+  groupTrainerVariants(trainers)
   return { classes, trainers }
 }

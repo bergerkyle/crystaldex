@@ -40,6 +40,7 @@ import {
 import {
   fetchTrainerData,
   type TrainerCategory,
+  type TrainerVariant,
   type TrainerDvs,
   type TrainerLocation,
   type TrainerMon,
@@ -666,6 +667,9 @@ export async function syncDatabase(): Promise<{
       region: trainer.region,
       locations: trainer.locations,
       pic_url: cls.picUrl,
+      sprite_url: trainer.spriteUrl,
+      group_key: trainer.group,
+      variant: trainer.variant,
       class_items: cls.items,
       base_reward: cls.baseReward,
       class_dvs: cls.dvs,
@@ -1321,8 +1325,10 @@ export interface TrainerListItem {
   region: string
   locations: TrainerLocation[]
   picUrl: string | null
+  spriteUrl: string | null
   double: boolean
   partySize: number
+  variantCount: number
 }
 
 interface TrainerRow {
@@ -1335,6 +1341,9 @@ interface TrainerRow {
   region: string
   locations: TrainerLocation[]
   pic_url: string | null
+  sprite_url: string | null
+  group_key: string
+  variant: TrainerVariant | null
   class_items: string[]
   base_reward: number
   class_dvs: TrainerDvs
@@ -1361,15 +1370,25 @@ export interface TrainerMonDetail extends TrainerMon {
   itemInfo: { key: string; name: string; iconUrl: string | null } | null
 }
 
-export interface TrainerDetail extends Omit<TrainerListItem, 'partySize'> {
+export interface TrainerVariantDetail {
+  key: string
+  variant: TrainerVariant | null
+  normal: { mons: TrainerMonDetail[]; randomCount: number | null }
+  hard: { mons: TrainerMonDetail[]; randomCount: number | null } | null
+}
+
+export interface TrainerDetail extends Omit<
+  TrainerListItem,
+  'partySize' | 'variantCount'
+> {
   baseReward: number
   classDvs: TrainerDvs
   evTier: number
   evShape: number
   classItems: { key: string; name: string; iconUrl: string | null }[]
   moves: Record<string, { name: string; type: string; category: string }>
-  normal: { mons: TrainerMonDetail[]; randomCount: number | null }
-  hard: { mons: TrainerMonDetail[]; randomCount: number | null } | null
+  // One entry per party the trainer can use, ordered by progression.
+  variants: TrainerVariantDetail[]
 }
 
 export async function listTrainers(): Promise<TrainerListItem[]> {
@@ -1380,7 +1399,7 @@ export async function listTrainers(): Promise<TrainerListItem[]> {
     const { data, error } = await supabase
       .from('trainers')
       .select(
-        'key, class_key, class_name, name, double, category, region, locations, pic_url, normal_team',
+        'key, class_key, class_name, name, double, category, region, locations, pic_url, sprite_url, group_key, normal_team',
       )
       .order('sort')
       .range(page * pageSize, page * pageSize + pageSize - 1)
@@ -1388,18 +1407,30 @@ export async function listTrainers(): Promise<TrainerListItem[]> {
     rows.push(...((data ?? []) as unknown as TrainerRow[]))
     if (!data || data.length < pageSize) break
   }
-  return rows.map((row) => ({
-    key: row.key,
-    name: row.name,
-    classKey: row.class_key,
-    className: row.class_name,
-    category: row.category,
-    region: row.region,
-    locations: row.locations,
-    picUrl: row.pic_url,
-    double: row.double,
-    partySize: row.normal_team.randomCount ?? row.normal_team.mons.length,
-  }))
+  const variantCounts = new Map<string, number>()
+  for (const row of rows) {
+    variantCounts.set(
+      row.group_key,
+      (variantCounts.get(row.group_key) ?? 0) + 1,
+    )
+  }
+  // Variants of one fight are listed once, under their primary trainer.
+  return rows
+    .filter((row) => row.key === row.group_key)
+    .map((row) => ({
+      key: row.key,
+      name: row.name,
+      classKey: row.class_key,
+      className: row.class_name,
+      category: row.category,
+      region: row.region,
+      locations: row.locations,
+      picUrl: row.pic_url,
+      spriteUrl: row.sprite_url,
+      double: row.double,
+      partySize: row.normal_team.randomCount ?? row.normal_team.mons.length,
+      variantCount: variantCounts.get(row.group_key) ?? 1,
+    }))
 }
 
 export async function getTrainer(key: string): Promise<TrainerDetail | null> {
@@ -1411,11 +1442,21 @@ export async function getTrainer(key: string): Promise<TrainerDetail | null> {
     .maybeSingle()
   if (error) throw new Error(error.message)
   if (!data) return null
-  const row = data as unknown as TrainerRow
+  const requested = data as unknown as TrainerRow
 
-  const teams = [row.normal_team, row.hard_team].filter(
-    (team): team is TrainerTeam => team !== null,
+  const { data: groupData, error: groupError } = await supabase
+    .from('trainers')
+    .select('*')
+    .eq('group_key', requested.group_key)
+  if (groupError) throw new Error(groupError.message)
+  const rows = ((groupData ?? []) as unknown as TrainerRow[]).sort(
+    (a, b) => (a.variant?.order ?? 0) - (b.variant?.order ?? 0),
   )
+  const row = rows.find((r) => r.key === r.group_key) ?? requested
+
+  const teams = rows
+    .flatMap((r) => [r.normal_team, r.hard_team])
+    .filter((team): team is TrainerTeam => team !== null)
   const allMons = teams.flatMap((team) => team.mons)
   const speciesNames = [...new Set(allMons.map((mon) => mon.species))]
   const itemKeys = [
@@ -1516,6 +1557,7 @@ export async function getTrainer(key: string): Promise<TrainerDetail | null> {
     region: row.region,
     locations: row.locations,
     picUrl: row.pic_url,
+    spriteUrl: row.sprite_url,
     double: row.double,
     baseReward: row.base_reward,
     classDvs: row.class_dvs,
@@ -1528,7 +1570,11 @@ export async function getTrainer(key: string): Promise<TrainerDetail | null> {
         { name: m.name, type: m.type, category: m.category },
       ]),
     ),
-    normal: enrichTeam(row.normal_team),
-    hard: row.hard_team ? enrichTeam(row.hard_team) : null,
+    variants: rows.map((r) => ({
+      key: r.key,
+      variant: r.variant,
+      normal: enrichTeam(r.normal_team),
+      hard: r.hard_team ? enrichTeam(r.hard_team) : null,
+    })),
   }
 }

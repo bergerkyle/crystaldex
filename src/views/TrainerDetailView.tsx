@@ -95,10 +95,22 @@ export function TrainerDetailView({
   const baseLevel = baseLevelFor(badges, rocket.length)
   const [hardMode, setHardMode] = useState(false)
 
-  const team = trainer
-    ? hardMode && trainer.hard
-      ? trainer.hard
-      : trainer.normal
+  const [manualVariant, setManualVariant] = useState<string | null>(null)
+  const variant = trainer
+    ? (trainer.variants.find((v) => v.key === manualVariant) ??
+      trainer.variants.find(
+        (v) =>
+          v.variant?.minBadges != null &&
+          v.variant.maxBadges != null &&
+          badges >= v.variant.minBadges &&
+          badges <= v.variant.maxBadges,
+      ) ??
+      trainer.variants[0])
+    : null
+  const team = variant
+    ? hardMode && variant.hard
+      ? variant.hard
+      : variant.normal
     : null
 
   return (
@@ -162,6 +174,7 @@ export function TrainerDetailView({
                 onChange={(e) => {
                   const value = Number(e.target.value)
                   setBadges(value)
+                  setManualVariant(null)
                   document.cookie = `${BADGES_COOKIE}=${value}; path=/; max-age=31536000; SameSite=Lax`
                 }}
               >
@@ -189,7 +202,7 @@ export function TrainerDetailView({
                 {label} Rockets
               </label>
             ))}
-            {trainer.hard && (
+            {variant?.hard && (
               <label>
                 <input
                   type="checkbox"
@@ -200,6 +213,21 @@ export function TrainerDetailView({
               </label>
             )}
           </div>
+          {trainer.variants.length > 1 && (
+            <div className="trainer-variants" role="tablist">
+              {trainer.variants.map((v) => (
+                <button
+                  key={v.key}
+                  role="tab"
+                  aria-selected={v.key === variant?.key}
+                  className={`trainer-variant${v.key === variant?.key ? ' active' : ''}`}
+                  onClick={() => setManualVariant(v.key)}
+                >
+                  {v.variant?.label ?? v.key}
+                </button>
+              ))}
+            </div>
+          )}
           <p className="muted trainer-note">
             Trainer levels scale with badges earned (badge level + 5) plus 2 for
             each Rocket event completed. Stats use the engine formula with the

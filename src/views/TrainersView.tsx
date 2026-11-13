@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { TrainerLink } from '../components/TrainerLink'
+import { TrainerTable } from '../components/TrainerTable'
 import { compareRegionOrder, formatLocation, formatName } from '../pokemon'
 import {
   TRAINER_CATEGORY_LABELS,
@@ -87,16 +87,12 @@ export function TrainersView({
                 <h2 className="route-detail-table-title">
                   {TRAINER_CATEGORY_LABELS[category]} ({group.length})
                 </h2>
-                <div className="trainer-grid">
-                  {group.map((trainer) => (
-                    <TrainerLink
-                      key={trainer.key}
-                      trainer={trainer}
-                      all={trainers}
-                      onOpen={onOpenTrainer}
-                    />
-                  ))}
-                </div>
+                <TrainerTable
+                  trainers={group}
+                  all={trainers}
+                  showLocation
+                  onOpen={onOpenTrainer}
+                />
               </section>
             ))}
           </div>

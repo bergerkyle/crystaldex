@@ -61,8 +61,10 @@ export interface TrainerListItem {
   region: string
   locations: TrainerLocation[]
   picUrl: string | null
+  spriteUrl: string | null
   double: boolean
   partySize: number
+  variantCount: number
 }
 
 export interface TrainerDvs {
@@ -102,15 +104,32 @@ export interface TrainerTeam {
   randomCount: number | null
 }
 
-export interface TrainerDetail extends Omit<TrainerListItem, 'partySize'> {
+export interface TrainerVariantInfo {
+  label: string
+  minBadges: number | null
+  maxBadges: number | null
+  order: number
+}
+
+export interface TrainerVariantDetail {
+  key: string
+  variant: TrainerVariantInfo | null
+  normal: TrainerTeam
+  hard: TrainerTeam | null
+}
+
+export interface TrainerDetail extends Omit<
+  TrainerListItem,
+  'partySize' | 'variantCount'
+> {
   baseReward: number
   classDvs: TrainerDvs
   evTier: number
   evShape: number
   classItems: TrainerItemInfo[]
   moves: Record<string, { name: string; type: string; category: string }>
-  normal: TrainerTeam
-  hard: TrainerTeam | null
+  // One entry per party the trainer can use, ordered by progression.
+  variants: TrainerVariantDetail[]
 }
 
 export function trainerPath(key: string): string {
