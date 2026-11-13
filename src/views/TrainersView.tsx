@@ -119,7 +119,11 @@ export function TrainersView({
                 : formatLocation(
                     group[0].locations[0].route.replace(FLOOR_SUFFIX_RE, ''),
                   ),
-            trainers: group,
+            trainers: [...group].sort(
+              (x, y) =>
+                Number(y.className === 'Leader') -
+                Number(x.className === 'Leader'),
+            ),
           })),
       }
     })
