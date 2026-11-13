@@ -119,6 +119,78 @@ export function TrainerDetailView({
       {error && <p className="error">{error}</p>}
       {trainer && team && (
         <article className="move-detail-content">
+          <div className="trainer-controls">
+            <label>
+              Badges{' '}
+              <select
+                value={badges}
+                onChange={(e) => {
+                  const value = Number(e.target.value)
+                  setBadges(value)
+                  setManualVariant(null)
+                  document.cookie = `${BADGES_COOKIE}=${value}; path=/; max-age=31536000; SameSite=Lax`
+                }}
+              >
+                {Array.from({ length: MAX_BADGES + 1 }, (_, n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <details className="trainer-rocket-menu">
+              <summary>
+                Rocket events
+                {rocket.length > 0 ? ` (${rocket.length})` : ''}
+              </summary>
+              <div className="trainer-rocket-options">
+                {ROCKET_EVENTS.map(({ key, label }) => (
+                  <label key={key}>
+                    <input
+                      type="checkbox"
+                      checked={rocket.includes(key)}
+                      onChange={(e) => {
+                        const next = ROCKET_EVENTS.map((ev) => ev.key).filter(
+                          (k) =>
+                            k === key ? e.target.checked : rocket.includes(k),
+                        )
+                        setRocket(next)
+                        writeRocketCookie(next)
+                      }}
+                    />{' '}
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </details>
+            {variant?.hard && (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={hardMode}
+                  onChange={(e) => setHardMode(e.target.checked)}
+                />{' '}
+                Hard mode team
+              </label>
+            )}
+            <span
+              className="trainer-info"
+              tabIndex={0}
+              aria-describedby="trainer-info-tip"
+            >
+              ⓘ
+              <span
+                className="trainer-info-tip"
+                role="tooltip"
+                id="trainer-info-tip"
+              >
+                Trainer levels scale with badges earned (badge level + 5) plus 2
+                for each Rocket event completed (currently base Lv. {baseLevel}
+                ). Stats use the engine formula with the trainer's DVs and EVs.
+              </span>
+            </span>
+          </div>
+
           <div className="trainer-header">
             {trainer.picUrl && (
               <img className="trainer-header-pic" src={trainer.picUrl} alt="" />
@@ -166,53 +238,6 @@ export function TrainerDetailView({
             </div>
           </div>
 
-          <div className="trainer-controls">
-            <label>
-              Badges{' '}
-              <select
-                value={badges}
-                onChange={(e) => {
-                  const value = Number(e.target.value)
-                  setBadges(value)
-                  setManualVariant(null)
-                  document.cookie = `${BADGES_COOKIE}=${value}; path=/; max-age=31536000; SameSite=Lax`
-                }}
-              >
-                {Array.from({ length: MAX_BADGES + 1 }, (_, n) => (
-                  <option key={n} value={n}>
-                    {n} (base Lv. {baseLevelFor(n, rocket.length)})
-                  </option>
-                ))}
-              </select>
-            </label>
-            {ROCKET_EVENTS.map(({ key, label }) => (
-              <label key={key}>
-                <input
-                  type="checkbox"
-                  checked={rocket.includes(key)}
-                  onChange={(e) => {
-                    const next = ROCKET_EVENTS.map((ev) => ev.key).filter(
-                      (k) =>
-                        k === key ? e.target.checked : rocket.includes(k),
-                    )
-                    setRocket(next)
-                    writeRocketCookie(next)
-                  }}
-                />{' '}
-                {label} Rockets
-              </label>
-            ))}
-            {variant?.hard && (
-              <label>
-                <input
-                  type="checkbox"
-                  checked={hardMode}
-                  onChange={(e) => setHardMode(e.target.checked)}
-                />{' '}
-                Hard mode team
-              </label>
-            )}
-          </div>
           {trainer.variants.length > 1 && (
             <div className="trainer-variants" role="tablist">
               {trainer.variants.map((v) => (
@@ -228,11 +253,6 @@ export function TrainerDetailView({
               ))}
             </div>
           )}
-          <p className="muted trainer-note">
-            Trainer levels scale with badges earned (badge level + 5) plus 2 for
-            each Rocket event completed. Stats use the engine formula with the
-            trainer's DVs and EVs.
-          </p>
           {team.randomCount !== null && (
             <p className="muted">
               Random team: {team.randomCount} Pokémon drawn from the pool below.
