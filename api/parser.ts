@@ -1619,6 +1619,7 @@ const GIVEPOKE_RE = /^\s*givepoke\s+([A-Z][A-Z0-9_]*)\s*,/gm
 export const FIXED_ENCOUNTER_REGION_OVERRIDES: Record<string, string> = {
   NATIONAL_PARK: 'johto',
   NATIONAL_PARK_BUG_CONTEST: 'johto',
+  ROUTE_35_GOLDENROD_GATE: 'johto',
   ROUTE_35_NATIONAL_PARK_GATE: 'johto',
   ROUTE_36_NATIONAL_PARK_GATE: 'johto',
   POWER_PLANT: 'kanto',

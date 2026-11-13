@@ -4,15 +4,21 @@ import { regionGroupLabel } from '../pokemon'
 interface RegionAccordionProps {
   group: string
   forceOpen?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
   children: ReactNode
 }
 
 export function RegionAccordion({
   group,
   forceOpen = false,
+  open: controlledOpen,
+  onOpenChange,
   children,
 }: RegionAccordionProps) {
-  const [open, setOpen] = useState(true)
+  const [localOpen, setLocalOpen] = useState(true)
+  const open = controlledOpen ?? localOpen
+  const setOpen = onOpenChange ?? setLocalOpen
   const isOpen = forceOpen || open
   return (
     <section className="region-accordion">
