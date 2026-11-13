@@ -1,3 +1,4 @@
+import { TrainerSprite } from './TrainerSprite'
 import { trainerLabel, type TrainerListItem } from '../trainers'
 
 interface TrainerTableProps {
@@ -5,24 +6,6 @@ interface TrainerTableProps {
   all: TrainerListItem[]
   title?: string
   onOpen: (key: string) => void
-}
-
-// The sprite sheet stacks 16px frames vertically; the first is front-facing.
-function TrainerSprite({ trainer }: { trainer: TrainerListItem }) {
-  if (!trainer.spriteUrl) {
-    return trainer.picUrl ? (
-      <img className="trainer-table-pic" src={trainer.picUrl} alt="" />
-    ) : (
-      <span className="trainer-table-sprite" aria-hidden="true" />
-    )
-  }
-  return (
-    <span
-      className="trainer-table-sprite"
-      aria-hidden="true"
-      style={{ backgroundImage: `url(${trainer.spriteUrl})` }}
-    />
-  )
 }
 
 export function TrainerTable({
@@ -51,7 +34,12 @@ export function TrainerTable({
               onClick={() => onOpen(trainer.key)}
             >
               <td>
-                <TrainerSprite trainer={trainer} />
+                {trainer.spriteUrl && (
+                  <TrainerSprite
+                    src={trainer.spriteUrl}
+                    palette={trainer.spritePalette}
+                  />
+                )}
               </td>
               <td className="move-table-name-cell">
                 {trainerLabel(trainer, all)}

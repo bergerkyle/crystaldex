@@ -155,6 +155,9 @@ export function MovesView({
               <a
                 key={type}
                 href={`#type-heading-${type}`}
+                onClick={() =>
+                  setCollapsedTypes((prev) => ({ ...prev, [type]: false }))
+                }
                 className="type-jump-link"
                 style={{
                   backgroundColor: TYPE_HEADER_COLORS[type],

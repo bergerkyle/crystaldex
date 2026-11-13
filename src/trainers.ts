@@ -62,6 +62,7 @@ export interface TrainerListItem {
   locations: TrainerLocation[]
   picUrl: string | null
   spriteUrl: string | null
+  spritePalette: string | null
   double: boolean
   partySize: number
   variantCount: number

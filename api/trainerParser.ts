@@ -24,6 +24,9 @@ const TRAINER_CLASS_EVS_PATH = 'data/trainers/class_evs.asm'
 const TRAINER_RANDOM_PARTIES_PATH = 'data/trainers/random_parties.asm'
 const TRAINER_PICS_PATH = 'gfx/pics.asm'
 const MAPS_PATH = 'data/maps/maps.asm'
+const SPRITE_CONSTANTS_PATH = 'constants/sprite_constants.asm'
+const SPRITE_DATA_PATH = 'data/sprites/sprites.asm'
+const NPC_PALETTES_PATH = 'gfx/overworld/npc_sprites.pal'
 
 export const TRAINER_PIC_BASE = `https://raw.githubusercontent.com/${REPO}/${REF}`
 
@@ -104,6 +107,8 @@ export interface TrainerDef {
   region: string
   // Overworld sprite sheet (first frame is the front-facing pose).
   spriteUrl: string | null
+  // Three hex colors (skin, clothes, outline) the overworld sprite is tinted with.
+  spritePalette: string | null
   // `<CLASS>/<ID>` of the primary variant this trainer is grouped under.
   group: string
   variant: TrainerVariant | null
@@ -463,6 +468,7 @@ interface TrainerPlacement {
   category: TrainerCategory
   region?: string
   sprite?: string
+  palette?: string
   variant?: TrainerVariant
 }
 
@@ -566,6 +572,58 @@ function findScriptVariants(source: string): Map<string, TrainerVariant> {
   return result
 }
 
+// SPRITE_* constant -> default palette name, from the OverworldSprites table
+// (entries follow the order of the SPRITE_* constants).
+function parseSpriteDefaultPalettes(
+  constantsSource: string,
+  dataSource: string,
+): Map<string, string> {
+  const constants = [...constantsSource.matchAll(/^\s*const\s+(SPRITE_\w+)/gm)]
+  const pals = [
+    ...dataSource.matchAll(/^\s*overworld_sprite\s+.*,\s*PAL_OW_(\w+)\s*$/gm),
+  ]
+  const result = new Map<string, string>()
+  // SPRITE_NONE is index 0 and has no table entry.
+  pals.forEach((m, i) => {
+    const constant = constants[i + 1]?.[1]
+    if (constant) result.set(constant, m[1])
+  })
+  return result
+}
+
+// Palette name -> `RRGGBB,RRGGBB,RRGGBB` for color slots 1-3 (slot 0 is the
+// transparent background), taken from the daytime set.
+function parseNpcPalettes(source: string): Map<string, string> {
+  const palettes = new Map<string, string>()
+  let section = ''
+  for (const line of source.split('\n')) {
+    const header = /^;\s*(\w+)\s*$/.exec(line.trim())
+    if (header) {
+      section = header[1].toLowerCase()
+      continue
+    }
+    if (section !== 'day') continue
+    const row = /^\s*RGB\s+(.*?)\s*;\s*(.+?)\s*$/.exec(line)
+    if (!row) continue
+    const values = row[1].split(',').map((v) => Number(v.trim()))
+    if (values.length < 12) continue
+    const hex = (start: number) =>
+      values
+        .slice(start, start + 3)
+        .map((v) =>
+          Math.round((v * 255) / 31)
+            .toString(16)
+            .padStart(2, '0'),
+        )
+        .join('')
+    palettes.set(
+      row[2].toUpperCase().replace(/\s+/g, '_'),
+      [hex(3), hex(6), hex(9)].join(','),
+    )
+  }
+  return palettes
+}
+
 // Script label -> SPRITE_* constant for every object event in a map.
 function parseObjectSprites(source: string): Map<string, string> {
   const sprites = new Map<string, string>()
@@ -609,6 +667,51 @@ function parseObjectHideFlags(source: string): Map<string, string> {
   return flags
 }
 
+// Script label -> PAL_NPC_* override of its object event, if any.
+function parseObjectPalettes(source: string): Map<string, string> {
+  const palettes = new Map<string, string>()
+  for (const m of source.matchAll(/^\s*object_event\s+(.*)$/gm)) {
+    const fields = m[1].split(',').map((field) => field.trim())
+    const pal = fields.find((field) => field.startsWith('PAL_NPC_'))
+    const label = fields.at(-2)
+    if (pal && label && pal !== 'PAL_NPC_DEFAULT') {
+      palettes.set(label, pal.replace(/^PAL_NPC_/, ''))
+    }
+  }
+  return palettes
+}
+
+// Leader fights live in helper scripts (`scall RoxanneFight`), so walk up from
+// the script holding the loadtrainer to the one an object event points at.
+function findObjectScript(
+  source: string,
+  start: string,
+  objectLabels: Set<string>,
+): string | undefined {
+  const blocks = [...source.matchAll(/^([A-Za-z_]\w*)::?\s*$/gm)].map(
+    (m, i, all) => ({
+      label: m[1],
+      body: source.slice(
+        (m.index ?? 0) + m[0].length,
+        all[i + 1]?.index ?? source.length,
+      ),
+    }),
+  )
+  const seen = new Set([start])
+  const queue = [start]
+  while (queue.length > 0) {
+    const label = queue.shift() as string
+    if (objectLabels.has(label)) return label
+    const wordRe = new RegExp(`\\b${label}\\b`)
+    for (const block of blocks) {
+      if (seen.has(block.label) || !wordRe.test(block.body)) continue
+      seen.add(block.label)
+      queue.push(block.label)
+    }
+  }
+  return undefined
+}
+
 function findTrainerPlacements(
   mapSources: { path: string; source: string }[],
   mapInfo: Map<string, MapInfo>,
@@ -626,6 +729,8 @@ function findTrainerPlacements(
     const category = categorizeMap(mapName, mapInfo.get(mapName))
     const objectSprites = parseObjectSprites(source)
     const hideFlags = parseObjectHideFlags(source)
+    const objectPalettes = parseObjectPalettes(source)
+    const objectLabels = new Set(objectSprites.keys())
     const variants = findScriptVariants(source)
     const topLabels = [...source.matchAll(/^([A-Za-z_]\w*)::?\s*$/gm)]
 
@@ -635,8 +740,14 @@ function findTrainerPlacements(
       const enclosing = topLabels
         .filter((l) => (l.index ?? 0) < (m.index ?? 0))
         .at(-1)
-      const sprite = enclosing ? objectSprites.get(enclosing[1]) : undefined
-      if (sprite && !placement.sprite) placement.sprite = sprite
+      const objectLabel = enclosing
+        ? findObjectScript(source, enclosing[1], objectLabels)
+        : undefined
+      const sprite = objectLabel ? objectSprites.get(objectLabel) : undefined
+      if (sprite && !placement.sprite) {
+        placement.sprite = sprite
+        placement.palette = objectPalettes.get(objectLabel as string)
+      }
       const hideFlag = enclosing ? hideFlags.get(enclosing[1]) : undefined
       const variant =
         variants.get(key) ??
@@ -673,6 +784,8 @@ function fillClassSprites(trainers: TrainerDef[]) {
     const byUrl = counts.get(t.classKey)
     if (!byUrl) continue
     t.spriteUrl = [...byUrl.entries()].sort((a, b) => b[1] - a[1])[0][0]
+    t.spritePalette =
+      trainers.find((o) => o.spriteUrl === t.spriteUrl)?.spritePalette ?? null
   }
 }
 
@@ -712,6 +825,9 @@ export async function fetchTrainerData(
     picsSource,
     mapsSource,
     mapSources,
+    spriteConstantsSource,
+    spriteDataSource,
+    npcPalettesSource,
   ] = await Promise.all([
     fetchRaw(TRAINER_CONSTANTS_PATH),
     fetchRaw(TRAINER_CLASS_NAMES_PATH),
@@ -725,6 +841,9 @@ export async function fetchTrainerData(
     fetchRaw(TRAINER_PICS_PATH),
     fetchRaw(MAPS_PATH),
     fetchMapSources(tree),
+    fetchRaw(SPRITE_CONSTANTS_PATH),
+    fetchRaw(SPRITE_DATA_PATH),
+    fetchRaw(NPC_PALETTES_PATH),
   ])
 
   const classKeys = parseTrainerClassKeys(constantsSource)
@@ -751,6 +870,19 @@ export async function fetchTrainerData(
       : null
   }
 
+  const defaultPalettes = parseSpriteDefaultPalettes(
+    spriteConstantsSource,
+    spriteDataSource,
+  )
+  const npcPalettes = parseNpcPalettes(npcPalettesSource)
+  const paletteFor = (
+    constant: string | undefined,
+    override: string | undefined,
+  ): string | null =>
+    npcPalettes.get(
+      override ?? (constant ? (defaultPalettes.get(constant) ?? '') : ''),
+    ) ?? null
+
   const validSpecies = new Set(pokemonEntries.map((e) => normalizeKey(e.name)))
   const speciesName = new Map(
     pokemonEntries.map((e) => [normalizeKey(e.name), e.name]),
@@ -763,6 +895,32 @@ export async function fetchTrainerData(
     ...team,
     mons: team.mons.map(resolveMon).filter((m): m is TrainerMon => m !== null),
   })
+
+  // Trainers whose object event uses the generic `ObjectEvent` script.
+  const spriteOverrides: Record<string, [string, string]> = {
+    'MYSTICALMAN/EUSINE': ['SPRITE_SUPER_NERD', 'BLUE'],
+  }
+  const spriteFor = (
+    classKey: string,
+    id: string,
+    placement: TrainerPlacement,
+  ) => {
+    const override = spriteOverrides[`${classKey}/${id}`]
+    const candidates: [string, string | undefined][] = [
+      ...(override ? [override as [string, string]] : []),
+      [placement.sprite ?? '', placement.palette],
+      [`SPRITE_${classKey}`, undefined],
+      [`SPRITE_${classKey.replace(/\d+$/, '')}`, undefined],
+      [`SPRITE_${id.replace(/_?\d+$/, '')}`, undefined],
+    ]
+    for (const [constant, override] of candidates) {
+      const url = spriteUrlFor(constant || undefined)
+      if (url) {
+        return { spriteUrl: url, spritePalette: paletteFor(constant, override) }
+      }
+    }
+    return { spriteUrl: null, spritePalette: null }
+  }
 
   const classes: TrainerClassInfo[] = []
   const trainers: TrainerDef[] = []
@@ -796,10 +954,7 @@ export async function fetchTrainerData(
         double: party.double,
         category: placement.category,
         region: placement.region ?? placement.locations[0]?.region ?? '',
-        spriteUrl:
-          spriteUrlFor(placement.sprite) ??
-          spriteUrlFor(`SPRITE_${classKey}`) ??
-          spriteUrlFor(`SPRITE_${party.id.replace(/_?\d+$/, '')}`),
+        ...spriteFor(classKey, party.id, placement),
         group: key,
         variant: placement.variant ?? null,
         locations: placement.locations,

@@ -2336,3 +2336,15 @@ a:hover {
   background: rgba(154, 165, 208, 0.3);
   font-weight: 700;
 }
+
+.trainer-table td {
+  white-space: nowrap;
+}
+
+.moves-page .trainer-table td {
+  white-space: nowrap;
+}
+
+.trainer-table-sprite {
+  image-rendering: pixelated;
+}
