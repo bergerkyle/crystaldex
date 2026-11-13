@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { AnimatedFrontSprite } from '../PokemonSprite'
 import { itemIconUrl } from '../itemCategories'
 import {
@@ -6,7 +6,6 @@ import {
   formatConstant,
   formatLocation,
   formatName,
-  moveAccuracy,
 } from '../pokemon'
 import { CategoryMetaChip, TypeMetaChip } from './moveMeta'
 import {
@@ -36,10 +35,12 @@ interface TrainerDetailViewProps {
 function ItemChip({
   item,
   fallbackKey,
+  count = 1,
   onOpenItem,
 }: {
   item: TrainerItemInfo | null
   fallbackKey: string
+  count?: number
   onOpenItem: (key: string) => void
 }) {
   const icon = item ? itemIconUrl({ ...item, description: '' }) : null
@@ -52,8 +53,19 @@ function ItemChip({
         <img className="item-icon" src={icon} alt="" aria-hidden="true" />
       )}
       {item?.name ?? formatConstant(fallbackKey)}
+      {count > 1 ? ` (${count})` : ''}
     </button>
   )
+}
+
+function groupItems(items: TrainerItemInfo[]) {
+  const counts = new Map<string, { item: TrainerItemInfo; count: number }>()
+  for (const item of items) {
+    const entry = counts.get(item.key)
+    if (entry) entry.count += 1
+    else counts.set(item.key, { item, count: 1 })
+  }
+  return [...counts.values()]
 }
 
 const ROCKET_COOKIE = 'crystaldex_rocket'
@@ -95,6 +107,8 @@ export function TrainerDetailView({
   const [rocket, setRocket] = useState(readRocketCookie)
   const baseLevel = baseLevelFor(badges, rocket.length)
   const [hardMode, setHardMode] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
+  const badgesMenu = useRef<HTMLDetailsElement>(null)
 
   const [manualVariant, setManualVariant] = useState<string | null>(null)
   const variant = trainer
@@ -121,30 +135,28 @@ export function TrainerDetailView({
       {trainer && team && (
         <article className="move-detail-content">
           <div className="trainer-controls">
-            <label>
-              Badges{' '}
-              <select
-                value={badges}
-                onChange={(e) => {
-                  const value = Number(e.target.value)
-                  setBadges(value)
-                  setManualVariant(null)
-                  document.cookie = `${BADGES_COOKIE}=${value}; path=/; max-age=31536000; SameSite=Lax`
-                }}
-              >
+            <details className="trainer-menu" ref={badgesMenu}>
+              <summary>Badges ({badges})</summary>
+              <div className="trainer-menu-options trainer-badge-options">
                 {Array.from({ length: MAX_BADGES + 1 }, (_, n) => (
-                  <option key={n} value={n}>
+                  <button
+                    key={n}
+                    className={n === badges ? 'active' : ''}
+                    onClick={() => {
+                      setBadges(n)
+                      setManualVariant(null)
+                      document.cookie = `${BADGES_COOKIE}=${n}; path=/; max-age=31536000; SameSite=Lax`
+                      badgesMenu.current?.removeAttribute('open')
+                    }}
+                  >
                     {n}
-                  </option>
+                  </button>
                 ))}
-              </select>
-            </label>
-            <details className="trainer-rocket-menu">
-              <summary>
-                Rocket events
-                {rocket.length > 0 ? ` (${rocket.length})` : ''}
-              </summary>
-              <div className="trainer-rocket-options">
+              </div>
+            </details>
+            <details className="trainer-menu">
+              <summary>Rocket events ({rocket.length})</summary>
+              <div className="trainer-menu-options">
                 {ROCKET_EVENTS.map(({ key, label }) => (
                   <label key={key}>
                     <input
@@ -165,36 +177,43 @@ export function TrainerDetailView({
               </div>
             </details>
             {variant?.hard && (
-              <label>
+              <label className="trainer-hard-toggle">
                 <input
                   type="checkbox"
                   checked={hardMode}
                   onChange={(e) => setHardMode(e.target.checked)}
                 />{' '}
-                Hard mode team
+                Hard mode
               </label>
             )}
-            <span
-              className="trainer-info"
-              tabIndex={0}
-              aria-describedby="trainer-info-tip"
-            >
-              ⓘ
-              <span
-                className="trainer-info-tip"
-                role="tooltip"
-                id="trainer-info-tip"
+            <span className="trainer-info" onBlur={() => setInfoOpen(false)}>
+              <button
+                type="button"
+                className="trainer-info-btn"
+                aria-expanded={infoOpen}
+                aria-label="About trainer levels"
+                onClick={() => setInfoOpen(!infoOpen)}
               >
-                Trainer levels scale with badges earned (badge level + 5) plus 2
-                for each Rocket event completed (currently base Lv. {baseLevel}
-                ). Stats use the engine formula with the trainer's DVs and EVs.
-              </span>
+                ⓘ
+              </button>
+              {infoOpen && (
+                <span className="trainer-info-tip" role="tooltip">
+                  Trainer levels scale with badges earned (badge level + 5) plus
+                  2 for each Rocket event completed (currently base Lv.{' '}
+                  {baseLevel}). Stats use the engine formula with the trainer's
+                  DVs and EVs.
+                </span>
+              )}
             </span>
           </div>
 
           <div className="trainer-header">
             {trainer.picUrl && (
-              <img className="trainer-header-pic" src={trainer.picUrl} alt="" />
+              <img
+                className="sprite trainer-header-pic"
+                src={trainer.picUrl}
+                alt=""
+              />
             )}
             <div>
               <h2 className="move-detail-title">
@@ -204,7 +223,7 @@ export function TrainerDetailView({
                 )}
               </h2>
               <p className="move-key">
-                {trainer.className} ({formatConstant(trainer.classKey)})
+                {trainer.className}
                 {trainer.double ? ' · Double battle' : ''}
               </p>
               {trainer.locations.length > 0 && (
@@ -226,11 +245,12 @@ export function TrainerDetailView({
               {trainer.classItems.length > 0 && (
                 <p className="trainer-class-items">
                   Items:{' '}
-                  {trainer.classItems.map((item) => (
+                  {groupItems(trainer.classItems).map(({ item, count }) => (
                     <ItemChip
                       key={item.key}
                       item={item}
                       fallbackKey={item.key}
+                      count={count}
                       onOpenItem={onOpenItem}
                     />
                   ))}
@@ -279,7 +299,7 @@ export function TrainerDetailView({
                     {mon.frontSprite && (
                       <AnimatedFrontSprite
                         front={mon.frontSprite}
-                        displaySize={80}
+                        className="sprite sprite-front"
                         shiny={mon.shiny}
                         ariaLabel={`${mon.species} front sprite`}
                       />
@@ -329,16 +349,6 @@ export function TrainerDetailView({
 
                   <div className="move-table-wrap">
                     <table className="move-table trainer-moves-table">
-                      <thead>
-                        <tr>
-                          <th>Move</th>
-                          <th>Type</th>
-                          <th>Category</th>
-                          <th>Power</th>
-                          <th>Accuracy</th>
-                          <th>PP</th>
-                        </tr>
-                      </thead>
                       <tbody>
                         {moves.map((move) => {
                           const info = trainer.moves[move]
@@ -359,27 +369,12 @@ export function TrainerDetailView({
                                   <CategoryMetaChip category={info.category} />
                                 )}
                               </td>
-                              <td>
-                                {info && info.power > 0 ? info.power : '-'}
-                              </td>
-                              <td>
-                                {info &&
-                                moveAccuracy({ key: move, ...info }) > 0
-                                  ? moveAccuracy({ key: move, ...info })
-                                  : '-'}
-                              </td>
-                              <td>{info?.pp ?? '-'}</td>
                             </tr>
                           )
                         })}
                       </tbody>
                     </table>
                   </div>
-                  {!mon.moves && (
-                    <p className="muted">
-                      Moves are its latest level-up moves.
-                    </p>
-                  )}
 
                   {computed && (
                     <div className="trainer-mon-stats">

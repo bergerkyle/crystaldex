@@ -55,7 +55,6 @@ export function TrainerTable({
               </td>
               <td className="move-table-name-cell">
                 {trainerLabel(trainer, all)}
-                {trainer.double ? ' · Double' : ''}
               </td>
               <td>{trainer.className}</td>
             </tr>

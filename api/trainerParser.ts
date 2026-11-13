@@ -580,6 +580,35 @@ function parseObjectSprites(source: string): Map<string, string> {
   return sprites
 }
 
+// Gym trainers have an easier and a harder copy of each object event. The
+// engine hides one of them by badge count (UpdateWorldLevelsScript).
+const HIDE_FLAG_VARIANTS: Record<string, TrainerVariant> = {
+  EVENT_HIDE_EASY_TRAINERS: {
+    label: badgeRangeLabel(0, 3),
+    minBadges: 0,
+    maxBadges: 3,
+    order: 0,
+  },
+  EVENT_HIDE_MEDIUM_TRAINERS: {
+    label: badgeRangeLabel(4, MAX_BADGES),
+    minBadges: 4,
+    maxBadges: MAX_BADGES,
+    order: 4,
+  },
+}
+
+// Script label -> EVENT_HIDE_* flag that hides the object event.
+function parseObjectHideFlags(source: string): Map<string, string> {
+  const flags = new Map<string, string>()
+  for (const m of source.matchAll(/^\s*object_event\s+(.*)$/gm)) {
+    const fields = m[1].split(',').map((field) => field.trim())
+    const flag = fields.at(-1)
+    const label = fields.at(-2)
+    if (flag && label && flag in HIDE_FLAG_VARIANTS) flags.set(label, flag)
+  }
+  return flags
+}
+
 function findTrainerPlacements(
   mapSources: { path: string; source: string }[],
   mapInfo: Map<string, MapInfo>,
@@ -596,6 +625,7 @@ function findTrainerPlacements(
         : (TRAINER_REGION_OVERRIDES[route] ?? '')
     const category = categorizeMap(mapName, mapInfo.get(mapName))
     const objectSprites = parseObjectSprites(source)
+    const hideFlags = parseObjectHideFlags(source)
     const variants = findScriptVariants(source)
     const topLabels = [...source.matchAll(/^([A-Za-z_]\w*)::?\s*$/gm)]
 
@@ -607,7 +637,10 @@ function findTrainerPlacements(
         .at(-1)
       const sprite = enclosing ? objectSprites.get(enclosing[1]) : undefined
       if (sprite && !placement.sprite) placement.sprite = sprite
-      const variant = variants.get(key)
+      const hideFlag = enclosing ? hideFlags.get(enclosing[1]) : undefined
+      const variant =
+        variants.get(key) ??
+        (hideFlag ? HIDE_FLAG_VARIANTS[hideFlag] : undefined)
       if (variant && !placement.variant) placement.variant = variant
       if (
         !placement.locations.some(
