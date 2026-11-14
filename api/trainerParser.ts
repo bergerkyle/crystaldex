@@ -504,6 +504,10 @@ interface TrainerPlacement {
 }
 
 const MAX_BADGES = 24
+// Elite Four rooms test whether a League was already beaten (older revisions
+// called LeagueRematchCheckScript instead) and branch to the rematch team.
+const LEAGUE_CHECK_RE =
+  /callstd\s+LeagueRematchCheckScript|checkevent\s+EVENT_BEAT_(?:INDIGO|JOHTO|HOENN)_LEAGUE\b/
 const BADGE_VAR_RE = /^\s*readvar\s+VAR_BADGES\b/
 const LABEL_RE = /^(\.[A-Za-z_]\w*):?\s*$|^([A-Za-z_]\w*)::?\s*$/
 const LOADTRAINER_RE = /^\s*loadtrainer\s+([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/
@@ -520,7 +524,7 @@ function badgeRangeLabel(min: number, max: number): string {
 // the Elite Four and Champion, from LeagueRematchCheckScript. A loadtrainer not
 // reached through either is a follow-up battle in the same fight.
 function findScriptVariants(source: string): Map<string, TrainerVariant> {
-  const usesLeague = source.includes('LeagueRematchCheckScript')
+  const usesLeague = LEAGUE_CHECK_RE.test(source)
   const result = new Map<string, TrainerVariant>()
   if (!usesLeague && !/readvar\s+VAR_BADGES/.test(source)) return result
 
@@ -580,21 +584,38 @@ function findScriptVariants(source: string): Map<string, TrainerVariant> {
 
   if (usesLeague) {
     const rematchLabels = new Set<string>()
-    const firstLabels = new Set<string>()
+    const firstKeys = new Set<string>()
     lines.forEach((text, line) => {
-      if (!/callstd\s+LeagueRematchCheckScript/.test(text)) return
+      if (!LEAGUE_CHECK_RE.test(text)) return
+      let rematchLabel = ''
+      let hasJump = false
       for (let i = line + 1; i < Math.min(lines.length, line + 4); i += 1) {
         const rematch = /^\s*iftrue\s+(\.\w+)/.exec(lines[i])
-        if (rematch) rematchLabels.add(rematch[1])
+        if (rematch) {
+          rematchLabel = rematch[1]
+          rematchLabels.add(rematchLabel)
+        }
         const first = /^\s*sjump\s+(\.\w+)/.exec(lines[i])
-        if (first) firstLabels.add(first[1])
+        if (first) {
+          const load = firstLoadAfter(i, first[1])
+          if (load) {
+            firstKeys.add(load.key)
+            hasJump = true
+          }
+        }
       }
+      if (!rematchLabel) return
+      // Without an explicit jump the first run falls through to the next load.
+      const fallthrough = loads.find(
+        (l) => l.line > line && l.label !== rematchLabel,
+      )
+      if (fallthrough && !hasJump) firstKeys.add(fallthrough.key)
     })
     for (const load of loads) {
       if (result.has(load.key)) continue
       const variant = rematchLabels.has(load.label)
         ? { label: 'League rematch', order: 1 }
-        : firstLabels.has(load.label)
+        : firstKeys.has(load.key)
           ? { label: 'First League run', order: 0 }
           : { label: 'Second battle', order: 2 }
       result.set(load.key, { ...variant, minBadges: null, maxBadges: null })
