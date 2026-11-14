@@ -43,7 +43,8 @@ const GYM_ORDER = [
   'SOOTOPOLIS_GYM',
 ]
 
-const ELITE_FOUR_ORDER = ['will', 'koga', 'bruno', 'karen', 'lance']
+const ELITE_FOUR_ORDER = ['will', 'koga', 'bruno', 'karen']
+const ELITE_FOUR_CHAMPIONS = ['agatha', 'lance']
 
 function groupRank(category: string, route: string): number {
   if (category === 'elite_four') return 999
@@ -53,8 +54,11 @@ function groupRank(category: string, route: string): number {
 }
 
 function eliteRank(trainer: TrainerListItem): number {
-  if (trainer.category !== 'elite_four' || trainer.region !== 'kanto') return 0
-  const index = ELITE_FOUR_ORDER.indexOf(trainer.name.toLowerCase())
+  if (trainer.category !== 'elite_four') return 0
+  const name = trainer.name.toLowerCase()
+  if (ELITE_FOUR_CHAMPIONS.includes(name)) return 1000
+  const index =
+    trainer.region === 'kanto' ? ELITE_FOUR_ORDER.indexOf(name) : -1
   return index === -1 ? ELITE_FOUR_ORDER.length : index
 }
 
