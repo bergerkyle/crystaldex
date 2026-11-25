@@ -1736,52 +1736,72 @@ function itemKeyToName(key: string): string {
     .join(' ')
 }
 
-// Ordered item-pocket constants from item_constants.asm. The index into the
-// returned array IS the item id (index 0 = NO_ITEM). Only the regular item
-// pocket is parsed (all held items and evolution stones live here); parsing
-// stops at NUM_ITEM_POCKET before key items / balls.
-export function parseItemConstants(source: string): string[] {
-  const keys: string[] = []
+// Item constants from item_constants.asm, grouped by bag pocket in id order.
+// A `const_align` starts a new pocket (ids skip ahead, so ids are not
+// contiguous across pockets); names and descriptions are per-pocket lists in
+// the same order. NO_ITEM is excluded. Parsing stops at NUM_ITEMS, before the
+// TM/HM section (see parseTmHm).
+export function parseItemConstants(source: string): string[][] {
+  const pockets: string[][] = []
   let started = false
   for (const line of source.split('\n')) {
     if (!started) {
-      if (/^\s*const_def\b/.test(line)) started = true
+      if (/^\s*const_def\b/.test(line)) {
+        started = true
+        pockets.push([])
+      }
       continue
     }
-    if (/\bNUM_ITEM_POCKET\b/.test(line)) break
+    if (/^\s*DEF\s+NUM_ITEMS\b/.test(line)) break
+    if (/^\s*const_align\b/.test(line)) {
+      pockets.push([])
+      continue
+    }
     const m = line.match(/^\s*const\s+([A-Z0-9_]+)/)
-    if (m) keys.push(m[1])
+    if (m && m[1] !== 'NO_ITEM') pockets[pockets.length - 1].push(m[1])
   }
-  return keys
+  return pockets
 }
 
-// Item names from the ItemNames list in names.asm, indexed by item id. The list
-// is ordered by id starting at 1 (NO_ITEM has no name), so the returned array is
-// padded with an empty string at index 0 to keep index === id. The `; 00xx`
-// comments in the source are unreliable (some are transposed); position wins.
-export function parseItemNames(source: string): string[] {
-  const names: string[] = ['']
-  const block = source.match(/ItemNames::([\s\S]*?)assert_list_length/)
-  if (!block) return names
-  for (const line of block[1].split('\n')) {
+// Item names per pocket: each `XxxNames::` list in names.asm, in order. The
+// `; 00xx` comments in the source are unreliable; position wins.
+export function parseItemNames(source: string): string[][] {
+  const pockets: string[][] = []
+  let current: string[] | null = null
+  for (const line of source.split('\n')) {
+    if (/^[A-Za-z0-9_]*Names::/.test(line)) {
+      current = []
+      pockets.push(current)
+      continue
+    }
+    if (!current) continue
     const m = line.match(/^\s*li\s+"([^"]*)"/)
-    if (m) names.push(m[1])
+    if (m) current.push(m[1])
   }
-  return names
+  return pockets
 }
 
-// Description labels from the ItemDescriptions1 table, indexed by item id
-// (index 0 padded empty, entries start at id 1). Each `dw XxxDesc` points at a
-// label whose text lives elsewhere in the file (see parseItemDescriptions).
-export function parseItemDescriptionLabels(source: string): string[] {
-  const labels: string[] = ['']
-  const block = source.match(/ItemDescriptions1:([\s\S]*?)\.IndirectEnd:/)
-  if (!block) return labels
-  for (const line of block[1].split('\n')) {
+// Description labels per pocket from the ItemDescriptions* tables, in order.
+// Each `dw XxxDesc` points at a label whose text lives elsewhere in the file
+// (see parseItemDescriptions).
+export function parseItemDescriptionLabels(source: string): string[][] {
+  const pockets: string[][] = []
+  let current: string[] | null = null
+  for (const line of source.split('\n')) {
+    if (/^ItemDescriptions[A-Za-z0-9_]+:/.test(line)) {
+      current = []
+      pockets.push(current)
+      continue
+    }
+    if (/^\.IndirectEnd:/.test(line)) {
+      current = null
+      continue
+    }
+    if (!current) continue
     const m = line.match(/^\s*dw\s+([A-Za-z0-9_]+)/)
-    if (m) labels.push(m[1])
+    if (m) current.push(m[1])
   }
-  return labels
+  return pockets
 }
 
 // Assemble the visible text of an item description from its db/next fragments.
@@ -1856,16 +1876,16 @@ export async function fetchItemCatalog(): Promise<ItemDef[]> {
   const descTexts = parseItemDescriptions(descSource)
 
   const items: ItemDef[] = []
-  for (let id = 1; id < keys.length; id++) {
-    const key = keys[id]
-    const name = names[id] || itemKeyToName(key)
-    const label = descLabels[id] ?? ''
-    items.push({
-      key,
-      name,
-      description: descTexts.get(label) ?? '',
+  keys.forEach((pocketKeys, p) => {
+    pocketKeys.forEach((key, i) => {
+      const label = descLabels[p]?.[i] ?? ''
+      items.push({
+        key,
+        name: names[p]?.[i] || itemKeyToName(key),
+        description: descTexts.get(label) ?? '',
+      })
     })
-  }
+  })
 
   const moveKeys = parseMoveConstants(moveConstSource)
   const moveNames = parseMoveNames(moveNamesSource)
