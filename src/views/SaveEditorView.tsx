@@ -5,7 +5,6 @@ import {
   moveAccuracy,
   type ItemListItem,
   type MoveCatalogItem,
-  type PokemonDetail,
   type PokemonListItem,
 } from '../pokemon'
 import {
@@ -16,7 +15,7 @@ import {
   type PartyMon,
   type SaveFile,
 } from '../saveFile'
-import { PokemonSprite } from '../PokemonSprite'
+import { AnimatedFrontSprite } from '../PokemonSprite'
 import { CategoryMetaChip, TypeMetaChip } from './moveMeta'
 
 interface SaveConstants {
@@ -159,30 +158,6 @@ function EditablePicker({
         </ul>
       )}
     </div>
-  )
-}
-
-// Fetches the detail record for the sprite pair and shiny palette, exactly
-// as the Pokémon detail page renders them.
-function MonSprite({ name }: { name: string }) {
-  const [detail, setDetail] = useState<PokemonDetail | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    fetch(`/api/pokemon/${encodeURIComponent(name)}`)
-      .then((res) => (res.ok ? (res.json() as Promise<PokemonDetail>) : null))
-      .then((d) => !cancelled && setDetail(d))
-      .catch(() => undefined)
-    return () => {
-      cancelled = true
-    }
-  }, [name])
-  if (!detail) return null
-  return (
-    <PokemonSprite
-      front={detail.sprites.front}
-      back={detail.sprites.back}
-      shinyPalette={detail.shinyPalette}
-    />
   )
 }
 
@@ -367,7 +342,16 @@ export function SaveEditorView({
                         <span className="meta-text"> Lv. {mon.level}</span>
                       </summary>
                       <div className="save-mon-body">
-                        {entry && <MonSprite name={entry.name} />}
+                        {entry && (
+                          <div className="sprites">
+                            <AnimatedFrontSprite
+                              front={entry.frontSprite}
+                              className="sprite sprite-front"
+                              ariaLabel={name}
+                              shinyPalette={entry.shinyPalette}
+                            />
+                          </div>
+                        )}
 
                         <dl className="save-fields">
                           <dt>Level</dt>
