@@ -2428,12 +2428,30 @@ a:hover {
 .save-edit-btn {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem;
-  border: 1px solid var(--border);
+  padding: 0.2rem;
+  border: none;
   border-radius: 6px;
   background: none;
   color: inherit;
   cursor: pointer;
+}
+
+.save-edit-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.save-mon .move-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.save-mon .move-list li {
+  display: block;
+}
+
+.save-mon .move-list .move-meta {
+  display: flex;
+  margin-top: 0.2rem;
 }
 
 .save-edit-btn:hover {
