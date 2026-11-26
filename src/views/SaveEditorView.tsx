@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MoveAutocomplete } from '../components/MoveAutocomplete'
 import {
   formatConstant,
   formatName,
   moveAccuracy,
   type ItemListItem,
   type MoveCatalogItem,
+  type PokemonDetail,
   type PokemonListItem,
 } from '../pokemon'
 import {
@@ -16,13 +16,15 @@ import {
   type PartyMon,
   type SaveFile,
 } from '../saveFile'
-import { AnimatedFrontSprite } from '../PokemonSprite'
+import { PokemonSprite } from '../PokemonSprite'
 import { CategoryMetaChip, TypeMetaChip } from './moveMeta'
 
 interface SaveConstants {
   species: Record<number, string>
   moves: Record<number, string>
   items: Record<number, string>
+  speciesAbilities: Record<string, (string | null)[]>
+  abilities: Record<string, { name: string; description: string }>
 }
 
 interface SaveEditorViewProps {
@@ -40,69 +42,147 @@ function invert(map: Record<number, string>): Map<string, number> {
   )
 }
 
-function ItemAutocomplete({
-  items,
+interface PickerOption {
+  key: string
+  label: string
+}
+
+function PencilIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  )
+}
+
+// Search dropdown that opens when the pencil is clicked and closes once an
+// option is chosen (or on Escape / outside click).
+function EditablePicker({
+  options,
   onSelect,
+  label,
+  placeholder,
+  showAll = false,
+  children,
 }: {
-  items: ItemListItem[]
+  options: PickerOption[]
   onSelect: (key: string) => void
+  label: string
+  placeholder: string
+  showAll?: boolean
+  children: React.ReactNode
 }) {
+  const [editing, setEditing] = useState(false)
   const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const trimmed = query.trim().toLowerCase()
-  const suggestions = trimmed
-    ? items.filter((i) => i.name.toLowerCase().includes(trimmed)).slice(0, 50)
-    : []
+  const suggestions = (
+    trimmed
+      ? options.filter((o) => o.label.toLowerCase().includes(trimmed))
+      : showAll
+        ? options
+        : []
+  ).slice(0, 50)
+
+  const close = () => {
+    setEditing(false)
+    setQuery('')
+  }
 
   useEffect(() => {
+    if (!editing) return
     const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (ref.current && !ref.current.contains(e.target as Node)) close()
     }
     document.addEventListener('pointerdown', onDown)
     return () => document.removeEventListener('pointerdown', onDown)
-  }, [])
+  }, [editing])
+
+  if (!editing) {
+    return (
+      <span className="save-editable">
+        {children}
+        <button
+          className="save-edit-btn"
+          onClick={() => setEditing(true)}
+          aria-label={`Edit ${label}`}
+          title={`Edit ${label}`}
+        >
+          <PencilIcon />
+        </button>
+      </span>
+    )
+  }
 
   return (
     <div className="move-autocomplete save-autocomplete" ref={ref}>
       <input
         className="search move-autocomplete-input"
         type="text"
-        placeholder="Search items..."
+        autoFocus
+        placeholder={placeholder}
         value={query}
         autoComplete="off"
-        onChange={(e) => {
-          setQuery(e.target.value)
-          setOpen(true)
-        }}
+        onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            setQuery('')
-            setOpen(false)
-          }
+          if (e.key === 'Escape') close()
         }}
-        aria-label="Search for an item"
+        aria-label={`Search for ${label}`}
       />
-      {open && suggestions.length > 0 && (
+      {suggestions.length > 0 && (
         <ul className="move-autocomplete-dropdown" role="listbox">
-          {suggestions.map((i) => (
-            <li key={i.key} role="option">
+          {suggestions.map((o) => (
+            <li key={o.key} role="option">
               <button
                 className="move-autocomplete-option"
                 onPointerDown={(e) => e.preventDefault()}
                 onClick={() => {
-                  onSelect(i.key)
-                  setQuery('')
-                  setOpen(false)
+                  onSelect(o.key)
+                  close()
                 }}
               >
-                {i.name}
+                {o.label}
               </button>
             </li>
           ))}
         </ul>
       )}
     </div>
+  )
+}
+
+// Fetches the detail record for the sprite pair and shiny palette, exactly
+// as the Pokémon detail page renders them.
+function MonSprite({ name }: { name: string }) {
+  const [detail, setDetail] = useState<PokemonDetail | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/pokemon/${encodeURIComponent(name)}`)
+      .then((res) => (res.ok ? (res.json() as Promise<PokemonDetail>) : null))
+      .then((d) => !cancelled && setDetail(d))
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [name])
+  if (!detail) return null
+  return (
+    <PokemonSprite
+      front={detail.sprites.front}
+      back={detail.sprites.back}
+      shinyPalette={detail.shinyPalette}
+    />
   )
 }
 
@@ -145,12 +225,18 @@ export function SaveEditorView({
     () => new Map(itemList.map((i) => [i.key, i])),
     [itemList],
   )
-  const selectableItems = useMemo(
-    () => itemList.filter((i) => itemIndex.has(i.key)),
+  const itemOptions = useMemo(
+    () =>
+      itemList
+        .filter((i) => itemIndex.has(i.key))
+        .map((i) => ({ key: i.key, label: i.name })),
     [itemList, itemIndex],
   )
-  const selectableMoves = useMemo(
-    () => moveList.filter((m) => moveIndex.has(m.key)),
+  const moveOptions = useMemo(
+    () =>
+      moveList
+        .filter((m) => moveIndex.has(m.key))
+        .map((m) => ({ key: m.key, label: m.name })),
     [moveList, moveIndex],
   )
   const allNames = useMemo(
@@ -184,6 +270,20 @@ export function SaveEditorView({
     update(i, {
       moves: mon.moves.map((m, s) => (s === slot ? index : m)),
       pp: mon.pp.map((p, s) => (s === slot ? move.pp : p)),
+    })
+  }
+
+  // Unchecking restores the EVs from the uploaded file (zeroed if they were
+  // already maxed there, so the checkbox can actually be cleared).
+  const setMaxEvs = (i: number, checked: boolean) => {
+    const original = save?.party[i].evs ?? []
+    const originalMaxed = original.every((ev) => ev === MAX_EV)
+    update(i, {
+      evs: checked
+        ? original.map(() => MAX_EV)
+        : originalMaxed
+          ? original.map(() => 0)
+          : [...original],
     })
   }
 
@@ -238,7 +338,27 @@ export function SaveEditorView({
                     ? formatConstant(key)
                     : `Unknown (#${mon.species})`
                 const item = itemByKey.get(constants.items[mon.item] ?? '')
+                const itemName =
+                  mon.item === 0
+                    ? 'None'
+                    : (item?.name ??
+                      formatConstant(constants.items[mon.item] ?? '?'))
                 const maxed = mon.evs.every((ev) => ev === MAX_EV)
+
+                // A slot pointing at NO_ABILITY falls back to ability 1.
+                const slots =
+                  constants.speciesAbilities[normalizeKey(key)] ?? []
+                const abilityOptions = [0, 1, 2]
+                  .filter((slot) => slots[slot])
+                  .map((slot) => ({
+                    key: String(slot),
+                    label: `${constants.abilities[slots[slot]!]?.name ?? formatConstant(slots[slot]!)}${slot === 2 ? ' (Hidden)' : ''}`,
+                  }))
+                const abilityKey = slots[mon.abilitySlot] ?? slots[0]
+                const ability = abilityKey
+                  ? constants.abilities[abilityKey]
+                  : undefined
+
                 return (
                   <li key={i}>
                     <details className="save-mon">
@@ -247,47 +367,76 @@ export function SaveEditorView({
                         <span className="meta-text"> Lv. {mon.level}</span>
                       </summary>
                       <div className="save-mon-body">
-                        {entry && (
-                          <AnimatedFrontSprite
-                            front={entry.frontSprite}
-                            ariaLabel={name}
-                          />
-                        )}
-                        <p>Level {mon.level}</p>
-                        <button
-                          className="move-link"
-                          disabled={maxed}
-                          onClick={() =>
-                            update(i, { evs: mon.evs.map(() => MAX_EV) })
-                          }
-                        >
-                          {maxed ? 'EVs maxed' : `Set EVs to max (${MAX_EV})`}
-                        </button>
+                        {entry && <MonSprite name={entry.name} />}
 
-                        <h3>Held item</h3>
-                        <p>
-                          {mon.item === 0
-                            ? 'None'
-                            : (item?.name ??
-                              formatConstant(constants.items[mon.item] ?? '?'))}
-                          {mon.item !== 0 && (
-                            <>
-                              {' '}
-                              <button
-                                className="move-link"
-                                onClick={() => update(i, { item: 0 })}
+                        <dl className="save-fields">
+                          <dt>Level</dt>
+                          <dd>{mon.level}</dd>
+
+                          <dt>Ability</dt>
+                          <dd>
+                            {abilityOptions.length === 0 ? (
+                              'None'
+                            ) : (
+                              <EditablePicker
+                                options={abilityOptions}
+                                showAll
+                                label="ability"
+                                placeholder="Search abilities..."
+                                onSelect={(k) =>
+                                  update(i, { abilitySlot: Number(k) })
+                                }
                               >
-                                Remove
-                              </button>
-                            </>
-                          )}
-                        </p>
-                        <ItemAutocomplete
-                          items={selectableItems}
-                          onSelect={(k) =>
-                            update(i, { item: itemIndex.get(k) ?? mon.item })
-                          }
-                        />
+                                <span>
+                                  <strong>
+                                    {ability?.name ??
+                                      (abilityKey
+                                        ? formatConstant(abilityKey)
+                                        : 'None')}
+                                  </strong>
+                                  {mon.abilitySlot === 2 && (
+                                    <span className="ability-hidden-tag">
+                                      Hidden
+                                    </span>
+                                  )}
+                                  {ability?.description && (
+                                    <span className="meta-text save-desc">
+                                      {ability.description}
+                                    </span>
+                                  )}
+                                </span>
+                              </EditablePicker>
+                            )}
+                          </dd>
+
+                          <dt>Held item</dt>
+                          <dd>
+                            <EditablePicker
+                              options={itemOptions}
+                              label="held item"
+                              placeholder="Search items..."
+                              onSelect={(k) =>
+                                update(i, {
+                                  item: itemIndex.get(k) ?? mon.item,
+                                })
+                              }
+                            >
+                              <strong>{itemName}</strong>
+                            </EditablePicker>
+                          </dd>
+
+                          <dt>EVs</dt>
+                          <dd>
+                            <label className="shiny-toggle">
+                              <input
+                                type="checkbox"
+                                checked={maxed}
+                                onChange={(e) => setMaxEvs(i, e.target.checked)}
+                              />
+                              <span>Max EVs ({MAX_EV} in every stat)</span>
+                            </label>
+                          </dd>
+                        </dl>
 
                         <h3>Moves</h3>
                         <ul className="move-list">
@@ -298,38 +447,36 @@ export function SaveEditorView({
                               : undefined
                             return (
                               <li key={slot} className="mb-2">
-                                {m ? (
-                                  <>
-                                    <span className="move-level">
-                                      {slot + 1}
+                                <EditablePicker
+                                  options={moveOptions}
+                                  label={`move ${slot + 1}`}
+                                  placeholder="Search moves..."
+                                  onSelect={(k) => setMove(i, slot, k)}
+                                >
+                                  <span className="move-link">
+                                    {m
+                                      ? m.name
+                                      : moveKey
+                                        ? formatConstant(moveKey)
+                                        : '— empty —'}
+                                  </span>
+                                </EditablePicker>
+                                {m && (
+                                  <span className="move-meta">
+                                    <TypeMetaChip type={m.type} />
+                                    <CategoryMetaChip category={m.category} />
+                                    <span className="meta-text">
+                                      Pow {m.power > 0 ? m.power : '-'}
                                     </span>
-                                    <span className="mb-1">{m.name}</span>
-                                    <span className="move-meta">
-                                      <TypeMetaChip type={m.type} />
-                                      <CategoryMetaChip category={m.category} />
-                                      <span className="meta-text">
-                                        Pow {m.power > 0 ? m.power : '-'}
-                                      </span>
-                                      <span className="meta-text">
-                                        Acc{' '}
-                                        {moveAccuracy(m) > 0
-                                          ? moveAccuracy(m)
-                                          : '-'}
-                                      </span>
-                                      <span className="meta-text">
-                                        PP {m.pp}
-                                      </span>
+                                    <span className="meta-text">
+                                      Acc{' '}
+                                      {moveAccuracy(m) > 0
+                                        ? moveAccuracy(m)
+                                        : '-'}
                                     </span>
-                                  </>
-                                ) : (
-                                  <span className="move-level">
-                                    {slot + 1} — empty
+                                    <span className="meta-text">PP {m.pp}</span>
                                   </span>
                                 )}
-                                <MoveAutocomplete
-                                  moveList={selectableMoves}
-                                  onSelectMove={(k) => setMove(i, slot, k)}
-                                />
                               </li>
                             )
                           })}

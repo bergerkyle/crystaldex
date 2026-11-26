@@ -2418,3 +2418,44 @@ a:hover {
   margin-bottom: 0;
   margin-top: 0.35rem;
 }
+
+.save-editable {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.save-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.save-edit-btn:hover {
+  background: rgba(130, 139, 189, 0.22);
+}
+
+.save-fields {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  margin: 1rem 0;
+}
+
+.save-fields dt {
+  opacity: 0.75;
+}
+
+.save-fields dd {
+  margin: 0;
+}
+
+.save-desc {
+  display: block;
+}

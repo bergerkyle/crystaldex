@@ -19,6 +19,8 @@ const PARTYMON_LENGTH = 48
 const MON_ITEM = 1
 const MON_MOVES = 2
 const MON_EVS = 11
+const MON_ABILITY_SLOT = 17
+const ABILITY_SLOT_MASK = 0b11
 const MON_PP = 23
 const MON_LEVEL = 31
 const PARTY_COUNT_SIZE = 8 // wPartyCount, wPartySpecies (6 + terminator)
@@ -69,6 +71,7 @@ export interface PartyMon {
   item: number // 16-bit item index, 0 for none
   moves: number[] // 16-bit move indexes, 0 for empty
   level: number
+  abilitySlot: number // 0, 1 (ability 1/2) or 2 (hidden)
   evs: number[]
   pp: number[]
 }
@@ -160,6 +163,8 @@ function readParty(d: Uint8Array, copy: Copy): PartyMon[] {
         lookup(d, copy, 'moves', d[at + MON_MOVES + m]),
       ),
       level: d[at + MON_LEVEL],
+      // slot value 3 is unused and counts as ability 1
+      abilitySlot: (d[at + MON_ABILITY_SLOT] & ABILITY_SLOT_MASK) % 3,
       evs: Array.from(d.slice(at + MON_EVS, at + MON_EVS + 6)),
       pp: Array.from(d.slice(at + MON_PP, at + MON_PP + NUM_MOVES)),
     })
@@ -193,6 +198,8 @@ export function writeSave(save: SaveFile, party: PartyMon[]): Uint8Array {
         d[at + MON_MOVES + m] = resolve(d, copy, 'moves', move)
         d[at + MON_PP + m] = mon.pp[m]
       })
+      d[at + MON_ABILITY_SLOT] =
+        (d[at + MON_ABILITY_SLOT] & ~ABILITY_SLOT_MASK) | mon.abilitySlot
       mon.evs.forEach((ev, e) => (d[at + MON_EVS + e] = ev))
     })
     refreshChecksums(d, copy)

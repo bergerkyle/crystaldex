@@ -1,4 +1,4 @@
-import { fetchRaw } from './parser.js'
+import { fetchAbilityCatalog, fetchRaw, normalizeKey } from './parser.js'
 
 // Numeric ids of the upstream species/move/item constants. Saves store these
 // as 16-bit indexes, so the save editor needs them to translate to names.
@@ -6,6 +6,9 @@ export interface SaveConstants {
   species: Record<number, string>
   moves: Record<number, string>
   items: Record<number, string>
+  // normalizeKey(species constant) -> [ability 1, ability 2, hidden] keys
+  speciesAbilities: Record<string, (string | null)[]>
+  abilities: Record<string, { name: string; description: string }>
 }
 
 // Walks `const_def` / `const` / `const_skip` / `const_next` lines the way
@@ -60,15 +63,28 @@ let cache: { at: number; value: SaveConstants } | null = null
 
 export async function fetchSaveConstants(): Promise<SaveConstants> {
   if (cache && Date.now() - cache.at < TTL_MS) return cache.value
-  const [pokemon, moves, items] = await Promise.all([
+  const [pokemon, moves, items, abilityCatalog] = await Promise.all([
     fetchRaw('constants/pokemon_constants.asm'),
     fetchRaw('constants/move_constants.asm'),
     fetchRaw('constants/item_constants.asm'),
+    fetchAbilityCatalog(),
   ])
   const value: SaveConstants = {
     species: parseConstantIndexes(pokemon, /^\s*DEF\s+NUM_POKEMON\b/),
     moves: parseConstantIndexes(moves, /^\s*DEF\s+NUM_ATTACKS\b/),
     items: parseConstantIndexes(items, /^\s*DEF\s+NUM_ITEMS\b/),
+    speciesAbilities: Object.fromEntries(
+      [...abilityCatalog.speciesAbilities].map(([species, a]) => [
+        normalizeKey(species),
+        [a.ability1, a.ability2, a.hidden],
+      ]),
+    ),
+    abilities: Object.fromEntries(
+      abilityCatalog.abilities.map((a) => [
+        a.key,
+        { name: a.name, description: a.description },
+      ]),
+    ),
   }
   cache = { at: Date.now(), value }
   return value
