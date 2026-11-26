@@ -214,6 +214,25 @@ export function SaveEditorView({
         .map((m) => ({ key: m.key, label: m.name })),
     [moveList, moveIndex],
   )
+  const speciesOptions = useMemo(() => {
+    const byName = new Map(pokemonList.map((p) => [normalizeKey(p.name), p]))
+    return Object.entries(constants?.species ?? {}).flatMap(([index, key]) => {
+      if (Number(index) === 0) return []
+      const entry = byName.get(normalizeKey(key))
+      return [
+        {
+          key: index,
+          label: entry
+            ? formatName(
+                entry.name,
+                entry.region,
+                new Set(pokemonList.map((p) => p.name.toLowerCase())),
+              )
+            : formatConstant(key),
+        },
+      ]
+    })
+  }, [constants, pokemonList])
   const allNames = useMemo(
     () => new Set(pokemonList.map((p) => p.name.toLowerCase())),
     [pokemonList],
@@ -354,6 +373,20 @@ export function SaveEditorView({
                         )}
 
                         <dl className="save-fields">
+                          <dt>Pokémon</dt>
+                          <dd>
+                            <EditablePicker
+                              options={speciesOptions}
+                              label="Pokémon"
+                              placeholder="Search Pokémon..."
+                              onSelect={(k) =>
+                                update(i, { species: Number(k) })
+                              }
+                            >
+                              <strong>{name}</strong>
+                            </EditablePicker>
+                          </dd>
+
                           <dt>Level</dt>
                           <dd>{mon.level}</dd>
 
