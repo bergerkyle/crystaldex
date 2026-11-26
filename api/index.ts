@@ -1,5 +1,6 @@
 import express from 'express'
 import { buildDeltaReport } from './deltaReport.js'
+import { fetchSaveConstants } from './saveConstants.js'
 import {
   getItem,
   getAbout,
@@ -47,12 +48,9 @@ app.get('/api/pokemon', async (_req, res) => {
       `[pokemon:list] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res
-      .status(502)
-      .json({
-        error:
-          err instanceof Error ? err.message : 'Failed to load Pokémon list',
-      })
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load Pokémon list',
+    })
   }
 })
 
@@ -76,11 +74,9 @@ app.get('/api/pokemon/:name', async (req, res) => {
       `[pokemon:detail] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res
-      .status(502)
-      .json({
-        error: err instanceof Error ? err.message : 'Failed to load Pokémon',
-      })
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load Pokémon',
+    })
   }
 })
 
@@ -98,14 +94,10 @@ app.get('/api/encounters/routes', async (_req, res) => {
       `[encounters:routes] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res
-      .status(502)
-      .json({
-        error:
-          err instanceof Error
-            ? err.message
-            : 'Failed to load encounter routes',
-      })
+    res.status(502).json({
+      error:
+        err instanceof Error ? err.message : 'Failed to load encounter routes',
+    })
   }
 })
 
@@ -127,11 +119,9 @@ app.get('/api/moves', async (_req, res) => {
       `[moves:list] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res
-      .status(502)
-      .json({
-        error: err instanceof Error ? err.message : 'Failed to load moves',
-      })
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load moves',
+    })
   }
 })
 
@@ -155,11 +145,9 @@ app.get('/api/moves/:key', async (req, res) => {
       `[moves:detail] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res
-      .status(502)
-      .json({
-        error: err instanceof Error ? err.message : 'Failed to load move',
-      })
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load move',
+    })
   }
 })
 
@@ -181,11 +169,9 @@ app.get('/api/items', async (_req, res) => {
       `[items:list] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res
-      .status(502)
-      .json({
-        error: err instanceof Error ? err.message : 'Failed to load items',
-      })
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load items',
+    })
   }
 })
 
@@ -209,11 +195,9 @@ app.get('/api/items/:key', async (req, res) => {
       `[items:detail] failed after ${Date.now() - startedAt}ms:`,
       err instanceof Error ? err.message : err,
     )
-    res
-      .status(502)
-      .json({
-        error: err instanceof Error ? err.message : 'Failed to load item',
-      })
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load item',
+    })
   }
 })
 
@@ -278,11 +262,9 @@ app.get('/api/about', async (_req, res) => {
     const about = await getAbout()
     res.json(about)
   } catch (err) {
-    res
-      .status(502)
-      .json({
-        error: err instanceof Error ? err.message : 'Failed to load about info',
-      })
+    res.status(502).json({
+      error: err instanceof Error ? err.message : 'Failed to load about info',
+    })
   }
 })
 
@@ -292,6 +274,17 @@ app.get('/api/delta', async (_req, res) => {
   } catch (err) {
     res.status(502).json({
       error: err instanceof Error ? err.message : 'Failed to build delta',
+    })
+  }
+})
+
+app.get('/api/save-constants', async (_req, res) => {
+  try {
+    res.json(await fetchSaveConstants())
+  } catch (err) {
+    res.status(502).json({
+      error:
+        err instanceof Error ? err.message : 'Failed to load save constants',
     })
   }
 })

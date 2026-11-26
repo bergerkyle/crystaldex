@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef } from 'react'
 
 interface AppHeaderProps {
-  active: 'pokedex' | 'moves' | 'items' | 'locations' | 'trainers' | 'about'
+  active:
+    'pokedex' | 'moves' | 'items' | 'locations' | 'trainers' | 'about' | null
   onNavigateHome: () => void
   onNavigatePokedex: () => void
   onNavigateMoves: () => void

@@ -2248,7 +2248,6 @@ a:hover {
   font-size: 0.85rem;
 }
 
-
 .trainer-mon-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2395,4 +2394,86 @@ a:hover {
 
 .trainer-mon .trainer-moves-table td {
   background: transparent;
+}
+
+.save-editor .save-party {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0;
+}
+
+.save-mon {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 0.6rem;
+  background: var(--panel);
+}
+
+.save-mon summary {
+  cursor: pointer;
+}
+
+.save-mon .move-autocomplete {
+  margin-bottom: 0;
+  margin-top: 0.35rem;
+}
+
+.save-editable {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.save-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.save-edit-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.save-mon .move-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.save-mon .move-list li {
+  display: block;
+}
+
+.save-mon .move-list .move-meta {
+  display: flex;
+  margin-top: 0.2rem;
+}
+
+.save-edit-btn:hover {
+  background: rgba(130, 139, 189, 0.22);
+}
+
+.save-fields {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  margin: 1rem 0;
+}
+
+.save-fields dt {
+  opacity: 0.75;
+}
+
+.save-fields dd {
+  margin: 0;
+}
+
+.save-desc {
+  display: block;
 }

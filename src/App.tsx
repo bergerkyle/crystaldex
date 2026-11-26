@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AppHeader } from './components/AppHeader'
 import { AboutView } from './views/AboutView'
+import { SaveEditorView } from './views/SaveEditorView'
 import { ItemDetailView } from './views/ItemDetailView'
 import { ItemsView } from './views/ItemsView'
 import { LocationDetailView } from './views/LocationDetailView'
@@ -36,12 +37,20 @@ type Route =
   | { view: 'trainers' }
   | { view: 'trainer'; key: string }
   | { view: 'about' }
+  | { view: 'save' }
+
+const SAVE_EDITOR_CODE = '1337'
 
 function parseRoute(pathname: string, search: string): Route {
   const params = new URLSearchParams(search)
   const pokemonFromQuery = params.get('pokemon')?.trim()
   const moveFromQuery = params.get('move')?.trim()
   const itemFromQuery = params.get('item')?.trim()
+
+  // Unauthorized /save visits fall through to the main page (see redirect below).
+  if (pathname === '/save' && params.get('code') === SAVE_EDITOR_CODE) {
+    return { view: 'save' }
+  }
 
   if (pathname.startsWith('/moves/')) {
     const key = decodeURIComponent(pathname.slice('/moves/'.length))
@@ -111,6 +120,7 @@ function parseRoute(pathname: string, search: string): Route {
 }
 
 function routePath(route: Route): string {
+  if (route.view === 'save') return `/save?code=${SAVE_EDITOR_CODE}`
   if (route.view === 'about') return '/about'
   if (route.view === 'trainers') return '/trainers'
   if (route.view === 'trainer') return trainerPath(route.key)
@@ -188,6 +198,12 @@ export default function App() {
   const [locationFilter, setLocationFilter] = useState('')
   const [mobileLocationsSidebarOpen, setMobileLocationsSidebarOpen] =
     useState(false)
+
+  useEffect(() => {
+    if (route.view !== 'save' && window.location.pathname === '/save') {
+      window.history.replaceState({}, '', '/')
+    }
+  }, [route])
 
   useEffect(() => {
     const onPopState = () =>
@@ -461,15 +477,17 @@ export default function App() {
         active={
           route.view === 'pokedex'
             ? 'pokedex'
-            : route.view === 'about'
-              ? 'about'
-              : route.view === 'trainers' || route.view === 'trainer'
-                ? 'trainers'
-                : route.view === 'items' || route.view === 'item'
-                  ? 'items'
-                  : route.view === 'locations' || route.view === 'location'
-                    ? 'locations'
-                    : 'moves'
+            : route.view === 'save'
+              ? null
+              : route.view === 'about'
+                ? 'about'
+                : route.view === 'trainers' || route.view === 'trainer'
+                  ? 'trainers'
+                  : route.view === 'items' || route.view === 'item'
+                    ? 'items'
+                    : route.view === 'locations' || route.view === 'location'
+                      ? 'locations'
+                      : 'moves'
         }
         onNavigateHome={() => navigate({ view: 'pokedex' })}
         onNavigatePokedex={() => navigate({ view: 'pokedex' })}
@@ -644,6 +662,13 @@ export default function App() {
           onSelectPokemon={(name) =>
             navigate({ view: 'pokedex', pokemon: name })
           }
+        />
+      )}
+      {route.view === 'save' && (
+        <SaveEditorView
+          pokemonList={list}
+          moveList={moveList}
+          itemList={itemList}
         />
       )}
       {route.view === 'about' && (
