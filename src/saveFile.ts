@@ -16,6 +16,7 @@ export const NUM_MOVES = 4
 export const MAX_EV = 252
 
 const PARTYMON_LENGTH = 48
+const MON_SPECIES = 0
 const MON_ITEM = 1
 const MON_MOVES = 2
 const MON_EVS = 11
@@ -193,6 +194,9 @@ export function writeSave(save: SaveFile, party: PartyMon[]): Uint8Array {
   for (const copy of copies) {
     party.forEach((mon, i) => {
       const at = copy.party + PARTY_COUNT_SIZE + i * PARTYMON_LENGTH
+      const species = resolve(d, copy, 'species', mon.species)
+      d[copy.party + 1 + i] = species
+      d[at + MON_SPECIES] = species
       d[at + MON_ITEM] = resolve(d, copy, 'items', mon.item)
       mon.moves.forEach((move, m) => {
         d[at + MON_MOVES + m] = resolve(d, copy, 'moves', move)
